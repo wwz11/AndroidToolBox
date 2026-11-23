@@ -175,6 +175,7 @@ export default function MonkeyPanel({
   );
 
   const [catalog, setCatalog] = useState<string[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [pkgFilter, setPkgFilter] = useState("");
   const [pkgScope, setPkgScope] = useState<"third" | "all">("third");
   const [pkgBusy, setPkgBusy] = useState(false);
@@ -312,6 +313,23 @@ export default function MonkeyPanel({
   }, [live, running, deviceMonkey, deviceSn, snOk]);
 
   useEffect(() => {
+    setJobId("");
+    setRunning(false);
+    setStopping(false);
+    setDeviceMonkey(false);
+    setDevicePids([]);
+    setMessage("");
+    setCommand("");
+    setLogs([]);
+    setInjected(0);
+    logCursorRef.current = 0;
+    setCatalog([]);
+    setCatalogLoaded(false);
+    setPkgFilter("");
+    setTagsExpanded(false);
+  }, [deviceSn]);
+
+  useEffect(() => {
     if (!snOk) {
       setDeviceMonkey(false);
       setDevicePids([]);
@@ -341,14 +359,18 @@ export default function MonkeyPanel({
             setCommand(r.job.command || "");
             const lines = r.job.logs || [];
             setLogs(lines);
-            logCursorRef.current = lines.length;
+            logCursorRef.current = r.job.log_cursor ?? lines.length;
             let maxInj = 0;
             for (const line of lines) {
               const n = parseInjected(line);
               if (n != null && n > maxInj) maxInj = n;
             }
             setInjected(maxInj);
-            if (r.job.event_count) setEventCount(String(r.job.event_count));
+            if (r.job.event_count) {
+              const ec = String(r.job.event_count);
+              setEventCount(ec);
+              setForever(ec === FOREVER_EVENT_COUNT);
+            }
             if (typeof r.job.throttle_ms === "number") {
               setThrottleMs(String(r.job.throttle_ms));
             }
@@ -515,6 +537,7 @@ export default function MonkeyPanel({
       const r = await api.packages(deviceSn, "", scope);
       const pkgs = (r.packages || []).map(String).filter(Boolean);
       setCatalog(pkgs);
+      setCatalogLoaded(true);
       setStatus(`已载入 ${pkgs.length} 个${scope === "third" ? "第三方" : ""}包`);
     } catch (e) {
       setStatus(`加载应用列表失败：${toErrorMessage(e)}`);
@@ -643,12 +666,11 @@ export default function MonkeyPanel({
       if (r.job_id) setJobId(r.job_id);
       if (!r.device_monkey?.running) {
         setRunning(false);
-        setStopping(false);
       }
     } catch (e) {
-      setStopping(false);
       setStatus(`停止 Monkey 失败：${toErrorMessage(e)}`);
     } finally {
+      setStopping(false);
       setBusy(false);
     }
   }
@@ -945,7 +967,7 @@ export default function MonkeyPanel({
                 disabled={live || pkgBusy}
                 onClick={() => {
                   setPkgScope("third");
-                  if (catalog.length) void loadCatalog("third");
+                  if (catalogLoaded) void loadCatalog("third");
                 }}
               >
                 第三方
@@ -958,7 +980,7 @@ export default function MonkeyPanel({
                 disabled={live || pkgBusy}
                 onClick={() => {
                   setPkgScope("all");
-                  if (catalog.length) void loadCatalog("all");
+                  if (catalogLoaded) void loadCatalog("all");
                 }}
               >
                 全部
