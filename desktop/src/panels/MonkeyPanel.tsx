@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toErrorMessage } from "../errors";
 import { api } from "../api/client";
 import { reportActivity } from "../activity";
-import { useStatusNotify } from "../components/toast";
+import { useStatusNotify, useToast } from "../components/toast";
 import { Button } from "../ui";
 
 type Props = {
@@ -153,6 +153,7 @@ export default function MonkeyPanel({
   onRunningChange,
 }: Props) {
   const setStatus = useStatusNotify();
+  const toast = useToast();
   const snOk = Boolean(deviceSn) && deviceOnline;
 
   const initial = useRef(loadPrefs()).current;
@@ -488,7 +489,7 @@ export default function MonkeyPanel({
       return;
     }
     if (selectedPkgs.length >= MAX_PKGS) {
-      setStatus(`最多选择 ${MAX_PKGS} 个包`);
+      toast.push(`最多只能选择 ${MAX_PKGS} 个目标包（已达上限）`, "warn");
       return;
     }
     setSelectedPkgs((prev) => [...prev, name]);
@@ -501,7 +502,7 @@ export default function MonkeyPanel({
       return;
     }
     if (selectedPkgs.length >= MAX_PKGS) {
-      setStatus(`最多选择 ${MAX_PKGS} 个包`);
+      toast.push(`最多只能选择 ${MAX_PKGS} 个目标包（已达上限）`, "warn");
       return;
     }
     setSelectedPkgs((prev) => [...prev, name]);
@@ -510,11 +511,8 @@ export default function MonkeyPanel({
   function selectFilteredPackages() {
     const filtered = filteredCatalog;
     if (!filtered.length) return;
-    const allOn = filtered.every((p) => selectedPkgs.includes(p));
-    if (allOn) {
-      const drop = new Set(filtered);
-      setSelectedPkgs((prev) => prev.filter((p) => !drop.has(p)));
-      setStatus(`已取消当前 ${filtered.length} 个包`);
+    if (selectedPkgs.length >= MAX_PKGS) {
+      toast.push(`最多只能选择 ${MAX_PKGS} 个目标包（已达上限）`, "warn");
       return;
     }
     const keep = selectedPkgs.filter((p) => !filtered.includes(p));
@@ -522,12 +520,19 @@ export default function MonkeyPanel({
     const take = filtered.slice(0, room);
     setSelectedPkgs([...keep, ...take]);
     if (take.length < filtered.length) {
-      setStatus(
-        `最多 ${MAX_PKGS} 个包，已选当前过滤结果前 ${take.length} 个（共 ${filtered.length}）`,
+      toast.push(
+        `最多只能选择 ${MAX_PKGS} 个目标包，已选当前列表前 ${take.length} 个`,
+        "warn",
       );
     } else {
       setStatus(`已全选当前 ${take.length} 个包`);
     }
+  }
+
+  function deselectFilteredPackages() {
+    if (!filteredCatalog.length) return;
+    const drop = new Set(filteredCatalog);
+    setSelectedPkgs((prev) => prev.filter((p) => !drop.has(p)));
   }
 
   async function loadCatalog(scope: "third" | "all" = pkgScope) {
@@ -1018,14 +1023,28 @@ export default function MonkeyPanel({
                     {filteredCatalog.length}/{catalog.length}
                     {selectedInFilter ? ` · 已选 ${selectedInFilter}` : ""}
                   </span>
-                  <button
-                    type="button"
-                    className="mk-link"
-                    disabled={live || !filteredCatalog.length}
-                    onClick={selectFilteredPackages}
-                  >
-                    {filterAllSelected ? "取消当前" : "全选当前"}
-                  </button>
+                  <div className="mk-list-actions">
+                    {!filterAllSelected ? (
+                      <button
+                        type="button"
+                        className="mk-link"
+                        disabled={live || !filteredCatalog.length}
+                        onClick={selectFilteredPackages}
+                      >
+                        全选当前
+                      </button>
+                    ) : null}
+                    {selectedInFilter > 0 ? (
+                      <button
+                        type="button"
+                        className="mk-link"
+                        disabled={live}
+                        onClick={deselectFilteredPackages}
+                      >
+                        取消全选
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mk-list" role="listbox" aria-label="包列表">
                   {filteredCatalog.length ? (

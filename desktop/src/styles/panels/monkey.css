@@ -299,6 +299,12 @@
   background: var(--surface-2);
 }
 
+.mk-list-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .mk-list {
   flex: 1;
   min-height: 120px;
