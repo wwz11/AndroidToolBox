@@ -1,4 +1,4 @@
-# SEIAndroidTVTestToolBox
+# AndroidTVTestToolBox
 
 面向 Android / Android TV 测试与调试的桌面工具箱，基于 **Electron + React + TypeScript** 与本地 **Python (FastAPI)** 后端构建，内置 `adb` 与内嵌 `scrcpy`。
 
