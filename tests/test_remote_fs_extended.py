@@ -78,6 +78,21 @@ class TestRemoteFsExtended(unittest.TestCase):
             self.assertTrue(res.ok)
             self.assertEqual(m_push.call_args[0][2], "/data/local.prop")
 
+    def test_transport_endpoint_not_connected_raises_friendly_error(self) -> None:
+        with (
+            patch.object(remote_fs, "adb_available", return_value=True),
+            patch.object(remote_fs, "_canonicalize_remote_dir", return_value="/storage/emulated/0/"),
+            patch.object(
+                remote_fs,
+                "run_adb",
+                return_value=_cp("", "ls: /storage/emulated/0: Transport endpoint is not connected\n", 1),
+            ) as m_run,
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                remote_fs.list_remote_entries("SN1", "/sdcard")
+            self.assertIn("存储挂载点已断开", str(ctx.exception))
+            self.assertEqual(m_run.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -262,6 +262,15 @@ def _adb_output_denied(text: str) -> bool:
     return False
 
 
+def _raise_if_fatal_ls_error(parent: str, text: str) -> None:
+    if _adb_output_denied(text):
+        raise RuntimeError(f"无权限访问目录: {parent}\n{text}")
+    if "transport endpoint is not connected" in (text or "").lower():
+        raise RuntimeError(
+            f"存储挂载点已断开（{text}）：设备可能正在开机或系统存储服务重启中，请稍后重试或先访问 /data/local/tmp"
+        )
+
+
 def _list_entries_via_ls_la(
     device: str | None, parent: str
 ) -> list[RemoteEntry] | None:
@@ -275,8 +284,7 @@ def _list_entries_via_ls_la(
         text = format_adb_raw_output(r.stdout, r.stderr).strip()
         if r.returncode != 0:
             last_err = text
-            if _adb_output_denied(text):
-                raise RuntimeError(f"无权限访问目录: {parent}\n{text}")
+            _raise_if_fatal_ls_error(parent, text)
             continue
         entries: list[RemoteEntry] = []
         seen: set[str] = set()
@@ -303,8 +311,8 @@ def _list_entries_via_ls_la(
             return entries
         if r.returncode == 0:
             return entries
-    if last_err and _adb_output_denied(last_err):
-        raise RuntimeError(f"无权限访问目录: {parent}\n{last_err}")
+    if last_err:
+        _raise_if_fatal_ls_error(parent, last_err)
     return None
 
 
