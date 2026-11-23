@@ -1,0 +1,127 @@
+/* extracted from styles.css — serial.css */
+
+.serial-terminal {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.serial-terminal .serial-term-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.serial-chrome-log {
+  appearance: none;
+  flex: 1 1 80px;
+  min-width: 0;
+  max-width: 40%;
+  margin: 0;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--term-muted);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.serial-chrome-log:hover {
+  color: var(--term-cursor);
+}
+
+.serial-term-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  color: var(--term-muted);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--term-bg) 55%, transparent);
+  z-index: 2;
+}
+
+.serial-remote {
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 220px;
+  max-width: 42vw;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.serial-remote-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.serial-remote-head strong {
+  font-size: 13px;
+}
+
+.serial-remote-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.serial-remote-close:hover {
+  color: var(--danger);
+}
+
+.serial-remote-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.serial-remote-pad {
+  flex: 0 0 auto;
+}
+
+.serial-remote-foot {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .serial-terminal.has-remote {
+    flex-direction: column;
+  }
+
+  .serial-remote {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    max-height: 42vh;
+  }
+}

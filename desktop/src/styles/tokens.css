@@ -1,0 +1,55 @@
+/**
+ * 设计 Token（在 styles.css 主题色板之上）。
+ * 控件/间距/字号全站共用，改这里即可影响所有页面。
+ */
+:root {
+  /* spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* typography */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-lg: 14px;
+  --text-xl: 16px;
+  --lh-tight: 1.25;
+  --lh-normal: 1.45;
+
+  /* controls — 同高；输入浅灰内凹，按钮平铺描边 */
+  --control-h: 32px;
+  --control-h-sm: 28px;
+  --control-px: 12px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* 跟主题文字色走的轻阴影，页面卡片和工具条共用 */
+  --elev-1: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent),
+    0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
+  --elev-2: 0 1px 2px color-mix(in srgb, var(--text) 5%, transparent),
+    0 12px 32px color-mix(in srgb, var(--text) 7%, transparent);
+
+  /* motion：位移留在前半段就能看清，曲线不要一下弹完 */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 0.2s;
+  --dur: 0.5s;
+
+  /* focus */
+  --focus-ring: 0 0 0 3px var(--accent-soft);
+
+  /* 终端跟当前皮肤走 */
+  --term-bg: var(--surface);
+  --term-head-bg: var(--surface-2);
+  --term-fg: var(--text);
+  --term-muted: var(--muted);
+  --term-border: var(--border);
+  --term-cursor: var(--accent);
+  --term-selection: var(--accent-soft);
+}

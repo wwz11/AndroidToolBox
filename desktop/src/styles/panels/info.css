@@ -1,0 +1,305 @@
+/* 设备信息卡 — 按面板自身宽度适配，窄时单列可滚完 */
+
+.info-panel {
+  --info-label-w: 88px;
+  container-type: inline-size;
+  container-name: info;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0 2px 8px;
+}
+
+.info-banner {
+  margin: 0;
+}
+
+.info-empty {
+  flex: 1;
+  justify-content: center;
+}
+
+.info-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+  overflow: visible;
+  min-width: 0;
+  width: 100%;
+}
+
+.info-head {
+  padding: 12px 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-lg, 10px) var(--radius-lg, 10px) 0 0;
+}
+
+.info-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.info-title-block {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.info-model {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.info-flash {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.info-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.info-metrics {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.info-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.info-metric:hover {
+  background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface-2));
+}
+
+.info-metric.primary {
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+}
+
+.info-metric.is-empty {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.info-metric.is-empty:hover {
+  background: var(--surface-2);
+}
+
+.info-metric.primary.is-empty:hover {
+  background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+}
+
+.info-metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.info-metric.primary .info-metric-label {
+  color: var(--accent);
+}
+
+.info-metric-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.info-metric:not(.primary) .info-metric-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.info-metric-value.mono {
+  font-family: var(--mono);
+}
+
+.info-metric-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.info-metric-bar {
+  display: block;
+  height: 4px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  overflow: hidden;
+}
+
+.info-metric-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.info-detail-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0 10px;
+  min-width: 0;
+}
+
+.info-section {
+  padding: 6px 8px 2px;
+  min-width: 0;
+}
+
+.info-section + .info-section {
+  border-top: 1px solid var(--border);
+}
+
+.info-section-title {
+  margin: 0 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: none;
+}
+
+.info-detail {
+  margin: 0;
+  display: grid;
+  /* 宽面板两列；窄面板由 container 改为单列 */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.info-row.is-wide {
+  grid-column: 1 / -1;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: var(--info-label-w) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.info-row:hover {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.info-row dt {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.info-row dd {
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.info-row dd span {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.info-row dd.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* 按信息面板自身宽度，不看整个窗口 */
+@container info (max-width: 680px) {
+  .info-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .info-metrics {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+@container info (max-width: 420px) {
+  .info-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .info-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    padding: 8px 6px;
+  }
+
+  .info-row dt {
+    font-size: 11px;
+  }
+
+  .info-section {
+    padding: 6px 4px 2px;
+  }
+
+  .info-head {
+    padding: 10px 12px;
+  }
+}

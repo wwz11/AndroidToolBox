@@ -1,0 +1,47 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    name: Build Windows Desktop App
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r build/requirements-api.txt
+          pip install pyinstaller
+          pip install -r build/requirements-scrcpy.txt || true
+
+      - name: Install Desktop dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Desktop Package
+        run: |
+          scripts\build_desktop.bat
+
+      - name: Upload Desktop Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SEIAndroidTVTestToolBox-Desktop
+          path: dist/SEIAndroidTVTestToolBox-Desktop_portable_*.zip

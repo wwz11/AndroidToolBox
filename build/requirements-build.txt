@@ -1,0 +1,6 @@
+# PyInstaller packaging
+pyinstaller>=6.0
+python-barcode>=0.15
+Pillow>=9.0
+windnd>=1.0.5; platform_system == "Win32"
+pywin32>=306; platform_system == "Win32"

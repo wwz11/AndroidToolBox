@@ -1,0 +1,2 @@
+# 可选：PyQt5 可搜索下拉（tools/qt_widgets）
+PyQt5>=5.15

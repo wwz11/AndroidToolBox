@@ -1,0 +1,484 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""eMMC 自动化任务（headless pipeline）与报告。"""
+
+from __future__ import annotations
+
+import re
+import threading
+import uuid
+from collections import deque
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from tools.api.deps import evict_finished_jobs
+from tools.bundled_paths import app_base_dir
+from tools.emmc_test.auto_runner import AUTO_LABELS, AUTO_STEPS
+from tools.emmc_test.headless_log import emmc_logs_dir
+from tools.emmc_test.headless_steps import DeviceStepParams, StepEnv, order_steps, run_pipeline
+from tools.emmc_test.report_template import (
+    ReportHeaderMeta,
+    create_report_with_header,
+    emmc_reports_dir,
+    ensure_flow_report,
+    read_report_header,
+    report_path_for_flow,
+    update_report_header,
+)
+
+router = APIRouter()
+
+
+@dataclass
+class _Job:
+    id: str
+    sn: str
+    flow_no: str
+    steps: list[str]
+    stop: threading.Event
+    logs: deque[str] = field(default_factory=lambda: deque(maxlen=2000))
+    log_seq: int = 0
+    running: bool = False
+    ok: bool | None = None
+    error: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    report_path: str = ""
+    current_step: str = ""
+    step_results: dict[str, str] = field(default_factory=dict)
+    # 每项进度：{ step_id: { current, total, text } }
+    step_progress: dict[str, dict[str, int | str]] = field(default_factory=dict)
+    progress_current: int = 0
+    progress_total: int = 0
+    progress_text: str = ""
+
+
+_JOBS: dict[str, _Job] = {}
+_LOCK = threading.Lock()
+
+
+class EmmcParams(BaseModel):
+    loop_num: int | None = None
+    stress_max_run_minutes: float | None = None
+    iozone_file_size_mb: int | None = None
+    samsung_emmc: bool | None = None
+    iozone_write_min_mbs: float | None = None
+    iozone_read_min_mbs: float | None = None
+    reboot_run_hours: float | None = None
+    reboot_boot_timeout_sec: int | None = None
+    reboot_count: int | None = None
+    rpmb_run_minutes: float | None = None
+    ota_upgrade_count: int | None = None
+    ota_file_path: str | None = None
+    ota_retry_limit: int | None = None
+    ota_max_run_minutes: int | None = None
+    ota_timeout_minutes: int | None = None
+    ota_round_interval_minutes: int | None = None
+
+
+class StartBody(BaseModel):
+    device: str = Field(..., min_length=1)
+    flow_no: str = "1"
+    steps: list[str] = Field(default_factory=lambda: list(AUTO_STEPS))
+    stop_on_fail: bool = False
+    params: EmmcParams = Field(default_factory=EmmcParams)
+
+
+class ReportHeaderBody(BaseModel):
+    flow_no: str = Field(..., min_length=1)
+    import_project: str = ""
+    internal_model: str = ""
+    emmc_brand: str = ""
+    emmc_capacity_gb: str = ""
+    read_speed_mbs: str = ""
+    write_speed_mbs: str = ""
+    emmc_model: str = ""
+    sw_test_userdebug: str = ""
+    emmc_spec: str = ""
+    gota_version: str = ""
+    tester: str = ""
+    test_time: str = ""
+    initial_result: str = ""
+    remarks: str = ""
+    ab_upgrade: bool = True
+
+
+def _base() -> Path:
+    return app_base_dir()
+
+
+def _meta_from_body(body: ReportHeaderBody) -> ReportHeaderMeta:
+    return ReportHeaderMeta(
+        import_project=body.import_project,
+        internal_model=body.internal_model,
+        emmc_brand=body.emmc_brand,
+        emmc_capacity_gb=body.emmc_capacity_gb,
+        read_speed_mbs=body.read_speed_mbs,
+        write_speed_mbs=body.write_speed_mbs,
+        emmc_model=body.emmc_model,
+        sw_test_userdebug=body.sw_test_userdebug,
+        emmc_spec=body.emmc_spec,
+        gota_version=body.gota_version,
+        tester=body.tester,
+        test_time=body.test_time
+        or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        initial_result=body.initial_result,
+        remarks=body.remarks,
+        ab_upgrade=body.ab_upgrade,
+    )
+
+
+@router.get("/steps")
+def steps() -> dict:
+    return {
+        "steps": [
+            {"id": s, "label": AUTO_LABELS.get(s, s)} for s in AUTO_STEPS
+        ]
+    }
+
+
+@router.get("/dirs")
+def dirs() -> dict:
+    reports = emmc_reports_dir(base_dir=_base())
+    logs = emmc_logs_dir()
+    logs.mkdir(parents=True, exist_ok=True)
+    return {
+        "reports_dir": str(reports.resolve()),
+        "logs_dir": str(logs.resolve()),
+    }
+
+
+@router.get("/report")
+def report_info(flow_no: str = Query(..., min_length=1)) -> dict:
+    flow = flow_no.strip()
+    if not flow:
+        raise HTTPException(status_code=400, detail="请填写流程号")
+    path = report_path_for_flow(flow, base_dir=_base())
+    exists = path.is_file()
+    header: dict = {}
+    if exists:
+        try:
+            header = asdict(read_report_header(path))
+        except Exception:
+            header = {}
+    return {
+        "flow_no": flow,
+        "path": str(path.resolve()),
+        "exists": exists,
+        "reports_dir": str(emmc_reports_dir(base_dir=_base()).resolve()),
+        "header": header,
+    }
+
+
+@router.post("/report/header")
+def save_report_header(body: ReportHeaderBody) -> dict:
+    flow = body.flow_no.strip()
+    if not flow:
+        raise HTTPException(status_code=400, detail="请填写流程号")
+    if not (body.import_project or "").strip():
+        raise HTTPException(status_code=400, detail="请填写「导入项目」")
+    meta = _meta_from_body(body)
+    path = report_path_for_flow(flow, base_dir=_base())
+    try:
+        if path.is_file():
+            saved = update_report_header(
+                flow,
+                meta,
+                current_path=path,
+                base_dir=_base(),
+            )
+            created = False
+        else:
+            saved = create_report_with_header(flow, meta, base_dir=_base())
+            created = True
+    except FileExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "ok": True,
+        "created": created,
+        "flow_no": flow,
+        "path": str(saved.resolve()),
+        "message": ("已创建报告" if created else "报告头部已更新")
+        + f"：{saved}",
+    }
+
+
+@router.post("/jobs")
+def start_job(body: StartBody) -> dict:
+    sn = body.device.strip()
+    if not sn or sn == "未选设备":
+        raise HTTPException(status_code=400, detail="请先选择设备 SN")
+    selected = [s for s in AUTO_STEPS if s in body.steps]
+    if not selected:
+        raise HTTPException(status_code=400, detail="请至少选择一个测试项")
+    flow = (body.flow_no or "1").strip() or "1"
+    runnable = order_steps(selected, flow)
+    if not runnable:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "当前流程非 A/B 升级，OTA 不会执行。"
+                "请在「填写报告头部」勾选 A/B 升级，或再勾选其他测试项。"
+            ),
+        )
+    if "ota" in runnable:
+        ota_path = (body.params.ota_file_path or "").strip()
+        if not ota_path:
+            raise HTTPException(status_code=400, detail="OTA 路径不能为空，请选择升级包")
+        ota_file = Path(ota_path)
+        if not ota_file.is_file():
+            raise HTTPException(status_code=400, detail=f"OTA 文件不存在: {ota_path}")
+
+    try:
+        report = ensure_flow_report(flow, base_dir=_base())
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"准备测试报告失败: {exc}",
+        ) from exc
+
+    p = body.params
+    params = DeviceStepParams(
+        loop_num=p.loop_num,
+        stress_max_run_minutes=p.stress_max_run_minutes,
+        iozone_file_size_mb=p.iozone_file_size_mb,
+        samsung_emmc=p.samsung_emmc,
+        iozone_write_min_mbs=p.iozone_write_min_mbs,
+        iozone_read_min_mbs=p.iozone_read_min_mbs,
+        reboot_run_hours=p.reboot_run_hours,
+        reboot_boot_timeout_sec=p.reboot_boot_timeout_sec,
+        reboot_count=p.reboot_count,
+        rpmb_run_minutes=p.rpmb_run_minutes,
+        ota_upgrade_count=p.ota_upgrade_count,
+        ota_file_path=p.ota_file_path,
+        ota_retry_limit=p.ota_retry_limit,
+        ota_max_run_minutes=p.ota_max_run_minutes,
+        ota_timeout_minutes=p.ota_timeout_minutes,
+        ota_round_interval_minutes=p.ota_round_interval_minutes,
+    )
+
+    job_id = uuid.uuid4().hex[:12]
+    stop = threading.Event()
+    job = _Job(
+        id=job_id,
+        sn=sn,
+        flow_no=flow,
+        steps=selected,
+        stop=stop,
+        running=True,
+        started_at=datetime.now().isoformat(timespec="seconds"),
+        report_path=str(report.resolve()),
+    )
+
+    def _log(line: str) -> None:
+        with _LOCK:
+            job.logs.append(line)
+            job.log_seq += 1
+
+    def _on_step(step_id: str, status: str) -> None:
+        with _LOCK:
+            job.current_step = step_id if status == "running" else ""
+            job.step_results[step_id] = status
+            if status == "running":
+                job.step_progress[step_id] = {
+                    "current": 0,
+                    "total": 0,
+                    "text": "进行中",
+                }
+                job.progress_current = 0
+                job.progress_total = 0
+                job.progress_text = "进行中"
+            else:
+                prev = job.step_progress.get(step_id) or {}
+                tot = int(prev.get("total") or 0)
+                cur = int(prev.get("current") or 0)
+                prev_text = str(prev.get("text") or "").strip()
+                if prev_text in ("进行中", "执行中"):
+                    prev_text = ""
+                final_cur = tot if status == "Pass" else cur
+                text = prev_text
+                # 完成时保留「次/分钟/小时」单位；Pass 时把分子补成目标值
+                m = re.match(
+                    r"^[\d.]+\s*/\s*([\d.]+)\s*(次|分钟|小时)\s*$",
+                    prev_text,
+                )
+                if status == "Pass" and m:
+                    text = f"{m.group(1)}/{m.group(1)} {m.group(2)}"
+                elif not text and tot > 0:
+                    text = f"{final_cur}/{tot} 次" if tot == 1 else f"{final_cur}/{tot}"
+                elif status == "Pass" and not text:
+                    text = "完成"
+                elif status != "Pass" and not text:
+                    text = "失败"
+                if tot > 0:
+                    job.step_progress[step_id] = {
+                        "current": final_cur,
+                        "total": tot,
+                        "text": text,
+                    }
+                else:
+                    job.step_progress[step_id] = {
+                        "current": 1 if status == "Pass" else 0,
+                        "total": 1,
+                        "text": text or ("完成" if status == "Pass" else "失败"),
+                    }
+                job.progress_current = 0
+                job.progress_total = 0
+                job.progress_text = ""
+
+    def _on_progress(step_id: str, current: int, total: int, text: str) -> None:
+        with _LOCK:
+            sid = (step_id or job.current_step or "").strip()
+            if not sid:
+                return
+            cur = int(current)
+            tot = int(total)
+            label = str(text or "")
+            job.step_progress[sid] = {
+                "current": cur,
+                "total": tot,
+                "text": label,
+            }
+            # 兼容旧字段：当前正在跑的那一项
+            if sid == job.current_step or job.step_results.get(sid) == "running":
+                job.progress_current = cur
+                job.progress_total = tot
+                job.progress_text = label
+
+    def _run() -> None:
+        try:
+            import importlib
+            import sys
+            import tools.emmc_test.headless_steps as _hs_mod
+
+            if not getattr(sys, "frozen", False):
+                try:
+                    _hs_mod = importlib.reload(_hs_mod)
+                except Exception:
+                    pass
+            _log(f"INFO 设备 SN: {sn}，流程号: {flow}")
+            _log(f"INFO 测试报告: {report.resolve()}")
+            env = _hs_mod.StepEnv(
+                sn=sn,
+                flow_no=job.flow_no,
+                log=_log,
+                stop=stop,
+                report_path=report,
+                base_dir=_base(),
+                params=params,
+                progress=_on_progress,
+            )
+            ok = _hs_mod.run_pipeline(
+                env,
+                selected,
+                stop_on_fail=body.stop_on_fail,
+                on_step=_on_step,
+            )
+            with _LOCK:
+                job.ok = ok
+                job.current_step = ""
+                job.progress_current = 0
+                job.progress_total = 0
+                job.progress_text = ""
+                # 报告被占用时可能另存，同步回任务状态供「打开报告」
+                job.report_path = str(env.report_path.resolve())
+            if stop.is_set():
+                _log("INFO 任务已停止")
+            else:
+                _log("INFO 任务完成: " + ("Pass" if ok else "Fail"))
+            _log(f"INFO 测试报告: {env.report_path.resolve()}")
+        except Exception as exc:
+            with _LOCK:
+                job.error = str(exc)
+                job.ok = False
+                job.current_step = ""
+                job.progress_current = 0
+                job.progress_total = 0
+                job.progress_text = ""
+            _log(f"ERROR {exc}")
+        finally:
+            with _LOCK:
+                job.running = False
+                job.finished_at = datetime.now().isoformat(timespec="seconds")
+
+    with _LOCK:
+        evict_finished_jobs(_JOBS, is_running=lambda j: j.running, max_finished=50)
+        _JOBS[job_id] = job
+    threading.Thread(target=_run, name=f"emmc-{job_id}", daemon=True).start()
+    return {
+        "job_id": job_id,
+        "device": sn,
+        "steps": selected,
+        "report_path": str(report.resolve()),
+    }
+
+
+@router.get("/jobs/{job_id}")
+def job_status(
+    job_id: str,
+    tail: int = 200,
+    since: int | None = Query(default=None, ge=0),
+) -> dict:
+    with _LOCK:
+        job = _JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        all_lines = list(job.logs)
+        cursor = job.log_seq
+        if since is not None:
+            base_seq = max(0, cursor - len(all_lines))
+            start_idx = max(0, since - base_seq)
+            lines = all_lines[start_idx:]
+        else:
+            lines = all_lines[-tail:] if tail > 0 else all_lines
+        done = sum(
+            1
+            for sid in job.steps
+            if job.step_results.get(sid) in ("Pass", "Fail")
+        )
+        total = len(job.steps)
+        return {
+            "job_id": job.id,
+            "device": job.sn,
+            "flow_no": job.flow_no,
+            "steps": job.steps,
+            "running": job.running,
+            "ok": job.ok,
+            "error": job.error,
+            "started_at": job.started_at,
+            "finished_at": job.finished_at,
+            "report_path": job.report_path,
+            "current_step": job.current_step,
+            "step_results": dict(job.step_results),
+            "step_progress": {
+                sid: {
+                    "current": int(p.get("current") or 0),
+                    "total": int(p.get("total") or 0),
+                    "text": str(p.get("text") or ""),
+                }
+                for sid, p in dict(job.step_progress).items()
+            },
+            "progress_current": job.progress_current,
+            "progress_total": job.progress_total,
+            "progress_text": job.progress_text,
+            "steps_done": done,
+            "steps_total": total,
+            "logs": lines,
+            "log_cursor": cursor,
+        }
+
+
+@router.post("/jobs/{job_id}/stop")
+def stop_job(job_id: str) -> dict:
+    with _LOCK:
+        job = _JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    job.stop.set()
+    return {"job_id": job_id, "ok": True, "message": "已请求停止"}

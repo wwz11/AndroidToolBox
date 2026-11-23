@@ -1,0 +1,731 @@
+.keycheck-panel {
+  gap: 0;
+  padding-top: 10px;
+}
+
+.keycheck-sheet {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+  overflow: hidden;
+}
+
+.keycheck-head {
+  flex: none;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.keycheck-bar {
+  flex: none;
+  padding: 10px 12px 4px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.keycheck-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.keycheck-overall {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.keycheck-overall.is-ok {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+
+.keycheck-overall.is-bad {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.keycheck-overall.is-miss {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+}
+
+.keycheck-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.keycheck-stats span::before {
+  content: "";
+  width: 1px;
+  height: 12px;
+  margin-right: 4px;
+  background: var(--border-strong);
+}
+
+.keycheck-stats em {
+  font-style: normal;
+  font-weight: 750;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.keycheck-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 40px;
+  padding: 4px 12px 10px;
+  background: transparent;
+}
+
+.keycheck-ids {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.keycheck-ids-label {
+  color: var(--muted);
+  font-weight: 650;
+  margin-right: 2px;
+}
+
+.keycheck-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.keycheck-id .mono {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.keycheck-id-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--border-strong);
+  flex: none;
+}
+
+.keycheck-id-name {
+  max-width: 120px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keycheck-ids-note {
+  color: var(--muted);
+}
+
+.keycheck-ids-note.is-warn {
+  color: var(--warn-text);
+  font-weight: 700;
+}
+
+.keycheck-filters {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.keycheck-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+select.field.keycheck-filter {
+  width: 112px;
+  min-width: 112px;
+  max-width: none;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+input.field.keycheck-query {
+  width: 132px;
+  min-width: 112px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.keycheck-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 0;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.keycheck-text-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.keycheck-table td .keycheck-text-btn:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.keycheck-text-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.keycheck-stage {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 80px;
+  padding: 14px 18px 18px;
+  border-bottom: 1px solid var(--activity-border);
+  background: var(--activity-bg);
+  animation: fade-in var(--dur-fast) var(--ease) backwards;
+}
+
+.keycheck-stage.is-again {
+  border-bottom-color: color-mix(in srgb, var(--warn) 55%, var(--border));
+  background: var(--warn-soft);
+}
+
+.keycheck-stage.is-paused {
+  border-bottom-color: var(--border);
+  background: var(--surface-2);
+}
+
+.keycheck-stage-action {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--accent);
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 16%, var(--accent)), var(--accent));
+  color: #fff;
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent),
+    0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.keycheck-stage-dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 28%, transparent);
+  animation: remote-pulse 1s ease-in-out infinite;
+}
+
+.keycheck-stage.is-again .keycheck-stage-action {
+  border-color: var(--warn);
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 22%, var(--warn)), var(--warn));
+  color: #1a1d24;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 36%, transparent),
+    0 8px 18px color-mix(in srgb, var(--warn) 28%, transparent);
+}
+
+.keycheck-stage.is-paused .keycheck-stage-action {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+
+.keycheck-stage.is-paused .keycheck-stage-dot {
+  animation: none;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.keycheck-stage-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.keycheck-stage-kicker {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keycheck-stage-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keycheck-stage-progress {
+  flex: 0 0 auto;
+  min-width: 56px;
+  text-align: right;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.keycheck-stage-progress strong {
+  display: block;
+  font-size: 28px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.keycheck-stage-progress span {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.keycheck-stage-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.keycheck-stage-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur) var(--ease);
+}
+
+.keycheck-stage.is-again .keycheck-stage-bar > span {
+  background: var(--warn);
+}
+
+.keycheck-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.keycheck-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.keycheck-col-name {
+  width: 18%;
+}
+
+.keycheck-col-code {
+  width: 14%;
+}
+
+.keycheck-col-verdict {
+  width: 14%;
+}
+
+.keycheck-col-del {
+  width: 52px;
+}
+
+.keycheck-split {
+  border-left: 1px solid var(--border);
+}
+
+.keycheck-table th.keycheck-group {
+  text-align: center;
+  color: var(--text);
+}
+
+.keycheck-table th.keycheck-group-actual {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface-2));
+  color: var(--text);
+}
+
+.keycheck-table thead tr:first-child th {
+  top: 0;
+  z-index: 3;
+  height: 28px;
+}
+
+.keycheck-table thead tr:nth-child(2) th {
+  top: 28px;
+  z-index: 2;
+  height: 26px;
+  padding-top: 0;
+  font-weight: 600;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.keycheck-table th {
+  position: sticky;
+  background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.keycheck-table td {
+  height: 40px;
+  padding: 4px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  vertical-align: middle;
+  color: var(--text);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.keycheck-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.keycheck-table tbody tr.keycheck-row:hover td {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
+.keycheck-table td:last-child {
+  text-align: right;
+  padding-right: 12px;
+}
+
+.keycheck-actual-cell {
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
+}
+
+.keycheck-table .field {
+  width: 100%;
+  height: 28px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.keycheck-table .field:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--field-bg);
+}
+
+.keycheck-table .field:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--focus-ring);
+}
+
+.keycheck-table .field:disabled {
+  opacity: 1;
+  color: var(--text);
+}
+
+.keycheck-name-input,
+.keycheck-code {
+  width: 100%;
+  max-width: none;
+  padding: 0 8px;
+}
+
+.keycheck-code {
+  font-size: 12px;
+}
+
+.keycheck-actual {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm, 6px);
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keycheck-actual.is-empty {
+  color: var(--muted);
+  opacity: 0.7;
+  padding: 0;
+}
+
+.keycheck-actual.is-ok {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.keycheck-actual.is-diff {
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-weight: 700;
+}
+
+.keycheck-row {
+  scroll-margin-top: 64px;
+  scroll-margin-bottom: 48px;
+}
+
+.keycheck-row.is-ok td {
+  background: color-mix(in srgb, var(--success) 5%, var(--surface));
+}
+
+.keycheck-row.is-bad td {
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+
+.keycheck-row.is-ok td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--success) 70%, transparent);
+}
+
+.keycheck-row.is-bad td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--danger) 70%, transparent);
+}
+
+.keycheck-row.is-live td,
+.keycheck-row.is-again td {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.keycheck-row.is-again td {
+  background: color-mix(in srgb, var(--warn) 14%, var(--surface));
+}
+
+.keycheck-row.is-live td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.keycheck-row.is-again td:first-child {
+  box-shadow: inset 3px 0 0 var(--warn);
+}
+
+.keycheck-row.is-paused td {
+  background: var(--surface-2);
+}
+
+.keycheck-row.is-paused td:first-child {
+  box-shadow: inset 3px 0 0 var(--border-strong);
+}
+
+.keycheck-table tbody tr.keycheck-row.is-ok:hover td {
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
+}
+
+.keycheck-table tbody tr.keycheck-row.is-bad:hover td {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+}
+
+.keycheck-row .keycheck-text-btn {
+  opacity: 0.55;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.keycheck-row:hover .keycheck-text-btn,
+.keycheck-row:focus-within .keycheck-text-btn {
+  opacity: 1;
+}
+
+.keycheck-verdict {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.keycheck-verdict.is-match {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+
+.keycheck-verdict.is-mismatch,
+.keycheck-verdict.is-invalid {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.keycheck-verdict.is-missing {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  font-weight: 700;
+}
+
+.keycheck-verdict.is-na {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, var(--surface));
+  font-weight: 650;
+}
+
+.keycheck-row.is-live .keycheck-verdict,
+.keycheck-row.is-again .keycheck-verdict {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--radius-sm, 6px);
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 16%, var(--accent)), var(--accent));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 24%, transparent);
+}
+
+.keycheck-row.is-again .keycheck-verdict {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 22%, var(--warn)), var(--warn));
+  color: #1a1d24;
+}
+
+.keycheck-foot {
+  flex: none;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.keycheck-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.keycheck-add-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.keycheck-add-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  color: var(--accent);
+}
+
+.keycheck-add-btn:hover:not(:disabled) .keycheck-add-mark {
+  border-color: var(--accent);
+}
+
+.keycheck-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.keycheck-empty {
+  padding: 12px 8px 20px;
+  border-bottom: 0;
+}
+
+.keycheck-empty .ui-empty {
+  min-height: 140px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.keycheck-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.keycheck-paste textarea {
+  min-height: 220px;
+  resize: vertical;
+  padding: 8px 10px;
+  line-height: 1.45;
+}
+
+.keycheck-paste-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}

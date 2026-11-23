@@ -1,0 +1,758 @@
+/* extracted from styles.css — emmc.css */
+
+.status-text,
+.remote-status,
+.emmc-status-line {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-text.is-ok,
+.remote-status.is-ok,
+.emmc-status-line.is-ok {
+  color: var(--success);
+}
+
+.status-text.is-err,
+.remote-status.is-err,
+.emmc-status-line.is-err {
+  color: var(--danger);
+}
+
+.status-text.is-warn,
+.remote-status.is-warn,
+.emmc-status-line.is-warn {
+  color: var(--warn);
+}
+
+.status-text.is-busy,
+.remote-status.is-busy,
+.emmc-status-line.is-busy {
+  color: var(--accent);
+}
+
+.emmc-panel {
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 6px;
+}
+
+.emmc-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+.emmc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.emmc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+  box-shadow: var(--elev-1);
+  flex: 0 0 auto;
+}
+
+.emmc-card:last-child {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.emmc-control-card {
+  gap: 8px;
+}
+
+.emmc-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.emmc-run-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.emmc-run-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.emmc-run-bar .btn,
+.emmc-run-actions .btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.emmc-status-line {
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.emmc-status-line.is-ok {
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+
+.emmc-status-line.is-err {
+  background: var(--danger-soft);
+}
+
+.emmc-status-line.is-warn {
+  background: var(--warn-soft);
+}
+
+.emmc-status-line.is-busy {
+  background: var(--accent-soft);
+}
+
+.emmc-report-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.emmc-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emmc-btn-row .btn,
+.emmc-btn-row.tight .btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.emmc-path-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.emmc-path-btn:hover {
+  color: var(--accent);
+}
+
+.emmc-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.emmc-hint-block {
+  padding: 10px 4px;
+  text-align: center;
+}
+
+.emmc-header-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  padding: 4px 0 12px;
+}
+
+.emmc-header-grid .emmc-param .field {
+  width: 100%;
+}
+
+.emmc-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.emmc-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.emmc-flow-field {
+  flex: 0 0 auto;
+}
+
+.emmc-flow {
+  width: 72px;
+  height: 32px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.emmc-meta {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.emmc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.emmc-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.emmc-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.emmc-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.emmc-progress-fill.is-running {
+  background: linear-gradient(90deg, var(--accent), var(--warn));
+}
+
+.emmc-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.emmc-progress-meta > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emmc-progress-pct {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.emmc-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.emmc-step:hover {
+  border-color: var(--border-strong);
+}
+
+.emmc-step.on {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.emmc-step-idx {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm, 6px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.emmc-step.on .emmc-step-idx {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--surface);
+}
+
+.emmc-step-label {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.emmc-step-note {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warn, #b45309);
+  line-height: 1.3;
+}
+
+.emmc-step-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.emmc-step-main .emmc-step-label {
+  flex: 0 0 auto;
+}
+
+.emmc-step-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.emmc-step-bar-track {
+  flex: 1;
+  min-width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  overflow: hidden;
+}
+
+.emmc-step-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.emmc-step-bar-fill.is-running {
+  background: linear-gradient(90deg, var(--accent), var(--warn));
+}
+
+.emmc-step-bar-fill.is-fail {
+  background: var(--danger);
+}
+
+.emmc-step-bar-text {
+  flex: 0 0 auto;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.emmc-step.result-running .emmc-step-bar-text,
+.emmc-step.result-pass .emmc-step-bar-text {
+  color: inherit;
+}
+
+.emmc-step-verdict {
+  flex: 0 0 auto;
+  margin-left: auto;
+  min-width: 44px;
+  max-width: 110px;
+  text-align: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.emmc-step-verdict.is-idle {
+  color: var(--muted);
+  background: transparent;
+  font-weight: 500;
+  opacity: 0.55;
+}
+
+.emmc-step-verdict.is-pass {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+}
+
+.emmc-step-verdict.is-fail {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.emmc-step-verdict.is-running {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  animation: emmc-step-pulse 1.1s ease-in-out infinite;
+}
+
+.emmc-step.result-pass {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface));
+  color: var(--success);
+}
+
+.emmc-step.result-fail {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.emmc-step.result-running {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: var(--warn-soft);
+  color: var(--warn-text);
+}
+
+.emmc-step input {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.emmc-stop-on-fail {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  height: auto;
+  min-height: 28px;
+}
+
+.emmc-params-card {
+  flex: 1 1 auto;
+}
+
+.emmc-param-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.emmc-param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+}
+
+.emmc-param-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.emmc-param-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.emmc-param-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+}
+
+.emmc-param-body-ota {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.emmc-param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.emmc-param-group-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.emmc-param-group-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: end;
+}
+
+.emmc-param-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.emmc-param-unit {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 1.8em;
+}
+
+.emmc-reboot-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+}
+
+.emmc-reboot-mode .emmc-check {
+  height: 24px;
+}
+
+.emmc-stress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.emmc-stress-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.emmc-stress-stat-name {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+.emmc-stress-stat-pass {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.emmc-stress-stat-sep {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.emmc-stress-stat-fail {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.emmc-stress-stat-fail.has-fail {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.emmc-ota-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+  width: 100%;
+}
+
+.emmc-param {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 88px;
+}
+
+.emmc-param > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.emmc-param .field {
+  width: 72px;
+  max-width: 96px;
+  height: 30px;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+.emmc-param-wide {
+  width: 100%;
+  max-width: none;
+}
+
+.emmc-param-wide .field {
+  max-width: none;
+  width: 100%;
+}
+
+.emmc-path-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emmc-path-field .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.emmc-path-field .btn {
+  height: 30px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.emmc-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.emmc-check input {
+  margin: 0;
+}
+
+.emmc-log-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+}
+
+.emmc-log-title {
+  font-weight: 600;
+}
+
+.emmc-log-badge.is-running {
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+}
+
+.emmc-log {
+  overflow: auto;
+}
+
+.emmc-log-badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 960px) {
+  .emmc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .emmc-side {
+    max-height: 46vh;
+  }
+
+  .emmc-log {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .emmc-header-grid,
+  .emmc-ota-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .emmc-run-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .emmc-run-actions .btn {
+    flex: 1;
+  }
+}

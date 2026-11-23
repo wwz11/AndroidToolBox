@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AndroidTestToolBox</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("toolbox.theme") || "light";
+          if (["light", "dark", "ocean", "graphite"].indexOf(t) < 0) t = "light";
+          document.documentElement.setAttribute("data-theme", t);
+          var bg =
+            t === "dark"
+              ? "#12151a"
+              : t === "graphite"
+                ? "#181a1d"
+                : t === "ocean"
+                  ? "#eef5f7"
+                  : "#f2f3f5";
+          var fg =
+            t === "dark" || t === "graphite" ? "#e8eaed" : "#1d2129";
+          document.documentElement.style.background = bg;
+          document.documentElement.style.color = fg;
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+        margin: 0;
+        background: inherit;
+        color: inherit;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+      }
+      #boot {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        gap: 10px;
+        user-select: none;
+      }
+      #boot .mark {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: 6px;
+        background: #e8f7f0;
+        color: #00a870;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+      }
+      html[data-theme="dark"] #boot .mark,
+      html[data-theme="graphite"] #boot .mark {
+        background: #16352c;
+        color: #2dd4a0;
+      }
+      html[data-theme="graphite"] #boot .mark {
+        background: #3a3020;
+        color: #e8a54b;
+      }
+      html[data-theme="ocean"] #boot .mark {
+        background: #e0f5f2;
+        color: #0d9488;
+      }
+      #boot .title {
+        font-size: 15px;
+        font-weight: 700;
+      }
+      #boot .sub {
+        font-size: 12px;
+        opacity: 0.65;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot" aria-live="polite">
+        <div class="mark">SEI</div>
+        <div class="title">AndroidTestToolBox</div>
+        <div class="sub">正在启动界面…</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

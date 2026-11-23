@@ -1,0 +1,57 @@
+appId: com.toolbox.desktop
+productName: AndroidTestToolBox
+executableName: AndroidTestToolBox
+copyright: AndroidTestToolBox
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+extraResources:
+  - from: extra/toolbox-api
+    to: toolbox-api
+    filter:
+      - "**/*"
+# 独立 ico 供桌面快捷方式引用（升级时也能刷对图标）
+extraFiles:
+  - from: build/icon.ico
+    to: AndroidTestToolBox.ico
+# latest.yml 元数据与 GitHub Releases 默认更新源
+publish:
+  provider: generic
+  url: https://github.com/wwz11/AndroidToolBox/releases/latest/download
+  useMultipleRangeRequest: false
+# 图标在 afterPack.cjs 用 rcedit 写入，避免 winCodeSign 解压符号链接失败
+afterPack: ./afterPack.cjs
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+  # false：不下载 winCodeSign（无管理员/开发者模式时会因 darwin 符号链接报错）
+  signAndEditExecutable: false
+  verifyUpdateCodeSignature: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AndroidTestToolBox
+  uninstallDisplayName: AndroidTestToolBox
+  artifactName: AndroidTestToolBox-Setup-${version}.exe
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  include: build/installer-custom.nsh
+  # 装完不自动启动：与资源管理器刷新叠在一起会把电脑卡住
+  runAfterFinish: false
+forceCodeSigning: false
+asar: true

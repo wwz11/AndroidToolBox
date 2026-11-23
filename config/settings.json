@@ -1,0 +1,158 @@
+{
+  "adb.device": "QASEI800HM20000001",
+  "serial_terminal.tabs": [
+    {
+      "port": "COM7 - USB-Enhanced-SERIAL CH343 (COM7)",
+      "baud": "921600",
+      "save_log": true,
+      "log_path": "",
+      "log_path_manual": false,
+      "newline": "CR (回车)",
+      "tx": ""
+    }
+  ],
+  "barcode.data": "AAA0000002CEE842",
+  "unifykey.key": "00: usid",
+  "unifykey.value": "QASEI800HM20000001",
+  "screenshot.save_path": "C:\\Users\\luow\\Desktop\\adb_raman801dc005011912_20260807_113316.png",
+  "adb_tools.adb_shell_cmd": "input keyevent 4",
+  "adb_tools.shell_tabs": [
+    {
+      "cmd": "getprop | grep \"oem\"",
+      "device": "未选设备"
+    }
+  ],
+  "adb_tools.shell_presets": [
+    {
+      "cmd": "am start -n com.android.tv.settings/.MainSettings",
+      "label": "打开settings"
+    },
+    {
+      "cmd": "getprop | grep \"oem\"",
+      "label": "OEM"
+    },
+    {
+      "cmd": "dumpsys wifi | grep CountryCode",
+      "label": "国家码（U）"
+    },
+    {
+      "cmd": "getprop | grep first_api_leve",
+      "label": "第一次过认证版本(O:26/P:28/Q:29/R:30/S:31/U:34)"
+    },
+    {
+      "cmd": "getprop ro.boot.verifiedbootstate",
+      "label": "verifiedbootstate"
+    },
+    {
+      "cmd": "cat /sys/class/net/eth0/address",
+      "label": "emac"
+    },
+    {
+      "cmd": "lpdump",
+      "label": "super分区大小"
+    },
+    {
+      "cmd": "free -h",
+      "label": "zramsize（swap）大小"
+    },
+    {
+      "cmd": "getprop | grep oemmodel",
+      "label": "NetflixModelGroup"
+    },
+    {
+      "cmd": "cd /data/local/tmp && dd if=/dev/zero of=fill.bin bs=100M",
+      "label": "dd命令填充sd卡"
+    },
+    {
+      "cmd": "echo c > /proc/sysrq-trigger",
+      "label": "kernel panic"
+    }
+  ],
+  "adb_tools.log_buffer": "默认",
+  "adb_tools.log_tag": "",
+  "adb_tools.remote_path": "/sdcard/",
+  "adb.network_target": "192.168.14.58",
+  "base64.json_pretty": false,
+  "base64.input": "{\"addSboxid\":{\"testState\":[1,2]},\"keyPress\":{\"testState\":[1,2],\"buttons\":[\"5125\"],\"buttonsV2\":[{\"id\":\"11\",\"value\":\"5125\"}]},\"hmdiImple\":{\"testState\":[1,2],\"resolutionCount\":7,\"cec\":null},\"dvb\":{\"testState\":[],\"packageName\":null,\"className\":null,\"dvbType\":null,\"tunerType\":\"none\",\"lnb22kt\":true},\"ca\":{\"testState\":[]},\"ci\":{\"testState\":[]},\"openAdb\":{\"testState\":[1,2]},\"keySendIr\":{\"testState\":[]},\"autoOpenAdb\":{\"testState\":[]},\"zigBee\":{\"testState\":[],\"type\":-1,\"rssiThreshold\":-90},\"fourG\":{\"testState\":[]},\"routerFourG\":{\"testState\":[]},\"wifiFourG\":{\"testState\":[]},\"wanToLan\":{\"testState\":[]},\"vfdTest\":{\"testState\":[]},\"micropTest\":{\"testState\":[]},\"cameraTest\":{\"testState\":[]},\"speakerTest\":{\"testState\":[]},\"avTest\":{\"testState\":[]},\"tempHumid\":{\"testState\":[],\"tempMin\":null,\"tempMax\":null,\"humidMin\":null,\"humidMax\":null,\"mode\":2},\"sd\":{\"testState\":[]},\"usb\":{\"testState\":[1,2],\"usbCount\":2},\"usbReadSpeedTest\":{\"testState\":[]},\"usbWriteSpeedTest\":{\"testState\":[],\"fileName\":\"\"},\"ethernet\":{\"testState\":[1,2],\"ethMode\":100},\"ledScreen\":{\"testState\":[]},\"hdmiIn\":{\"testState\":[2,1]},\"buzzer\":{\"testState\":[]},\"ms12\":{\"testState\":[2]},\"ms12Two\":{\"testState\":[]},\"ethIperf\":{\"testState\":[],\"iperfTxThreshold\":850,\"iperfRxThreshold\":850,\"iperfTime\":4},\"ddrFastboot\":{\"testState\":[]},\"soundbarTest\":{\"testState\":[]},\"serialPort\":{\"testState\":[],\"ttyName\":\"ttyS3\",\"ttyNameType\":\"1\",\"baudRate\":9600,\"baudRateType\":\"1\"},\"motor\":{\"testState\":[]},\"lightSensor\":{\"testState\":[]},\"iic\":{\"testState\":[]},\"fans\":{\"testState\":[]},\"checkKey\":{\"testState\":[2],\"widevineSystemId\":\"37996\"},\"screenCheck\":{\"testState\":[]},\"readKey\":{\"testState\":[2],\"secureChipId\":false},\"bluetooth\":{\"testState\":[1,2],\"name\":\"SEN5_BLUETOOTH\",\"threshold\":-80},\"wifi\":{\"testState\":[1,2],\"testSignal\":[24,5],\"connectName\":\"TEST_WIFI6_2.4G\",\"connectPwd\":\"qwe258iop\",\"threshold\":-70,\"name5G\":\"TEST_WIFI6_5G\",\"isTestWifi6\":false},\"checkTestResult\":{\"testState\":[2]},\"addSn\":{\"testState\":[]},\"writeKey\":{\"testState\":[2],\"skywaykey\":true,\"vmx\":false,\"emac\":true,\"sn\":true,\"wmac\":false,\"fbkey\":false,\"btMac\":false,\"isCheckWidevineCas\":false,\"irdeto\":false,\"pef\":false,\"idAttestation\":true,\"sberbank\":false,\"nagra\":false,\"jiangyan\":false,\"speech\":false,\"nagraTklEfuse\":false,\"tivoTa\":false,\"provisionEfuseMode\":0,\"audioEfuseMode\":0,\"fieldProvision33Mode\":0},\"other\":{\"enableDdrOverTempStop\":false,\"ddrAgingMaxCpuTemp\":null,\"testMode\":1,\"modeType\":[0,2],\"checkType\":1,\"resetType\":0,\"systemVersion\":\"999999\",\"isLanguageChinese\":true,\"agingTime\":1440,\"isDdrAging\":true,\"isSupportAv1\":true,\"checkDdrId\":true,\"mesConfigV2\":null,\"factoryId\":null,\"isSupport4k\":true,\"isSupportDobly\":false,\"assignEmac\":2,\"assignWmac\":2,\"assignSn\":2,\"assignBtmac\":3,\"enableColdRebootTest\":true,\"coldRebootMaxCount\":3,\"enableSoftRebootTest\":true,\"softRebootMaxCount\":3,\"softRebootIntervalSec\":10,\"agingddrsize\":\"600\",\"mg21version\":false},\"dvbTc\":{\"testState\":[]},\"lgTc\":{\"testState\":[]},\"hallSensor\":{\"testState\":[]},\"wireless58Module\":{\"testState\":[]},\"surroundingLed\":{\"testState\":[]},\"lgHardwareVersion\":{\"testState\":[]},\"centerLed\":{\"testState\":[]},\"ble\":{\"testState\":[]},\"rearParing\":{\"testState\":[]},\"frontParing\":{\"testState\":[]},\"legaoSpeaker\":{\"testState\":[],\"speakerType\":null,\"volume\":10},\"schemaVersion\":\"6.0\",\"spdif\":{\"testState\":[],\"mode\":[]},\"touchBoard\":{\"testState\":[]},\"accelerometerSensor\":{\"testState\":[],\"accelerometerUpperLimit\":null,\"accelerometerLowerLimit\":null},\"magnetometerSensor\":{\"testState\":[]},\"dolbyVision\":{\"testState\":[]},\"media3D\":{\"testState\":[]},\"gyroscope\":{\"testState\":[]},\"matrixLed\":{\"testState\":[]},\"reverseCharge\":{\"testState\":[]},\"digitalTube\":{\"testState\":[]},\"key6711\":{\"testState\":[]},\"radar\":{\"testState\":[]},\"sweepFrequencySound\":{\"testState\":[],\"fullSweep\":true},\"subwooferParing\":{\"testState\":[]},\"lightStrip\":{\"testState\":[]},\"wifiAp\":{\"testState\":[],\"threshold\":-70},\"aux\":{\"testState\":[]},\"checkNagraTkl\":{\"testState\":[]},\"module8771\":{\"testState\":[]},\"karaokeTest\":{\"testState\":[]},\"glassInfo\":{\"testState\":[]},\"touchPadTest\":{\"testState\":[]},\"nfc\":{\"testState\":[]},\"sBarSpdifInTest\":{\"testState\":[]},\"sBarAuxInTest\":{\"testState\":[]},\"irKeyEventTest\":{\"testState\":[]},\"ethernet100\":{\"testState\":[]},\"readPcbSn\":{\"testState\":[]},\"threadGateway\":{\"testState\":[]},\"vibratoTest\":{\"testState\":[]},\"ddrTest\":{\"testState\":[1,2],\"ddrSize\":2,\"ddrUnit\":\"GB\"},\"emmcTest\":{\"testState\":[1,2],\"emmcSize\":32,\"emmcUnit\":\"GB\"}}\n",
+  "base64.output": "eyJhZGRTYm94aWQiOnsidGVzdFN0YXRlIjpbMSwyXX0sImtleVByZXNzIjp7InRlc3RTdGF0ZSI6WzEsMl0sImJ1dHRvbnMiOlsiNTEyNSJdLCJidXR0b25zVjIiOlt7ImlkIjoiMTEiLCJ2YWx1ZSI6IjUxMjUifV19LCJobWRpSW1wbGUiOnsidGVzdFN0YXRlIjpbMSwyXSwicmVzb2x1dGlvbkNvdW50Ijo3LCJjZWMiOm51bGx9LCJkdmIiOnsidGVzdFN0YXRlIjpbXSwicGFja2FnZU5hbWUiOm51bGwsImNsYXNzTmFtZSI6bnVsbCwiZHZiVHlwZSI6bnVsbCwidHVuZXJUeXBlIjoibm9uZSIsImxuYjIya3QiOnRydWV9LCJjYSI6eyJ0ZXN0U3RhdGUiOltdfSwiY2kiOnsidGVzdFN0YXRlIjpbXX0sIm9wZW5BZGIiOnsidGVzdFN0YXRlIjpbMSwyXX0sImtleVNlbmRJciI6eyJ0ZXN0U3RhdGUiOltdfSwiYXV0b09wZW5BZGIiOnsidGVzdFN0YXRlIjpbXX0sInppZ0JlZSI6eyJ0ZXN0U3RhdGUiOltdLCJ0eXBlIjotMSwicnNzaVRocmVzaG9sZCI6LTkwfSwiZm91ckciOnsidGVzdFN0YXRlIjpbXX0sInJvdXRlckZvdXJHIjp7InRlc3RTdGF0ZSI6W119LCJ3aWZpRm91ckciOnsidGVzdFN0YXRlIjpbXX0sIndhblRvTGFuIjp7InRlc3RTdGF0ZSI6W119LCJ2ZmRUZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJtaWNyb3BUZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJjYW1lcmFUZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJzcGVha2VyVGVzdCI6eyJ0ZXN0U3RhdGUiOltdfSwiYXZUZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJ0ZW1wSHVtaWQiOnsidGVzdFN0YXRlIjpbXSwidGVtcE1pbiI6bnVsbCwidGVtcE1heCI6bnVsbCwiaHVtaWRNaW4iOm51bGwsImh1bWlkTWF4IjpudWxsLCJtb2RlIjoyfSwic2QiOnsidGVzdFN0YXRlIjpbXX0sInVzYiI6eyJ0ZXN0U3RhdGUiOlsxLDJdLCJ1c2JDb3VudCI6Mn0sInVzYlJlYWRTcGVlZFRlc3QiOnsidGVzdFN0YXRlIjpbXX0sInVzYldyaXRlU3BlZWRUZXN0Ijp7InRlc3RTdGF0ZSI6W10sImZpbGVOYW1lIjoiIn0sImV0aGVybmV0Ijp7InRlc3RTdGF0ZSI6WzEsMl0sImV0aE1vZGUiOjEwMH0sImxlZFNjcmVlbiI6eyJ0ZXN0U3RhdGUiOltdfSwiaGRtaUluIjp7InRlc3RTdGF0ZSI6WzIsMV19LCJidXp6ZXIiOnsidGVzdFN0YXRlIjpbXX0sIm1zMTIiOnsidGVzdFN0YXRlIjpbMl19LCJtczEyVHdvIjp7InRlc3RTdGF0ZSI6W119LCJldGhJcGVyZiI6eyJ0ZXN0U3RhdGUiOltdLCJpcGVyZlR4VGhyZXNob2xkIjo4NTAsImlwZXJmUnhUaHJlc2hvbGQiOjg1MCwiaXBlcmZUaW1lIjo0fSwiZGRyRmFzdGJvb3QiOnsidGVzdFN0YXRlIjpbXX0sInNvdW5kYmFyVGVzdCI6eyJ0ZXN0U3RhdGUiOltdfSwic2VyaWFsUG9ydCI6eyJ0ZXN0U3RhdGUiOltdLCJ0dHlOYW1lIjoidHR5UzMiLCJ0dHlOYW1lVHlwZSI6IjEiLCJiYXVkUmF0ZSI6OTYwMCwiYmF1ZFJhdGVUeXBlIjoiMSJ9LCJtb3RvciI6eyJ0ZXN0U3RhdGUiOltdfSwibGlnaHRTZW5zb3IiOnsidGVzdFN0YXRlIjpbXX0sImlpYyI6eyJ0ZXN0U3RhdGUiOltdfSwiZmFucyI6eyJ0ZXN0U3RhdGUiOltdfSwiY2hlY2tLZXkiOnsidGVzdFN0YXRlIjpbMl0sIndpZGV2aW5lU3lzdGVtSWQiOiIzNzk5NiJ9LCJzY3JlZW5DaGVjayI6eyJ0ZXN0U3RhdGUiOltdfSwicmVhZEtleSI6eyJ0ZXN0U3RhdGUiOlsyXSwic2VjdXJlQ2hpcElkIjpmYWxzZX0sImJsdWV0b290aCI6eyJ0ZXN0U3RhdGUiOlsxLDJdLCJuYW1lIjoiU0VONV9CTFVFVE9PVEgiLCJ0aHJlc2hvbGQiOi04MH0sIndpZmkiOnsidGVzdFN0YXRlIjpbMSwyXSwidGVzdFNpZ25hbCI6WzI0LDVdLCJjb25uZWN0TmFtZSI6IlRFU1RfV0lGSTZfMi40RyIsImNvbm5lY3RQd2QiOiJxd2UyNThpb3AiLCJ0aHJlc2hvbGQiOi03MCwibmFtZTVHIjoiVEVTVF9XSUZJNl81RyIsImlzVGVzdFdpZmk2IjpmYWxzZX0sImNoZWNrVGVzdFJlc3VsdCI6eyJ0ZXN0U3RhdGUiOlsyXX0sImFkZFNuIjp7InRlc3RTdGF0ZSI6W119LCJ3cml0ZUtleSI6eyJ0ZXN0U3RhdGUiOlsyXSwic2t5d2F5a2V5Ijp0cnVlLCJ2bXgiOmZhbHNlLCJlbWFjIjp0cnVlLCJzbiI6dHJ1ZSwid21hYyI6ZmFsc2UsImZia2V5IjpmYWxzZSwiYnRNYWMiOmZhbHNlLCJpc0NoZWNrV2lkZXZpbmVDYXMiOmZhbHNlLCJpcmRldG8iOmZhbHNlLCJwZWYiOmZhbHNlLCJpZEF0dGVzdGF0aW9uIjp0cnVlLCJzYmVyYmFuayI6ZmFsc2UsIm5hZ3JhIjpmYWxzZSwiamlhbmd5YW4iOmZhbHNlLCJzcGVlY2giOmZhbHNlLCJuYWdyYVRrbEVmdXNlIjpmYWxzZSwidGl2b1RhIjpmYWxzZSwicHJvdmlzaW9uRWZ1c2VNb2RlIjowLCJhdWRpb0VmdXNlTW9kZSI6MCwiZmllbGRQcm92aXNpb24zM01vZGUiOjB9LCJvdGhlciI6eyJlbmFibGVEZHJPdmVyVGVtcFN0b3AiOmZhbHNlLCJkZHJBZ2luZ01heENwdVRlbXAiOm51bGwsInRlc3RNb2RlIjoxLCJtb2RlVHlwZSI6WzAsMl0sImNoZWNrVHlwZSI6MSwicmVzZXRUeXBlIjowLCJzeXN0ZW1WZXJzaW9uIjoiOTk5OTk5IiwiaXNMYW5ndWFnZUNoaW5lc2UiOnRydWUsImFnaW5nVGltZSI6MTQ0MCwiaXNEZHJBZ2luZyI6dHJ1ZSwiaXNTdXBwb3J0QXYxIjp0cnVlLCJjaGVja0RkcklkIjp0cnVlLCJtZXNDb25maWdWMiI6bnVsbCwiZmFjdG9yeUlkIjpudWxsLCJpc1N1cHBvcnQ0ayI6dHJ1ZSwiaXNTdXBwb3J0RG9ibHkiOmZhbHNlLCJhc3NpZ25FbWFjIjoyLCJhc3NpZ25XbWFjIjoyLCJhc3NpZ25TbiI6MiwiYXNzaWduQnRtYWMiOjMsImVuYWJsZUNvbGRSZWJvb3RUZXN0Ijp0cnVlLCJjb2xkUmVib290TWF4Q291bnQiOjMsImVuYWJsZVNvZnRSZWJvb3RUZXN0Ijp0cnVlLCJzb2Z0UmVib290TWF4Q291bnQiOjMsInNvZnRSZWJvb3RJbnRlcnZhbFNlYyI6MTAsImFnaW5nZGRyc2l6ZSI6IjYwMCIsIm1nMjF2ZXJzaW9uIjpmYWxzZX0sImR2YlRjIjp7InRlc3RTdGF0ZSI6W119LCJsZ1RjIjp7InRlc3RTdGF0ZSI6W119LCJoYWxsU2Vuc29yIjp7InRlc3RTdGF0ZSI6W119LCJ3aXJlbGVzczU4TW9kdWxlIjp7InRlc3RTdGF0ZSI6W119LCJzdXJyb3VuZGluZ0xlZCI6eyJ0ZXN0U3RhdGUiOltdfSwibGdIYXJkd2FyZVZlcnNpb24iOnsidGVzdFN0YXRlIjpbXX0sImNlbnRlckxlZCI6eyJ0ZXN0U3RhdGUiOltdfSwiYmxlIjp7InRlc3RTdGF0ZSI6W119LCJyZWFyUGFyaW5nIjp7InRlc3RTdGF0ZSI6W119LCJmcm9udFBhcmluZyI6eyJ0ZXN0U3RhdGUiOltdfSwibGVnYW9TcGVha2VyIjp7InRlc3RTdGF0ZSI6W10sInNwZWFrZXJUeXBlIjpudWxsLCJ2b2x1bWUiOjEwfSwic2NoZW1hVmVyc2lvbiI6IjYuMCIsInNwZGlmIjp7InRlc3RTdGF0ZSI6W10sIm1vZGUiOltdfSwidG91Y2hCb2FyZCI6eyJ0ZXN0U3RhdGUiOltdfSwiYWNjZWxlcm9tZXRlclNlbnNvciI6eyJ0ZXN0U3RhdGUiOltdLCJhY2NlbGVyb21ldGVyVXBwZXJMaW1pdCI6bnVsbCwiYWNjZWxlcm9tZXRlckxvd2VyTGltaXQiOm51bGx9LCJtYWduZXRvbWV0ZXJTZW5zb3IiOnsidGVzdFN0YXRlIjpbXX0sImRvbGJ5VmlzaW9uIjp7InRlc3RTdGF0ZSI6W119LCJtZWRpYTNEIjp7InRlc3RTdGF0ZSI6W119LCJneXJvc2NvcGUiOnsidGVzdFN0YXRlIjpbXX0sIm1hdHJpeExlZCI6eyJ0ZXN0U3RhdGUiOltdfSwicmV2ZXJzZUNoYXJnZSI6eyJ0ZXN0U3RhdGUiOltdfSwiZGlnaXRhbFR1YmUiOnsidGVzdFN0YXRlIjpbXX0sImtleTY3MTEiOnsidGVzdFN0YXRlIjpbXX0sInJhZGFyIjp7InRlc3RTdGF0ZSI6W119LCJzd2VlcEZyZXF1ZW5jeVNvdW5kIjp7InRlc3RTdGF0ZSI6W10sImZ1bGxTd2VlcCI6dHJ1ZX0sInN1Yndvb2ZlclBhcmluZyI6eyJ0ZXN0U3RhdGUiOltdfSwibGlnaHRTdHJpcCI6eyJ0ZXN0U3RhdGUiOltdfSwid2lmaUFwIjp7InRlc3RTdGF0ZSI6W10sInRocmVzaG9sZCI6LTcwfSwiYXV4Ijp7InRlc3RTdGF0ZSI6W119LCJjaGVja05hZ3JhVGtsIjp7InRlc3RTdGF0ZSI6W119LCJtb2R1bGU4NzcxIjp7InRlc3RTdGF0ZSI6W119LCJrYXJhb2tlVGVzdCI6eyJ0ZXN0U3RhdGUiOltdfSwiZ2xhc3NJbmZvIjp7InRlc3RTdGF0ZSI6W119LCJ0b3VjaFBhZFRlc3QiOnsidGVzdFN0YXRlIjpbXX0sIm5mYyI6eyJ0ZXN0U3RhdGUiOltdfSwic0JhclNwZGlmSW5UZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJzQmFyQXV4SW5UZXN0Ijp7InRlc3RTdGF0ZSI6W119LCJpcktleUV2ZW50VGVzdCI6eyJ0ZXN0U3RhdGUiOltdfSwiZXRoZXJuZXQxMDAiOnsidGVzdFN0YXRlIjpbXX0sInJlYWRQY2JTbiI6eyJ0ZXN0U3RhdGUiOltdfSwidGhyZWFkR2F0ZXdheSI6eyJ0ZXN0U3RhdGUiOltdfSwidmlicmF0b1Rlc3QiOnsidGVzdFN0YXRlIjpbXX0sImRkclRlc3QiOnsidGVzdFN0YXRlIjpbMSwyXSwiZGRyU2l6ZSI6MiwiZGRyVW5pdCI6IkdCIn0sImVtbWNUZXN0Ijp7InRlc3RTdGF0ZSI6WzEsMl0sImVtbWNTaXplIjozMiwiZW1tY1VuaXQiOiJHQiJ9fQ==",
+  "base64.find": "softRebootIntervalSec",
+  "base64.find_scope": "左侧",
+  "base64.wrap": 0,
+  "adb_tools.transfer_mode": "push",
+  "adb_tools.local_path": "//freenas/Media/音视频组码流/AC3/Countdown-v2-Dolby-thedigitaltheater.mp4",
+  "adb_tools.transfer_root_before": false,
+  "adb_tools.uninstall_pkg": "android",
+  "adb_tools.uninstall_keep_data": false,
+  "remote.use_adb_preview": false,
+  "serial_prefix.prefix": "serial:YYJ:",
+  "serial_prefix.input": "C:/Users/luow/Desktop/新建文本文档.txt",
+  "emmc_test.config_path": "C:\\Users\\luow\\Desktop\\emmc\\循环读写压力测试V2.2\\循环读写压力测试V2.2\\config.ini",
+  "emmc_test.loop_num": "5",
+  "emmc_test.sn": "raman1dc758c6600d0b",
+  "emmc_test.rpmb_run_hours": 0.1,
+  "emmc_test.rpmb_run_minutes": 720.0,
+  "emmc_test.flow_no": "24",
+  "emmc_test.report_header.import_project": "SEI900DEV",
+  "emmc_test.report_header.internal_model": "SX6BHFA",
+  "emmc_test.report_header.emmc_brand": "EXRAM",
+  "emmc_test.report_header.emmc_capacity_gb": "32",
+  "emmc_test.report_header.read_speed_mbs": "310",
+  "emmc_test.report_header.write_speed_mbs": "70",
+  "emmc_test.report_header.emmc_model": "EXEMMC132G-SM1",
+  "emmc_test.report_header.sw_test_userdebug": "https://jenkins.seirobotics.net/job/android-14-atv-dvb-release/5756/",
+  "emmc_test.report_header.emmc_spec": "https://seirobotics.feishu.cn/file/TD93bIpqLoC9efxoEiNc1sJqnKg",
+  "emmc_test.report_header.gota_version": "https://jenkins.seirobotics.net/job/android-14-atv-dvb-release/8599/",
+  "emmc_test.report_header.tester": "罗伟will",
+  "emmc_test.report_header.test_time": "2026-05-29 16:50:53",
+  "emmc_test.report_header.initial_result": "",
+  "emmc_test.report_header.remarks": "",
+  "emmc_test.report.2.ab_upgrade": true,
+  "emmc_test.report_header.ab_upgrade": true,
+  "emmc_test.reboot_run_hours": 24.0,
+  "emmc_test.report.3.ab_upgrade": true,
+  "emmc_test.report.flow.3.path": "E:\\PyCharmPrograms\\test\\dist\\Toolbox\\output\\emmc\\reports\\eMMC For SEID00111 导入测试报告模版v2.0 3.xlsx",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/output/emmc/reports/eMMC For SEID00Y 导入测试报告模版v2.0 3.xlsx.flow_no": "3",
+  "emmc_test.report.flow.3.import_project": "SEID00111",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/dist/Toolbox/output/emmc/reports/eMMC For SEID00Y 导入测试报告模版v2.0 3.xlsx.flow_no": "3",
+  "emmc_test.report.path.C:/Users/luow/Desktop/Toolbox/output/emmc/reports/eMMC For SEID00111 导入测试报告模版v2.0 3.xlsx.flow_no": "3",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/output/emmc/reports/eMMC For SEID00111 导入测试报告模版v2.0 3.xlsx.flow_no": "3",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/dist/Toolbox/output/emmc/reports/eMMC For SEID00111 导入测试报告模版v2.0 3.xlsx.flow_no": "3",
+  "remote.text": "QASEIB00PNTV057",
+  "md5.text_input": "",
+  "md5.uppercase": true,
+  "md5.mode": "file",
+  "md5.file_path": "E:\\Projects\\IHG\\SEIB30IHG\\07_生产资料\\GZ2603069&GZ2603069-1-SEIB30IHG-SN8BWCE\\CORE_STB_X5_V1-user-burn-20260724-v14.12.9926-secureboot-flag.tar.gz",
+  "md5.result": "96A5330D7EB34D9557131E1614545932",
+  "adb_tools.dumpsys": "",
+  "emmc_test.report.12.ab_upgrade": true,
+  "emmc_test.report.flow.12.path": "E:\\PyCharmPrograms\\test\\dist\\Toolbox\\output\\emmc\\reports\\eMMC For SEI900DEV 导入测试报告模版v2.0 12.xlsx",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/dist/Toolbox/output/emmc/reports/eMMC For SEI800HM 导入测试报告模版v2.0 12.xlsx.flow_no": "12",
+  "emmc_test.report.flow.12.import_project": "SEI900DEV",
+  "adb_tools.apk_reinstall": true,
+  "adb_tools.out_dir": "C:\\Users\\luow\\Desktop\\adb_logs",
+  "adb_tools.apk_analyze_path": "C:\\Users\\luow\\Downloads\\Nes_Ir_Control_Newest.apk",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/dist/Toolbox/output/emmc/reports/eMMC For SEI900DEV 导入测试报告模版v2.0 12.xlsx.flow_no": "12",
+  "emmc_test.report.24.ab_upgrade": true,
+  "emmc_test.report.flow.24.path": "E:\\PyCharmPrograms\\test\\dist\\Toolbox\\output\\emmc\\reports\\eMMC For SEI900DEV 导入测试报告模版v2.0 24.xlsx",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/dist/Toolbox/output/emmc/reports/eMMC For SEI900DEV 导入测试报告模版v2.0 24.xlsx.flow_no": "24",
+  "emmc_test.report.flow.24.import_project": "SEI900DEV",
+  "emmc_test.report.flow.1.path": "E:\\PyCharmPrograms\\AndroidTVToolBox\\output\\emmc\\reports\\eMMC For 1 导入测试报告模版v2.0 1.xlsx",
+  "emmc_test.report.path.E:/PyCharmPrograms/test/output/emmc/reports/eMMC For 1 导入测试报告模版v2.0 1.xlsx.flow_no": "1",
+  "emmc_test.report.flow.1.import_project": "1",
+  "emmc_test.report.1.ab_upgrade": true,
+  "emmc_test.report.path.C:/Users/luow/AppData/Local/Toolbox/output/emmc/reports/eMMC For 1 导入测试报告模版v2.0 1.xlsx.flow_no": "1",
+  "remote.login_accounts": [
+    {
+      "id": "4fb33c197e8c",
+      "label": "ExpressVPN",
+      "username": "3593198351@qq.com",
+      "password": "MoB7pQo8@!6688",
+      "next": "enter"
+    }
+  ],
+  "emmc_test.report.path.E:/PyCharmPrograms/AndroidTVToolBox/output/emmc/reports/eMMC For 1 导入测试报告模版v2.0 1.xlsx.flow_no": "1",
+  "adb_tools.shell_presets_pack": "841d4e23a4bcf72a",
+  "emmc_test.report.flow.2.path": "E:\\PyCharmPrograms\\AndroidTVToolBox\\output\\emmc\\reports\\eMMC For 2 导入测试报告模版v2.0 2.xlsx",
+  "emmc_test.report.path.E:/PyCharmPrograms/AndroidTVToolBox/output/emmc/reports/eMMC For 2 导入测试报告模版v2.0 2.xlsx.flow_no": "2",
+  "emmc_test.report.flow.2.import_project": "2"
+}

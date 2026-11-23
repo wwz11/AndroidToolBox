@@ -1,0 +1,509 @@
+/* 全局面板布局基元 — Log / Monkey / 文件 / 应用 / UI 等共用 */
+
+.panel-stack,
+.logcat-panel,
+.monkey-panel,
+.ui-panel,
+.files-panel,
+.apps-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  padding-top: 2px;
+}
+
+/* —— 控制块 —— */
+.ctrl-block,
+.logcat-controls,
+.mk-controls,
+.ui-controls,
+.files-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+  box-shadow: var(--elev-1);
+  min-width: 0;
+}
+
+.ctrl-block.is-busy,
+.logcat-controls.is-busy,
+.mk-controls.is-busy {
+  opacity: 0.85;
+}
+
+.ctrl-row,
+.logcat-toolbar-row,
+.mk-toolbar-row,
+.ui-row,
+.files-nav-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ctrl-row + .ctrl-row,
+.logcat-toolbar-row + .logcat-toolbar-row,
+.mk-toolbar-row + .mk-toolbar-row,
+.ui-row + .ui-row {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.ctrl-row-actions,
+.logcat-toolbar-row-actions,
+.mk-toolbar-row-actions {
+  justify-content: flex-end;
+}
+
+.ctrl-row-actions .ctrl-hint,
+.mk-toolbar-row-actions .mk-status-hint {
+  margin-right: auto;
+}
+
+.ctrl-block .btn,
+.logcat-controls .btn,
+.mk-controls .btn,
+.ui-controls .btn,
+.files-toolbar .btn,
+.apps-toolbar .btn {
+  height: var(--control-h, 32px);
+  padding: 0 var(--control-px, 12px);
+  font-size: var(--text-md, 13px);
+}
+
+.ctrl-block .field,
+.logcat-controls .field,
+.mk-controls .field,
+.ui-controls .field,
+.files-toolbar .field,
+.apps-toolbar .field {
+  height: var(--control-h, 32px);
+}
+
+/* —— 筛选条 —— */
+.ctrl-strip,
+.logcat-filter-strip,
+.mk-param-strip,
+.mk-pkg-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ctrl-strip > .field,
+.logcat-filter-strip > .field,
+.mk-param-strip .field,
+.mk-pkg-strip .field {
+  height: var(--control-h, 32px);
+  font-size: var(--text-md, 13px);
+}
+
+/* —— 芯片组 —— */
+.ctrl-scope,
+.apps-scope,
+.mk-scope,
+.logcat-levels,
+.files-shortcuts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 2px;
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  max-width: 100%;
+}
+
+.ctrl-scope > button,
+.apps-scope > .apps-chip,
+.apps-chip,
+.mk-scope > button,
+.logcat-lv,
+.files-chip {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.logcat-lv {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.files-chip {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+}
+
+.ctrl-scope > button.active,
+.apps-chip.active,
+.mk-scope > button.active,
+.logcat-lv.active,
+.files-chip.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ctrl-scope > button:disabled,
+.apps-chip:disabled,
+.mk-scope > button:disabled,
+.logcat-lv:disabled,
+.files-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* —— 预设芯片 —— */
+.ctrl-chips,
+.mk-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.ctrl-chips > button,
+.mk-chips > button {
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ctrl-chips > button.active,
+.mk-chips > button.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: var(--accent-soft);
+}
+
+.ctrl-chips > button:disabled,
+.mk-chips > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* —— 状态提示 —— */
+.ctrl-hint,
+.mk-status-hint {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctrl-hint.is-live,
+.mk-status-hint.is-live {
+  color: var(--accent);
+}
+
+/* —— 折叠区 —— */
+.ctrl-details,
+.logcat-export-more,
+.mk-advanced {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ctrl-details > summary,
+.logcat-export-more > summary,
+.mk-advanced > summary {
+  padding: 7px 12px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+  user-select: none;
+  background: var(--surface-2);
+}
+
+.ctrl-details > summary::-webkit-details-marker,
+.logcat-export-more > summary::-webkit-details-marker,
+.mk-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ctrl-details > summary::before,
+.logcat-export-more > summary::before,
+.mk-advanced > summary::before {
+  content: "▸ ";
+}
+
+.ctrl-details[open] > summary::before,
+.logcat-export-more[open] > summary::before,
+.mk-advanced[open] > summary::before {
+  content: "▾ ";
+}
+
+.ctrl-details[open] > summary,
+.logcat-export-more[open] > summary,
+.mk-advanced[open] > summary {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+/* —— 日志/预览区 —— */
+.panel-log,
+.logcat-log,
+.mk-log {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+}
+
+.panel-log-head,
+.logcat-log-head,
+.mk-log-head,
+.emmc-log-head,
+.ui-table-head,
+.ui-detail-head,
+.files-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.panel-log-title,
+.logcat-log-title,
+.mk-log-title,
+.emmc-log-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.panel-log-title strong,
+.logcat-log-title strong,
+.mk-log-title strong,
+.emmc-log-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.panel-log-badge,
+.logcat-log-badge,
+.mk-badge,
+.emmc-log-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.panel-log-badge.is-live,
+.logcat-log-badge.is-live,
+.mk-badge.live {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.mk-badge.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+}
+
+.panel-log-actions,
+.logcat-log-actions,
+.mk-log-actions,
+.emmc-log-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-log-actions .btn,
+.logcat-log-actions .btn,
+.mk-log-actions .btn,
+.emmc-log-head .btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.panel-log-body,
+.logcat-log-body,
+.mk-log-body,
+.emmc-log {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.panel-log-empty,
+.logcat-log-empty,
+.mk-log-empty,
+.emmc-log-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+/* —— 警告条 —— */
+.ctrl-banner,
+.mk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--border));
+  border-radius: var(--radius-md, 8px);
+  background: var(--warn-soft);
+  font-size: 13px;
+}
+
+.ctrl-banner strong,
+.mk-banner strong {
+  font-weight: 650;
+  color: var(--text);
+}
+
+/* —— 双栏 —— */
+.ctrl-split,
+.mk-body {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  flex: 1;
+}
+
+/* —— 搜索框清除 —— */
+.ctrl-search,
+.logcat-search,
+.mk-pkg-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ctrl-search-clear,
+.logcat-search-clear,
+.mk-search-clear,
+.files-path-clear {
+  position: absolute;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.ctrl-search-clear:hover,
+.logcat-search-clear:hover,
+.mk-search-clear:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.ctrl-link,
+.mk-link {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.ctrl-link:hover:not(:disabled),
+.mk-link:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+@media (max-width: 960px) {
+  .ctrl-split,
+  .mk-body {
+    grid-template-columns: 1fr;
+  }
+
+  .ctrl-row-actions,
+  .mk-toolbar-row-actions {
+    justify-content: flex-start;
+  }
+
+  .ctrl-row-actions .ctrl-hint,
+  .mk-toolbar-row-actions .mk-status-hint {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .mk-log,
+  .logcat-log {
+    min-height: 240px;
+  }
+}

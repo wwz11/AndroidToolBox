@@ -1,0 +1,19 @@
+[DEVICE]
+device_sn = ap22259907081902e05 ; 通过 adb devices 获取
+
+[OTA]
+ota_file_path = SEI700GHMG-userdebug-ota-20240522-v12.7.6131-secureboot.zip ; OTA 包放在本目录下，改为实际 zip 文件名
+
+[TEST]
+upgrade_count = 500         ; 最大升级轮次
+retry_limit = 3            ; 每轮失败重试次数
+max_run_minutes = 1440     ; 最大运行时间（分钟），0 表示不限
+timeout_minutes = 10       ; 单轮升级超时（分钟），0 表示不限制
+round_interval_minutes = 10 ; 每轮成功完成后到下一轮的等待时间（分钟），0 表示不等待
+
+[ADVANCED]
+log_level = INFO          ; 日志级别
+engine_idle_wait_seconds = 900   ; 预检时等待 update_engine 空闲的最长时间（秒）
+engine_status_poll_seconds = 3   ; 预检轮询间隔（秒）
+try_cancel_before_apply = true   ; 预检时是否尝试 update_engine_client --cancel
+engine_client_timeout_seconds = 120 ; 预检时 reset/status 等单次 adb shell 超时（秒）
