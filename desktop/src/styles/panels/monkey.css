@@ -1,5 +1,45 @@
 /* Monkey 测试 — 面板特有样式（基元见 panel-common.css） */
 
+.mk-controls {
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.mk-toolbar-row {
+  gap: 10px 14px;
+}
+
+.mk-body {
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.mk-pkg {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+}
+
+.mk-pkg-strip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mk-pkg-search-wrap {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
 .mk-scope-sm > button {
   padding: 5px 8px;
 }
