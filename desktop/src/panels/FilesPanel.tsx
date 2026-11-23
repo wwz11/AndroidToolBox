@@ -494,7 +494,9 @@ export default function FilesPanel({
       const withOp =
         op && !summary.startsWith(op) ? `${op}失败：${summary}` : summary;
       toast.push(
-        isPerm && !rooted ? `${withOp}（可点击工具栏「Root」后重试）` : withOp,
+        isPerm && !rooted && !/root/i.test(withOp)
+          ? `${withOp}（可点击工具栏「Root」后重试）`
+          : withOp,
         "err",
       );
     } finally {

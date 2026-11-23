@@ -4,6 +4,7 @@ import { syncSessionActivities } from "../activity";
 import { patchAppPrefs, readAppPrefs, subscribeAppPrefs } from "../appPrefs";
 import DevicePickSelect from "../components/DevicePickSelect";
 import DeviceSessionChips from "../components/DeviceSessionChips";
+import { useToast } from "../components/toast";
 import { shortSn } from "../deviceSessions";
 import { toErrorMessage } from "../errors";
 import { useDeviceRoster } from "../hooks/useDeviceRoster";
@@ -58,6 +59,7 @@ type Props = {
 };
 
 export default function DevicePage({ pageActive = true }: Props) {
+  const toast = useToast();
   const roster = useDeviceRoster(pageActive);
   const sessions = useDeviceSessions({
     idPrefix: "s",
@@ -66,6 +68,8 @@ export default function DevicePage({ pageActive = true }: Props) {
   const [recordHoldBySn, markRecordHold] = useKeyedFlag();
   const [netTarget, setNetTarget] = useState(() => readAppPrefs().netAdbLast);
   const [subTab, setSubTab] = useState<SubTab>("信息");
+  const [rootBusy, setRootBusy] = useState(false);
+  const [rootedBySn, setRootedBySn] = useState<Record<string, boolean>>({});
   const prevOnlineRef = useRef<Set<string>>(new Set());
 
   const adbTab = adbTabOf(subTab);
@@ -77,6 +81,12 @@ export default function DevicePage({ pageActive = true }: Props) {
   );
   const activeHold = Boolean(active && recordHoldBySn[active.sn]);
   const lockSession = activeOffline && !activeHold;
+  const rootTargetSn =
+    active && !active.placeholder && !activeOffline
+      ? active.sn
+      : roster.devices.includes(roster.selected)
+        ? roster.selected
+        : "";
   const netConnected = useMemo(
     () => isNetDeviceOnline(roster.devices, netTarget),
     [roster.devices, netTarget],
@@ -161,6 +171,21 @@ export default function DevicePage({ pageActive = true }: Props) {
     }
   }
 
+  async function rootDevice() {
+    if (!rootTargetSn || rootBusy) return;
+    setRootBusy(true);
+    try {
+      const r = await api.deviceRoot(rootTargetSn);
+      const msg = (r.message || "").trim() || "adb root 成功";
+      setRootedBySn((prev) => ({ ...prev, [rootTargetSn]: true }));
+      toast.push(`${shortSn(rootTargetSn)} ${msg}`, "ok");
+    } catch (e) {
+      toast.push(`Root 失败：${toErrorMessage(e)}`, "err");
+    } finally {
+      setRootBusy(false);
+    }
+  }
+
   return (
     <div className="panel device-page">
       <div className="device-connect">
@@ -211,6 +236,19 @@ export default function DevicePage({ pageActive = true }: Props) {
               onClick={() => sessions.openAll(roster.devices)}
             >
               全部
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={roster.busy || rootBusy || !rootTargetSn}
+              title={
+                rootTargetSn
+                  ? `对 ${rootTargetSn} 执行 adb root（需要设备支持）`
+                  : "请先选择在线设备"
+              }
+              onClick={() => void rootDevice()}
+            >
+              {rootBusy ? "Root 中…" : rootedBySn[rootTargetSn] ? "已 Root" : "Root"}
             </Button>
           </div>
 
