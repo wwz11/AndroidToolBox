@@ -367,7 +367,6 @@ export default function FilesPanel({
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
   const [dragOver, setDragOver] = useState(false);
-  const [rooted, setRooted] = useState(false);
   const [editingPath, setEditingPath] = useState(false);
   const pathInputRef = useRef<HTMLInputElement | null>(null);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(readBookmarks);
@@ -493,12 +492,7 @@ export default function FilesPanel({
       const summary = msg.split(/\r?\n/)[0] || msg;
       const withOp =
         op && !summary.startsWith(op) ? `${op}失败：${summary}` : summary;
-      toast.push(
-        isPerm && !rooted && !/root/i.test(withOp)
-          ? `${withOp}（可点击工具栏「Root」后重试）`
-          : withOp,
-        "err",
-      );
+      toast.push(withOp, "err");
     } finally {
       setBusy(false);
     }
@@ -542,7 +536,6 @@ export default function FilesPanel({
     setPathInput(dirAsRemote(start));
     setParentPath("/");
     setClip(null);
-    setRooted(false);
     pullCache.current.clear();
     pullInFlight.current.clear();
   }, [deviceSn]);
@@ -1570,18 +1563,6 @@ export default function FilesPanel({
     [snOk, ensureDragCached, setStatus, toast],
   );
 
-  async function runAdbRoot() {
-    if (!snOk || busy) return;
-    await run("adb root…", async () => {
-      const r = await api.deviceRoot(deviceSn);
-      const msg = (r.message || "").trim() || "已获取 Root 权限";
-      setRooted(true);
-      append(`adb root: ${msg}`);
-      toast.push(msg, "ok");
-      await loadDir(browsePath || "/");
-    });
-  }
-
   return (
     <div className="files-panel">
       <div className="files-toolbar">
@@ -1855,18 +1836,6 @@ export default function FilesPanel({
               onClick={() => void releaseMemoryFill()}
             >
               {releaseBusy ? "释放中…" : "释放"}
-            </Button>
-          </div>
-          <span className="files-ops-sep" aria-hidden />
-          <div className="files-ops-group" role="group" aria-label="权限">
-            <Button
-              size="sm"
-              variant={rooted ? "primary" : "ghost"}
-              disabled={!snOk || busy}
-              title="执行 adb root 以访问受限目录（需要设备支持）"
-              onClick={() => void runAdbRoot()}
-            >
-              {rooted ? "已 Root" : "Root"}
             </Button>
           </div>
           <span className="files-ops-sep" aria-hidden />
