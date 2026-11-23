@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_REL: tuple[tuple[str, ...], ...] = (
-    ("SEIAndroidTVTestToolBox.exe",),
+    ("AndroidTVTestToolBox.exe",),
     ("resources", "toolbox-api", "toolbox-api.exe"),
     ("resources", "toolbox-api", "_internal", "vendor", "platform-tools", "adb.exe"),
     ("resources", "toolbox-api", "_internal", "vendor", "platform-tools", "AdbWinApi.dll"),

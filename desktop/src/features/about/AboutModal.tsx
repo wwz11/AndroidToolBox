@@ -113,10 +113,10 @@ export default function AboutModal({
             <div className="about-info">
               <div className="about-hero">
                 <div className="brand-mark" aria-hidden>
-                  SEI
+                  ATV
                 </div>
                 <div>
-                  <strong>SEIAndroidTVTestToolBox</strong>
+                  <strong>AndroidTVTestToolBox</strong>
                   <p>Android TV 测试工具箱</p>
                 </div>
               </div>

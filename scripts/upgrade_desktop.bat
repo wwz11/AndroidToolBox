@@ -2,13 +2,13 @@
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
 
-REM One-click upgrade for portable SEIAndroidTVTestToolBox Desktop.
+REM One-click upgrade for portable AndroidTVTestToolBox Desktop.
 REM Usage:
 REM   1) Unzip the NEW pack anywhere
 REM   2) Double-click 升级.bat inside the NEW pack
-REM Config / reports stay in %%LOCALAPPDATA%%\SEIAndroidTVTestToolBox (not overwritten)
+REM Config / reports stay in %%LOCALAPPDATA%%\AndroidTVTestToolBox (not overwritten)
 
-set "APP_EXE=SEIAndroidTVTestToolBox.exe"
+set "APP_EXE=AndroidTVTestToolBox.exe"
 set "LEGACY_EXE=Toolbox.exe"
 set "NEW=%~dp0"
 if "%NEW:~-1%"=="\" set "NEW=%NEW:~0,-1%"
@@ -19,12 +19,12 @@ if not defined NEW_EXE if exist "%NEW%\%LEGACY_EXE%" set "NEW_EXE=%LEGACY_EXE%"
 if not defined NEW_EXE (
   echo [ERROR] %APP_EXE% not found next to this script:
   echo   %NEW%
-  echo Put 升级.bat inside the new SEIAndroidTVTestToolBox-Desktop folder.
+  echo Put 升级.bat inside the new AndroidTVTestToolBox-Desktop folder.
   pause
   exit /b 1
 )
 
-set "DATA=%LOCALAPPDATA%\SEIAndroidTVTestToolBox"
+set "DATA=%LOCALAPPDATA%\AndroidTVTestToolBox"
 if not exist "%DATA%\" if exist "%LOCALAPPDATA%\Toolbox\" set "DATA=%LOCALAPPDATA%\Toolbox"
 set "OLD="
 if exist "%DATA%\install_dir.txt" (
@@ -64,14 +64,14 @@ if /I "!OLD!"=="!NEW!" (
 )
 
 echo ========================================
-echo  Upgrade SEIAndroidTVTestToolBox Desktop
+echo  Upgrade AndroidTVTestToolBox Desktop
 echo  From: %NEW%
 echo  To:   !OLD!
 echo  Data: %DATA%  ^(kept^)
 echo ========================================
 echo.
 
-echo [*] Stopping SEIAndroidTVTestToolBox / toolbox-api ...
+echo [*] Stopping AndroidTVTestToolBox / toolbox-api ...
 taskkill /F /IM %APP_EXE% >nul 2>&1
 taskkill /F /IM %LEGACY_EXE% >nul 2>&1
 taskkill /F /IM toolbox-api.exe >nul 2>&1
@@ -89,7 +89,7 @@ if !RC! GEQ 8 (
 > "%DATA%\install_dir.txt" echo !OLD!
 
 echo.
-echo [OK] Upgrade done. Starting SEIAndroidTVTestToolBox...
+echo [OK] Upgrade done. Starting AndroidTVTestToolBox...
 if exist "!OLD!\%APP_EXE%" (
   start "" "!OLD!\%APP_EXE%"
 ) else (

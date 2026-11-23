@@ -16,16 +16,16 @@ def main() -> int:
     else:
         app_dir = root / "dist" / "toolbox-api"
         if not (app_dir / "toolbox-api.exe").is_file():
-            app_dir = root / "dist" / "SEIAndroidTVTestToolBox"
+            app_dir = root / "dist" / "AndroidTVTestToolBox"
 
     internal = app_dir / "_internal"
     exe_candidates = (
         app_dir / "toolbox-api.exe",
-        app_dir / "SEIAndroidTVTestToolBox.exe",
+        app_dir / "AndroidTVTestToolBox.exe",
         app_dir / "Toolbox.exe",
     )
     if not any(p.is_file() for p in exe_candidates):
-        print(f"[ERROR] no SEIAndroidTVTestToolBox/toolbox-api exe in {app_dir}")
+        print(f"[ERROR] no AndroidTVTestToolBox/toolbox-api exe in {app_dir}")
         return 1
     if not internal.is_dir():
         print(f"[ERROR] _internal not found under {app_dir}")

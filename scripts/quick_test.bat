@@ -4,7 +4,7 @@ cd /d "%~dp0.."
 set "PYTHONPATH=%CD%"
 
 echo ========================================
-echo   SEIAndroidTVTestToolBox Quick Test
+echo   AndroidTVTestToolBox Quick Test
 echo ========================================
 echo Project: %CD%
 echo.

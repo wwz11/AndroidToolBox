@@ -7,9 +7,9 @@ set "ROOT=%CD%"
 set "NAS_PUBLISH=\\nas.we\Department_files\Testing\public\测试工具\ToolBox"
 
 echo ========================================
-echo  SEIAndroidTVTestToolBox Desktop - NSIS Setup + auto-update
+echo  AndroidTVTestToolBox Desktop - NSIS Setup + auto-update
 echo  Update URL default: https://github.com/wwz11/AndroidToolBox/releases/latest/download
-echo  Data stays in: %%LOCALAPPDATA%%\SEIAndroidTVTestToolBox
+echo  Data stays in: %%LOCALAPPDATA%%\AndroidTVTestToolBox
 echo ========================================
 echo.
 
@@ -104,11 +104,11 @@ for /f "usebackq delims=" %%V in (`%PY_CMD% -c "import json;print(json.load(open
 if not defined APP_VER (
   for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%ROOT%\desktop\package.json' | ConvertFrom-Json).version"`) do set "APP_VER=%%V"
 )
-set "SETUP=%REL%\SEIAndroidTVTestToolBox-Setup-!APP_VER!.exe"
+set "SETUP=%REL%\AndroidTVTestToolBox-Setup-!APP_VER!.exe"
 if not exist "!SETUP!" (
   echo ERROR: expected setup not found: !SETUP!
   echo        APP_VER=!APP_VER!
-  dir /b "%REL%\SEIAndroidTVTestToolBox-Setup-*.exe"
+  dir /b "%REL%\AndroidTVTestToolBox-Setup-*.exe"
   exit /b 1
 )
 if not exist "%REL%\latest.yml" (
@@ -117,7 +117,7 @@ if not exist "%REL%\latest.yml" (
 )
 
 set "OUT=%REL%\win-unpacked"
-if exist "%OUT%\SEIAndroidTVTestToolBox.exe" (
+if exist "%OUT%\AndroidTVTestToolBox.exe" (
   "%PY%" "%ROOT%\scripts\verify_desktop_bundle.py" "%OUT%"
   if errorlevel 1 exit /b 1
 )
@@ -167,7 +167,7 @@ if "!PUBLISH_OK!"=="1" (
 )
 echo  GitHub: https://github.com/wwz11/AndroidToolBox/releases
 echo  Update URL default: https://github.com/wwz11/AndroidToolBox/releases/latest/download
-echo  Override: TOOLBOX_UPDATE_URL or %%LOCALAPPDATA%%\SEIAndroidTVTestToolBox\update-url.txt
-echo  Data: %%LOCALAPPDATA%%\SEIAndroidTVTestToolBox
+echo  Override: TOOLBOX_UPDATE_URL or %%LOCALAPPDATA%%\AndroidTVTestToolBox\update-url.txt
+echo  Data: %%LOCALAPPDATA%%\AndroidTVTestToolBox
 echo ========================================
 endlocal

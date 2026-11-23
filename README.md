@@ -1,4 +1,4 @@
-# SEIAndroidTVTestToolBox
+# AndroidTVTestToolBox
 
 面向 **Android / Android TV 测试与研发调试** 的一体化桌面工具箱。基于 **Electron + React + TypeScript** 桌面壳与本地 **Python (FastAPI)** 后端服务构建，打包后内置 `adb`（Android Platform-Tools）、内嵌 `scrcpy` 及 eMMC / RPMB / iozone 测试工具，**目标电脑无需预先安装 Python 或 ADB 即可运行**。
 
@@ -121,15 +121,15 @@ scripts\build_desktop_nsis.bat
 2. 检查/拉取 `vendor\platform-tools`（`adb.exe`）与内置资源。
 3. 使用 Vite 构建前端，并使用 PyInstaller 将 `tools\api` 打包为独立 `toolbox-api`。
 4. 使用 `electron-builder` 生成 NSIS 安装包与自动更新元数据到 `desktop\release\`：
-   - `SEIAndroidTVTestToolBox-Setup-<版本号>.exe`
+   - `AndroidTVTestToolBox-Setup-<版本号>.exe`
    - `latest.yml`
-   - `SEIAndroidTVTestToolBox-Setup-<版本号>.exe.blockmap`（可选）
+   - `AndroidTVTestToolBox-Setup-<版本号>.exe.blockmap`（可选）
 
 ### 2. 打包便携版 Zip
 ```bat
 scripts\build_desktop.bat
 ```
-产物输出到 `dist\SEIAndroidTVTestToolBox-Desktop_portable_<版本号>.zip`。
+产物输出到 `dist\AndroidTVTestToolBox-Desktop_portable_<版本号>.zip`。
 
 ### 3. 发布到 GitHub Releases（自动更新）
 客户端默认更新源已指向：
@@ -140,12 +140,12 @@ https://github.com/wwz11/AndroidToolBox/releases/latest/download
 1. 运行 `scripts\build_desktop_nsis.bat` 生成最新安装包。
 2. 打开 [GitHub Releases](https://github.com/wwz11/AndroidToolBox/releases) → **Draft a new release**。
 3. Tag 填写 `v<版本号>`（勾选 **Set as the latest release**，勿勾选 Pre-release）。
-4. 将 `desktop\release\` 下的 `SEIAndroidTVTestToolBox-Setup-<版本号>.exe` 与 `latest.yml` 上传到附件并发布。
+4. 将 `desktop\release\` 下的 `AndroidTVTestToolBox-Setup-<版本号>.exe` 与 `latest.yml` 上传到附件并发布。
 
 ---
 
 ## 数据目录与配置覆盖
 
-- **用户数据与日志目录**：`%LOCALAPPDATA%\SEIAndroidTVTestToolBox`（升级或重装时保留用户配置、串口/Shell/Logcat 日志及本地缓存）。
-- **自定义更新源**：可通过软件设置修改更新地址，或设置环境变量 `TOOLBOX_UPDATE_URL` / 编辑 `%LOCALAPPDATA%\SEIAndroidTVTestToolBox\update-url.txt`。
+- **用户数据与日志目录**：`%LOCALAPPDATA%\AndroidTVTestToolBox`（升级或重装时保留用户配置、串口/Shell/Logcat 日志及本地缓存）。
+- **自定义更新源**：可通过软件设置修改更新地址，或设置环境变量 `TOOLBOX_UPDATE_URL` / 编辑 `%LOCALAPPDATA%\AndroidTVTestToolBox\update-url.txt`。
 - **更多文档**：参见 [docs/用户使用说明.md](docs/用户使用说明.md) 与 [docs/emmc_test.md](docs/emmc_test.md)。

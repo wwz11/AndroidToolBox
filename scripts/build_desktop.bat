@@ -6,7 +6,7 @@ set "PYTHONPATH=%CD%"
 set "ROOT=%CD%"
 
 echo ========================================
-echo  SEIAndroidTVTestToolBox Desktop - zero-deps portable pack
+echo  AndroidTVTestToolBox Desktop - zero-deps portable pack
 echo  Bundles: Electron + Python API + adb + vendor + embed scrcpy
 echo  Target PC needs NO Python / adb install
 echo ========================================
@@ -25,7 +25,7 @@ if not defined APP_VER (
   for /f "usebackq delims=" %%V in (`powershell -NoProfile -Command "(Get-Content -Raw '%ROOT%\desktop\package.json' | ConvertFrom-Json).version"`) do set "APP_VER=%%V"
 )
 if not defined APP_VER set "APP_VER=0.0.0"
-set "ZIP_NAME=%ROOT%\dist\SEIAndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip"
+set "ZIP_NAME=%ROOT%\dist\AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip"
 
 echo [0/6] Fetch / verify vendor resources
 call "%ROOT%\build\fetch_platform_tools.bat"
@@ -107,8 +107,8 @@ if errorlevel 1 exit /b 1
 
 echo [5/6] Verify portable bundle
 set "OUT=%ROOT%\desktop\release\win-unpacked"
-if not exist "%OUT%\SEIAndroidTVTestToolBox.exe" (
-  if exist "%ROOT%\desktop\release-new\win-unpacked\SEIAndroidTVTestToolBox.exe" set "OUT=%ROOT%\desktop\release-new\win-unpacked"
+if not exist "%OUT%\AndroidTVTestToolBox.exe" (
+  if exist "%ROOT%\desktop\release-new\win-unpacked\AndroidTVTestToolBox.exe" set "OUT=%ROOT%\desktop\release-new\win-unpacked"
 )
 "%PY%" "%ROOT%\scripts\verify_desktop_bundle.py" "%OUT%"
 if errorlevel 1 exit /b 1
@@ -116,15 +116,15 @@ if errorlevel 1 exit /b 1
 if errorlevel 1 exit /b 1
 
 echo [6/6] Mirror + zip
-robocopy "%OUT%" "%ROOT%\dist\SEIAndroidTVTestToolBox-Desktop" /MIR /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%OUT%" "%ROOT%\dist\AndroidTVTestToolBox-Desktop" /MIR /NFL /NDL /NJH /NJS /nc /ns /np
 if errorlevel 8 (
-  echo WARN: copy to dist\SEIAndroidTVTestToolBox-Desktop failed
+  echo WARN: copy to dist\AndroidTVTestToolBox-Desktop failed
 ) else (
-  echo [OK] also mirrored to: %ROOT%\dist\SEIAndroidTVTestToolBox-Desktop
+  echo [OK] also mirrored to: %ROOT%\dist\AndroidTVTestToolBox-Desktop
 )
 
 copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%OUT%\升级.bat" >nul
-if exist "%ROOT%\dist\SEIAndroidTVTestToolBox-Desktop" copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%ROOT%\dist\SEIAndroidTVTestToolBox-Desktop\升级.bat" >nul
+if exist "%ROOT%\dist\AndroidTVTestToolBox-Desktop" copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%ROOT%\dist\AndroidTVTestToolBox-Desktop\升级.bat" >nul
 
 echo [*] Creating portable zip ...
 if exist "!ZIP_NAME!" del /f /q "!ZIP_NAME!" >nul 2>&1
@@ -132,29 +132,29 @@ set "ZIP_OK=0"
 where tar >nul 2>&1
 if not errorlevel 1 (
   pushd "%ROOT%\dist"
-  tar -a -cf "SEIAndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" "SEIAndroidTVTestToolBox-Desktop"
-  if not errorlevel 1 if exist "SEIAndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" set "ZIP_OK=1"
+  tar -a -cf "AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" "AndroidTVTestToolBox-Desktop"
+  if not errorlevel 1 if exist "AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" set "ZIP_OK=1"
   popd
 )
 if "!ZIP_OK!"=="0" (
-  powershell -NoProfile -Command "Compress-Archive -LiteralPath '%ROOT%\dist\SEIAndroidTVTestToolBox-Desktop' -DestinationPath '!ZIP_NAME!' -Force -CompressionLevel Optimal"
+  powershell -NoProfile -Command "Compress-Archive -LiteralPath '%ROOT%\dist\AndroidTVTestToolBox-Desktop' -DestinationPath '!ZIP_NAME!' -Force -CompressionLevel Optimal"
   if exist "!ZIP_NAME!" set "ZIP_OK=1"
 )
 
 echo.
 echo ========================================
 echo  Portable pack ready.
-echo  Folder: %OUT%\SEIAndroidTVTestToolBox.exe
-echo  Folder: %ROOT%\dist\SEIAndroidTVTestToolBox-Desktop\SEIAndroidTVTestToolBox.exe
+echo  Folder: %OUT%\AndroidTVTestToolBox.exe
+echo  Folder: %ROOT%\dist\AndroidTVTestToolBox-Desktop\AndroidTVTestToolBox.exe
 if "!ZIP_OK!"=="1" (
   echo  Zip:    !ZIP_NAME!
 ) else (
   echo  Zip:    FAILED - close Explorer under dist and retry zip step
 )
 echo  Upgrade: run 升级.bat inside the NEW pack.
-echo  Data: %%LOCALAPPDATA%%\SEIAndroidTVTestToolBox
+echo  Data: %%LOCALAPPDATA%%\AndroidTVTestToolBox
 echo  Tip: for NSIS installer + NAS auto-update, run scripts\build_desktop_nsis.bat
-echo       then put SEIAndroidTVTestToolBox-Setup-*.exe + latest.yml into
+echo       then put AndroidTVTestToolBox-Setup-*.exe + latest.yml into
 echo       \\nas.we\Department_files\Testing\public\测试工具\ToolBox
 echo ========================================
 endlocal

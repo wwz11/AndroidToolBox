@@ -2,8 +2,8 @@
   "name": "toolbox-desktop",
   "private": true,
   "version": "2026.11.12",
-  "description": "SEIAndroidTVTestToolBox Electron shell",
-  "author": "SEIAndroidTVTestToolBox",
+  "description": "AndroidTVTestToolBox Electron shell",
+  "author": "AndroidTVTestToolBox",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {

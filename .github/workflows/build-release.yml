@@ -43,5 +43,5 @@ jobs:
       - name: Upload Desktop Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SEIAndroidTVTestToolBox-Desktop
-          path: dist/SEIAndroidTVTestToolBox-Desktop_portable_*.zip
+          name: AndroidTVTestToolBox-Desktop
+          path: dist/AndroidTVTestToolBox-Desktop_portable_*.zip

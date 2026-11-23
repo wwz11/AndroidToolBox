@@ -24,7 +24,7 @@ const API_TOKEN =
   process.env.TOOLBOX_API_TOKEN || crypto.randomBytes(24).toString("hex");
 process.env.TOOLBOX_API_TOKEN = API_TOKEN;
 const NEED_API_REV = 90;
-const APP_NAME = "SEIAndroidTVTestToolBox";
+const APP_NAME = "AndroidTVTestToolBox";
 const LEGACY_DATA_DIR_NAME = "Toolbox";
 /** 默认 GitHub Releases 更新源（generic 协议直连 latest.yml 与安装包） */
 const DEFAULT_UPDATE_URL =
