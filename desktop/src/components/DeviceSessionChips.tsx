@@ -6,6 +6,9 @@ type Props = {
   onlineSet: Set<string>;
   busyBySn?: Record<string, boolean>;
   busyTitle?: string;
+  rootedBySn?: Record<string, boolean>;
+  rootBusyBySn?: Record<string, boolean>;
+  onRoot?: (sn: string) => void;
   onActivate: (session: DeviceSession) => void;
   onClose: (id: string) => void;
 };
@@ -16,6 +19,9 @@ export default function DeviceSessionChips({
   onlineSet,
   busyBySn,
   busyTitle = "进行中，请先停止再关闭",
+  rootedBySn,
+  rootBusyBySn,
+  onRoot,
   onActivate,
   onClose,
 }: Props) {
@@ -60,6 +66,30 @@ export default function DeviceSessionChips({
               {shortSn(session.sn)}
               {!session.placeholder && !online ? " · 已断开" : ""}
             </span>
+            {!session.placeholder && onRoot ? (
+              <button
+                type="button"
+                className={`chip-root${rootedBySn?.[session.sn] ? " is-rooted" : ""}`}
+                disabled={!online || Boolean(rootBusyBySn?.[session.sn])}
+                title={
+                  !online
+                    ? "设备已断开"
+                    : rootedBySn?.[session.sn]
+                      ? `已对 ${session.sn} 执行 adb root（点击可重新执行）`
+                      : `对 ${session.sn} 执行 adb root（需要设备支持）`
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRoot(session.sn);
+                }}
+              >
+                {rootBusyBySn?.[session.sn]
+                  ? "…"
+                  : rootedBySn?.[session.sn]
+                    ? "已Root"
+                    : "Root"}
+              </button>
+            ) : null}
             {!session.placeholder ? (
               <button
                 type="button"

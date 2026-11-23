@@ -68,7 +68,7 @@ export default function DevicePage({ pageActive = true }: Props) {
   const [recordHoldBySn, markRecordHold] = useKeyedFlag();
   const [netTarget, setNetTarget] = useState(() => readAppPrefs().netAdbLast);
   const [subTab, setSubTab] = useState<SubTab>("信息");
-  const [rootBusy, setRootBusy] = useState(false);
+  const [rootBusyBySn, setRootBusyBySn] = useState<Record<string, boolean>>({});
   const [rootedBySn, setRootedBySn] = useState<Record<string, boolean>>({});
   const prevOnlineRef = useRef<Set<string>>(new Set());
 
@@ -81,12 +81,6 @@ export default function DevicePage({ pageActive = true }: Props) {
   );
   const activeHold = Boolean(active && recordHoldBySn[active.sn]);
   const lockSession = activeOffline && !activeHold;
-  const rootTargetSn =
-    active && !active.placeholder && !activeOffline
-      ? active.sn
-      : roster.devices.includes(roster.selected)
-        ? roster.selected
-        : "";
   const netConnected = useMemo(
     () => isNetDeviceOnline(roster.devices, netTarget),
     [roster.devices, netTarget],
@@ -171,18 +165,18 @@ export default function DevicePage({ pageActive = true }: Props) {
     }
   }
 
-  async function rootDevice() {
-    if (!rootTargetSn || rootBusy) return;
-    setRootBusy(true);
+  async function rootDevice(sn: string) {
+    if (!sn || rootBusyBySn[sn]) return;
+    setRootBusyBySn((prev) => ({ ...prev, [sn]: true }));
     try {
-      const r = await api.deviceRoot(rootTargetSn);
+      const r = await api.deviceRoot(sn);
       const msg = (r.message || "").trim() || "adb root 成功";
-      setRootedBySn((prev) => ({ ...prev, [rootTargetSn]: true }));
-      toast.push(`${shortSn(rootTargetSn)} ${msg}`, "ok");
+      setRootedBySn((prev) => ({ ...prev, [sn]: true }));
+      toast.push(`${shortSn(sn)} ${msg}`, "ok");
     } catch (e) {
       toast.push(`Root 失败：${toErrorMessage(e)}`, "err");
     } finally {
-      setRootBusy(false);
+      setRootBusyBySn((prev) => ({ ...prev, [sn]: false }));
     }
   }
 
@@ -237,19 +231,6 @@ export default function DevicePage({ pageActive = true }: Props) {
             >
               全部
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={roster.busy || rootBusy || !rootTargetSn}
-              title={
-                rootTargetSn
-                  ? `对 ${rootTargetSn} 执行 adb root（需要设备支持）`
-                  : "请先选择在线设备"
-              }
-              onClick={() => void rootDevice()}
-            >
-              {rootBusy ? "Root 中…" : rootedBySn[rootTargetSn] ? "已 Root" : "Root"}
-            </Button>
           </div>
 
           <span className="device-connect-sep" aria-hidden />
@@ -301,6 +282,9 @@ export default function DevicePage({ pageActive = true }: Props) {
         sessions={sessions.sessions}
         activeId={sessions.activeId}
         onlineSet={roster.onlineSet}
+        rootedBySn={rootedBySn}
+        rootBusyBySn={rootBusyBySn}
+        onRoot={(sn) => void rootDevice(sn)}
         onActivate={(session) => {
           sessions.activate(session.id);
           if (!session.placeholder) {
