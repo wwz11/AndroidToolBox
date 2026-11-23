@@ -123,21 +123,22 @@
 .remote-chrome-text .field {
   min-width: 0;
   flex: 1;
-  height: var(--control-h, 32px);
+  height: var(--control-h-sm, 28px);
 }
 
 .remote-chrome-actions {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 0 1 auto;
   margin-left: auto;
 }
 
 .remote-action-group {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 6px;
 }
 
@@ -1090,7 +1091,9 @@
 }
 
 .remote-res-select {
-  height: 28px;
+  width: auto;
+  flex: 0 0 auto;
+  height: var(--control-h-sm, 28px);
   padding: 0 8px;
   font-size: 12px;
   min-width: 92px;
