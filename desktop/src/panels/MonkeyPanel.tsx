@@ -161,6 +161,7 @@ export default function MonkeyPanel({
   const [seed, setSeed] = useState(initial.seed);
   const [selectedPkgs, setSelectedPkgs] = useState<string[]>(initial.packages);
   const [pkgDraft, setPkgDraft] = useState("");
+  const [tagsExpanded, setTagsExpanded] = useState(false);
   const [verbose, setVerbose] = useState(initial.verbose);
   const [ignoreCrashes, setIgnoreCrashes] = useState(initial.ignoreCrashes);
   const [ignoreTimeouts, setIgnoreTimeouts] = useState(initial.ignoreTimeouts);
@@ -885,35 +886,51 @@ export default function MonkeyPanel({
         <section className="mk-pkg">
           <header className="mk-pkg-head">
             <strong>目标包</strong>
-            <span>
-              {selectedPkgs.length
-                ? `${selectedPkgs.length}/${MAX_PKGS}`
-                : "未选 = 系统级"}
+            <span className="mk-pkg-head-meta">
+              <span>
+                {selectedPkgs.length
+                  ? `已选 ${selectedPkgs.length}/${MAX_PKGS}`
+                  : "未选 = 系统级"}
+              </span>
+              {selectedPkgs.length ? (
+                <button
+                  type="button"
+                  className="mk-link"
+                  disabled={live}
+                  onClick={() => {
+                    setSelectedPkgs([]);
+                    setTagsExpanded(false);
+                  }}
+                >
+                  清空
+                </button>
+              ) : null}
             </span>
           </header>
 
           {selectedPkgs.length ? (
-            <div className="mk-tags">
-              {selectedPkgs.map((pkg) => (
+            <div className={`mk-tags${tagsExpanded ? " expanded" : ""}`}>
+              {(tagsExpanded ? selectedPkgs : selectedPkgs.slice(0, 4)).map((pkg) => (
                 <button
                   key={pkg}
                   type="button"
                   disabled={live}
-                  title="移除"
+                  title={`${pkg}（点击移除）`}
                   onClick={() => togglePackage(pkg)}
                 >
-                  {pkg}
+                  <span className="mk-tag-name">{pkg}</span>
                   <i aria-hidden>×</i>
                 </button>
               ))}
-              <button
-                type="button"
-                className="mk-link"
-                disabled={live}
-                onClick={() => setSelectedPkgs([])}
-              >
-                清空
-              </button>
+              {selectedPkgs.length > 4 ? (
+                <button
+                  type="button"
+                  className="mk-tags-more"
+                  onClick={() => setTagsExpanded((v) => !v)}
+                >
+                  {tagsExpanded ? "收起" : `+${selectedPkgs.length - 4} 展开`}
+                </button>
+              ) : null}
             </div>
           ) : null}
 
