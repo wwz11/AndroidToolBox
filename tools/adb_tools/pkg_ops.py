@@ -162,9 +162,23 @@ def adb_list_packages(device: str | None, *, scope: str = "all") -> list[str]:
         args.append("-3")
     elif kind in ("system", "s", "-s"):
         args.append("-s")
-    r = run_adb(args, device)
-    if r.returncode != 0:
+    r = None
+    msg = ""
+    for attempt in range(3):
+        r = run_adb(args, device)
         msg = (r.stderr or r.stdout or "").strip()
+        if r.returncode == 0 and "can't find service: package" not in msg.lower():
+            break
+        if "can't find service: package" in msg.lower() and attempt < 2:
+            time.sleep(1.0)
+            continue
+        break
+    assert r is not None
+    if "can't find service: package" in msg.lower():
+        raise RuntimeError(
+            "设备 package 服务未就绪（可能正在开机、处于 Recovery 或系统服务重启中），请稍后再点刷新"
+        )
+    if r.returncode != 0:
         raise RuntimeError(msg or "获取包名失败")
     packages: list[str] = []
     seen: set[str] = set()

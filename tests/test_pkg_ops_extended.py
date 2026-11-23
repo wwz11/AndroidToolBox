@@ -150,6 +150,36 @@ Package [com.demo] (12345):
             self.assertEqual(info["installed"], "true")
             self.assertFalse(info["enabled"])
 
+    def test_list_packages_retries_and_formats_missing_service(self) -> None:
+        calls = {"n": 0}
+
+        def fake_recover(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _cp("", "cmd: Can't find service: package\n", 1)
+            return _cp("package:com.demo.app\n")
+
+        with (
+            patch.object(pkg_ops, "adb_available", return_value=True),
+            patch.object(pkg_ops, "run_adb", side_effect=fake_recover),
+            patch.object(pkg_ops.time, "sleep", return_value=None),
+        ):
+            self.assertEqual(pkg_ops.adb_list_packages("SN1", scope="third"), ["com.demo.app"])
+            self.assertEqual(calls["n"], 2)
+
+        with (
+            patch.object(pkg_ops, "adb_available", return_value=True),
+            patch.object(
+                pkg_ops,
+                "run_adb",
+                return_value=_cp("", "cmd: Can't find service: package\n", 1),
+            ),
+            patch.object(pkg_ops.time, "sleep", return_value=None),
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                pkg_ops.adb_list_packages("SN1", scope="all")
+            self.assertIn("package 服务未就绪", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
