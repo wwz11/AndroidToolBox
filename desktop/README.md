@@ -1,4 +1,4 @@
-# SEIAndroidTVTestToolBox Desktop（Electron 桌面版）
+# AndroidTVTestToolBox Desktop（Electron 桌面版）
 
 这不是用浏览器打开的网页。界面用 Web 技术绘制，但通过 **Electron 打成 Windows 桌面程序（.exe）**，双击即可运行。
 
@@ -12,15 +12,15 @@ scripts\build_desktop.bat
 
 产出整夹便携包（内嵌 Electron、Python API 侧车、platform-tools/adb、eMMC/RPMB/iozone 等）：
 
-- `desktop\release\win-unpacked\SEIAndroidTVTestToolBox.exe`
-- 同步副本：`dist\SEIAndroidTVTestToolBox-Desktop\SEIAndroidTVTestToolBox.exe`
-- 压缩包：`dist\SEIAndroidTVTestToolBox-Desktop_portable_YYYYMMDD.zip`
+- `desktop\release\win-unpacked\AndroidTVTestToolBox.exe`
+- 同步副本：`dist\AndroidTVTestToolBox-Desktop\AndroidTVTestToolBox.exe`
+- 压缩包：`dist\AndroidTVTestToolBox-Desktop_portable_YYYYMMDD.zip`
 
 把整个文件夹拷到目标机即可双击运行，**不必安装 Python、adb 或其它运行时**。
 
 关闭窗口会进入**系统托盘后台运行**；双击托盘打开，右键「退出」才真正结束。
 
-配置 / 报告 / 自备 OTA 默认优先保存在 `<安装目录>\userdata\`（若存在旧版 `%LOCALAPPDATA%\SEIAndroidTVTestToolBox\` 数据则自动迁移；仅当安装目录无写入权限时回退到 `%LOCALAPPDATA%\SEIAndroidTVTestToolBox\`）。
+配置 / 报告 / 自备 OTA 默认优先保存在 `<安装目录>\userdata\`（若存在旧版 `%LOCALAPPDATA%\AndroidTVTestToolBox\` 数据则自动迁移；仅当安装目录无写入权限时回退到 `%LOCALAPPDATA%\AndroidTVTestToolBox\`）。
 
 ## 后续升级（一键）
 
@@ -28,7 +28,7 @@ scripts\build_desktop.bat
 2. 双击新包里的 `升级.bat`（会结束旧进程、覆盖安装目录、自动启动）。
 3. `升级.bat` 会保留 `<安装目录>\userdata\` 下的配置、报告与自备包，无需手工备份。
 
-首次升级若找不到旧目录：按提示把当前的 `SEIAndroidTVTestToolBox.exe` 拖进窗口即可。
+首次升级若找不到旧目录：按提示把当前的 `AndroidTVTestToolBox.exe` 拖进窗口即可。
 
 托盘右键可「打开数据目录」「打开安装目录」。
 

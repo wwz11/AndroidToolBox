@@ -1,6 +1,6 @@
 # eMMC 测试说明
 
-SEIAndroidTVTestToolBox **eMMC测试** 页用于 eMMC 导入验证，包含 5 个子项，结果统一写入同一份 Excel 测试报告。
+AndroidTVTestToolBox **eMMC测试** 页用于 eMMC 导入验证，包含 5 个子项，结果统一写入同一份 Excel 测试报告。
 
 ---
 
@@ -17,7 +17,7 @@ SEIAndroidTVTestToolBox **eMMC测试** 页用于 eMMC 导入验证，包含 5 �
 
 ```
 程序目录/
-├── SEIAndroidTVTestToolBox.exe
+├── AndroidTVTestToolBox.exe
 ├── config/              ← 各子项默认 ini
 ├── vendor/              ← adb、iozone、rpmb、报告模版、OTA 包
 ├── output/emmc/reports/ ← 测试报告（运行后生成）
