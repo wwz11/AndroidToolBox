@@ -12,7 +12,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-PREFIX = "AndroidTestToolBox-Setup-"
+PREFIX = "SEIAndroidTVTestToolBox-Setup-"
 
 
 def cleanup(dir_path: Path, version: str) -> int:

@@ -46,7 +46,7 @@ export default function TitleBar() {
         className="titlebar-drag"
         onDoubleClick={() => void window.toolbox?.windowToggleMaximize?.()}
       >
-        <span className="titlebar-title">AndroidTestToolBox</span>
+        <span className="titlebar-title">AndroidTV TestToolBox</span>
       </div>
       <div className="titlebar-controls" role="group" aria-label="窗口控制">
         <button

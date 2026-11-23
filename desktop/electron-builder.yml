@@ -1,7 +1,7 @@
 appId: com.toolbox.desktop
-productName: AndroidTestToolBox
-executableName: AndroidTestToolBox
-copyright: AndroidTestToolBox
+productName: SEIAndroidTVTestToolBox
+executableName: SEIAndroidTVTestToolBox
+copyright: SEIAndroidTVTestToolBox
 directories:
   output: release
   buildResources: build
@@ -17,7 +17,7 @@ extraResources:
 # 独立 ico 供桌面快捷方式引用（升级时也能刷对图标）
 extraFiles:
   - from: build/icon.ico
-    to: AndroidTestToolBox.ico
+    to: SEIAndroidTVTestToolBox.ico
 # latest.yml 元数据与 GitHub Releases 默认更新源
 publish:
   provider: generic
@@ -44,9 +44,9 @@ nsis:
   allowElevation: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: AndroidTestToolBox
-  uninstallDisplayName: AndroidTestToolBox
-  artifactName: AndroidTestToolBox-Setup-${version}.exe
+  shortcutName: SEIAndroidTVTestToolBox
+  uninstallDisplayName: SEIAndroidTVTestToolBox
+  artifactName: SEIAndroidTVTestToolBox-Setup-${version}.exe
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   installerHeaderIcon: build/icon.ico

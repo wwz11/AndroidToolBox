@@ -1,4 +1,4 @@
-# AndroidTestToolBox
+# SEIAndroidTVTestToolBox
 
 面向 Android / Android TV 测试与调试的桌面工具箱，基于 **Electron + React + TypeScript** 与本地 **Python (FastAPI)** 后端构建，内置 `adb` 与内嵌 `scrcpy`。
 
@@ -43,7 +43,7 @@
    scripts\build_desktop_nsis.bat
    ```
 2. 打包产物生成在 `desktop\release\`：
-   - `AndroidTestToolBox-Setup-<版本号>.exe`
+   - `SEIAndroidTVTestToolBox-Setup-<版本号>.exe`
    - `latest.yml`
-   - `AndroidTestToolBox-Setup-<版本号>.exe.blockmap`（可选）
-3. 在 GitHub 仓库 [Releases](https://github.com/wwz11/AndroidToolBox/releases) 创建正式版 Release（Tag 为 `v<版本号>`），上传 `AndroidTestToolBox-Setup-<版本号>.exe` 与 `latest.yml` 即可支持客户端自动检查更新。
+   - `SEIAndroidTVTestToolBox-Setup-<版本号>.exe.blockmap`（可选）
+3. 在 GitHub 仓库 [Releases](https://github.com/wwz11/AndroidToolBox/releases) 创建正式版 Release（Tag 为 `v<版本号>`），上传 `SEIAndroidTVTestToolBox-Setup-<版本号>.exe` 与 `latest.yml` 即可支持客户端自动检查更新。

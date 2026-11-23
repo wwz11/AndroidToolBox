@@ -116,7 +116,7 @@ export default function AboutModal({
                   SEI
                 </div>
                 <div>
-                  <strong>AndroidTestToolBox</strong>
+                  <strong>SEIAndroidTVTestToolBox</strong>
                   <p>Android TV 测试工具箱</p>
                 </div>
               </div>

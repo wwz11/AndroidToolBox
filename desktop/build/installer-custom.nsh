@@ -2,7 +2,7 @@
 !define TOOLBOX_SHCNE_UPDATEITEM 0x00002000
 !define TOOLBOX_SHCNE_UPDATEDIR 0x00001000
 !define TOOLBOX_SHCNF_PATH_FLUSHNOWAIT 0x2001
-!define TOOLBOX_KEEP_USERDATA "$LOCALAPPDATA\AndroidTestToolBox\_keep_userdata"
+!define TOOLBOX_KEEP_USERDATA "$LOCALAPPDATA\SEIAndroidTVTestToolBox\_keep_userdata"
 
 !macro customInit
   ; 不要在这里 taskkill：onInit 在向导出现前执行。
@@ -10,7 +10,7 @@
 
   ; 卸载旧版会删掉整个安装目录。先把 userdata（登录账号/报告/配置）挪走
   ${if} ${FileExists} "$INSTDIR\userdata"
-    CreateDirectory "$LOCALAPPDATA\AndroidTestToolBox"
+    CreateDirectory "$LOCALAPPDATA\SEIAndroidTVTestToolBox"
     RMDir /r "${TOOLBOX_KEEP_USERDATA}"
     ClearErrors
     Rename "$INSTDIR\userdata" "${TOOLBOX_KEEP_USERDATA}"
@@ -23,7 +23,7 @@
 
 !macro customInstall
   ClearErrors
-  ExecWait 'taskkill /F /IM AndroidTestToolBox.exe'
+  ExecWait 'taskkill /F /IM SEIAndroidTVTestToolBox.exe'
   ClearErrors
   ExecWait 'taskkill /F /IM Toolbox.exe'
   ClearErrors
@@ -44,8 +44,8 @@
 
   DetailPrint "Refreshing desktop and start menu shortcuts..."
 
-  ; 优先用安装目录内的 AndroidTestToolBox.ico（extraFiles），否则回退到 exe
-  StrCpy $0 "$INSTDIR\AndroidTestToolBox.ico"
+  ; 优先用安装目录内的 SEIAndroidTVTestToolBox.ico（extraFiles），否则回退到 exe
+  StrCpy $0 "$INSTDIR\SEIAndroidTVTestToolBox.ico"
   ${ifNot} ${FileExists} "$0"
     StrCpy $0 "$appExe"
   ${endIf}
