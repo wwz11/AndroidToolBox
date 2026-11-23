@@ -32,12 +32,18 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px 14px;
+}
+
+.mk-adv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
 }
 
 .mk-adv-field {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   gap: 8px;
   align-items: center;
 }
@@ -48,18 +54,19 @@
 }
 
 .mk-adv-field .field {
-  height: 32px;
-  font-size: 13px;
+  height: 30px;
+  font-size: 12.5px;
 }
 
 .mk-flags {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 2px;
 }
 
 .mk-flags label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
@@ -72,6 +79,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface-2);
 }
 
 .mk-cmd code {
@@ -81,7 +92,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--muted);
   background: transparent;
 }
@@ -122,26 +133,28 @@
 .mk-tags > button:not(.mk-link) {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   max-width: 100%;
-  height: 26px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px);
-  background: var(--surface-2);
-  color: var(--text);
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-family: var(--mono);
   font-size: 11px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 .mk-tags > button:not(.mk-link) i {
   font-style: normal;
-  color: var(--muted);
+  opacity: 0.75;
 }
 
 .mk-tags > button:not(.mk-link):hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
   color: var(--danger);
 }
 
@@ -210,7 +223,8 @@
 }
 
 .mk-list > button.on {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .mk-list > button:disabled {
@@ -291,25 +305,27 @@
 }
 
 .mk-progress {
-  height: 3px;
+  height: 5px;
   border-radius: 999px;
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   overflow: hidden;
 }
 
 .mk-progress > span {
   display: block;
   height: 100%;
-  background: var(--accent);
-  transition: width 0.2s ease;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 72%, #fff)
+  );
+  transition: width 0.22s ease;
 }
 
 @media (max-width: 640px) {
+  .mk-adv-grid,
   .mk-adv-field {
-    grid-template-columns: 1fr;
-  }
-
-  .mk-flags {
     grid-template-columns: 1fr;
   }
 }

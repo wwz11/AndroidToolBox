@@ -807,31 +807,33 @@ export default function MonkeyPanel({
       <details className="mk-advanced">
         <summary>高级选项与命令</summary>
         <div className="mk-advanced-body">
-          <label className="mk-adv-field">
-            <span>Seed</span>
-            <input
-              className="field"
-              inputMode="numeric"
-              value={seed}
-              disabled={live}
-              placeholder="随机"
-              onChange={(e) => setSeed(e.target.value)}
-            />
-          </label>
-          <label className="mk-adv-field">
-            <span>详细级别</span>
-            <select
-              className="field"
-              value={verbose}
-              disabled={live}
-              onChange={(e) => setVerbose(Number.parseInt(e.target.value, 10) || 0)}
-            >
-              <option value={0}>静默</option>
-              <option value={1}>-v</option>
-              <option value={2}>-vv</option>
-              <option value={3}>-vvv</option>
-            </select>
-          </label>
+          <div className="mk-adv-grid">
+            <label className="mk-adv-field">
+              <span>Seed</span>
+              <input
+                className="field"
+                inputMode="numeric"
+                value={seed}
+                disabled={live}
+                placeholder="随机"
+                onChange={(e) => setSeed(e.target.value)}
+              />
+            </label>
+            <label className="mk-adv-field">
+              <span>详细级别</span>
+              <select
+                className="field"
+                value={verbose}
+                disabled={live}
+                onChange={(e) => setVerbose(Number.parseInt(e.target.value, 10) || 0)}
+              >
+                <option value={0}>静默</option>
+                <option value={1}>-v</option>
+                <option value={2}>-vv</option>
+                <option value={3}>-vvv</option>
+              </select>
+            </label>
+          </div>
           <div className="mk-flags">
             <label>
               <input

@@ -107,12 +107,12 @@ AndroidTVToolBox/
 
 ---
 
-## 编译打包与 GitHub 发布
+## 编译打包与发布
 
-### 1. 打包 NSIS 安装包（用于分发与自动更新）
+### 1. 打包便携版 Zip
 在项目根目录执行：
 ```bat
-scripts\build_desktop_nsis.bat
+scripts\build_desktop.bat
 ```
 脚本会自动完成以下步骤：
 1. 调用 `build\write_build_version.py` 按 `年.月.序号` 自动递增版本号（例如 `2026.11.12` → `2026.11.13`）。
@@ -120,27 +120,11 @@ scripts\build_desktop_nsis.bat
    - 如需沿用当前 `desktop/package.json` 版本不递增：`set TOOLBOX_BUMP=none`
 2. 检查/拉取 `vendor\platform-tools`（`adb.exe`）与内置资源。
 3. 使用 Vite 构建前端，并使用 PyInstaller 将 `tools\api` 打包为独立 `toolbox-api`。
-4. 使用 `electron-builder` 生成 NSIS 安装包与自动更新元数据到 `desktop\release\`：
-   - `AndroidTVTestToolBox-Setup-<版本号>.exe`
-   - `latest.yml`
-   - `AndroidTVTestToolBox-Setup-<版本号>.exe.blockmap`（可选）
+4. 使用 `electron-builder` 打包便携目录并压缩到 `dist\AndroidTVTestToolBox-Desktop_portable_<版本号>.zip`。
 
-### 2. 打包便携版 Zip
-```bat
-scripts\build_desktop.bat
-```
-产物输出到 `dist\AndroidTVTestToolBox-Desktop_portable_<版本号>.zip`。
-
-### 3. 发布到 GitHub Releases（自动更新）
-客户端默认更新源已指向：
-```text
-https://github.com/wwz11/AndroidToolBox/releases/latest/download
-```
-每次发版步骤：
-1. 运行 `scripts\build_desktop_nsis.bat` 生成最新安装包。
-2. 打开 [GitHub Releases](https://github.com/wwz11/AndroidToolBox/releases) → **Draft a new release**。
-3. Tag 填写 `v<版本号>`（勾选 **Set as the latest release**，勿勾选 Pre-release）。
-4. 将 `desktop\release\` 下的 `AndroidTVTestToolBox-Setup-<版本号>.exe` 与 `latest.yml` 上传到附件并发布。
+### 2. 发布到 GitHub Releases
+1. 运行 `scripts\build_desktop.bat` 生成便携版 Zip。
+2. 打开 [GitHub Releases](https://github.com/wwz11/AndroidToolBox/releases) → **Draft a new release**，Tag 填写 `v<版本号>`，上传 `dist\AndroidTVTestToolBox-Desktop_portable_<版本号>.zip` 并发布。
 
 ---
 
