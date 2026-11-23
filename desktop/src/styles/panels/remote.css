@@ -140,6 +140,12 @@
   flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
+}
+
+.remote-chrome .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* —— 主布局 —— */
@@ -1090,13 +1096,13 @@
   margin-left: auto;
 }
 
-.remote-res-select {
+select.field.remote-res-select {
   width: auto;
+  min-width: 0;
   flex: 0 0 auto;
   height: var(--control-h-sm, 28px);
-  padding: 0 8px;
+  padding: 0 24px 0 8px;
   font-size: 12px;
-  min-width: 92px;
 }
 
 .remote-head-pills {
