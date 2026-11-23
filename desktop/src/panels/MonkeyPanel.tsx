@@ -908,9 +908,9 @@ export default function MonkeyPanel({
             </span>
           </header>
 
-          {selectedPkgs.length ? (
-            <div className={`mk-tags${tagsExpanded ? " expanded" : ""}`}>
-              {(tagsExpanded ? selectedPkgs : selectedPkgs.slice(0, 4)).map((pkg) => (
+          {selectedPkgs.length > 0 && selectedPkgs.length <= 3 ? (
+            <div className="mk-tags">
+              {selectedPkgs.map((pkg) => (
                 <button
                   key={pkg}
                   type="button"
@@ -922,14 +922,34 @@ export default function MonkeyPanel({
                   <i aria-hidden>×</i>
                 </button>
               ))}
-              {selectedPkgs.length > 4 ? (
-                <button
-                  type="button"
-                  className="mk-tags-more"
-                  onClick={() => setTagsExpanded((v) => !v)}
-                >
-                  {tagsExpanded ? "收起" : `+${selectedPkgs.length - 4} 展开`}
-                </button>
+            </div>
+          ) : selectedPkgs.length > 3 ? (
+            <div className="mk-tags-summary">
+              <button
+                type="button"
+                className="mk-tags-summary-btn"
+                onClick={() => setTagsExpanded((v) => !v)}
+              >
+                <span>已选 {selectedPkgs.length} 个应用</span>
+                <span className="mk-tags-summary-act">
+                  {tagsExpanded ? "收起" : "查看已选"}
+                </span>
+              </button>
+              {tagsExpanded ? (
+                <div className="mk-tags expanded">
+                  {selectedPkgs.map((pkg) => (
+                    <button
+                      key={pkg}
+                      type="button"
+                      disabled={live}
+                      title={`${pkg}（点击移除）`}
+                      onClick={() => togglePackage(pkg)}
+                    >
+                      <span className="mk-tag-name">{pkg}</span>
+                      <i aria-hidden>×</i>
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
           ) : null}
@@ -1029,7 +1049,16 @@ export default function MonkeyPanel({
                 </div>
               </>
             ) : (
-              <div className="mk-empty">点「载入」获取设备上的包名</div>
+              <div className="mk-empty">
+                <span>尚未加载设备应用列表</span>
+                <Button
+                  size="sm"
+                  disabled={!snOk || live || pkgBusy}
+                  onClick={() => void loadCatalog()}
+                >
+                  {pkgBusy ? "载入中…" : "载入应用列表"}
+                </Button>
+              </div>
             )}
           </div>
 
