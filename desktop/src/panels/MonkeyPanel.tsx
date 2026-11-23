@@ -887,11 +887,21 @@ export default function MonkeyPanel({
           <header className="mk-pkg-head">
             <strong>目标包</strong>
             <span className="mk-pkg-head-meta">
-              <span>
-                {selectedPkgs.length
-                  ? `已选 ${selectedPkgs.length}/${MAX_PKGS}`
-                  : "未选 = 系统级"}
-              </span>
+              {selectedPkgs.length > 3 ? (
+                <button
+                  type="button"
+                  className="mk-link"
+                  onClick={() => setTagsExpanded((v) => !v)}
+                >
+                  {tagsExpanded ? "收起已选" : `已选 ${selectedPkgs.length}/${MAX_PKGS}`}
+                </button>
+              ) : (
+                <span>
+                  {selectedPkgs.length
+                    ? `${selectedPkgs.length}/${MAX_PKGS}`
+                    : "未选 = 系统级"}
+                </span>
+              )}
               {selectedPkgs.length ? (
                 <button
                   type="button"
@@ -908,8 +918,8 @@ export default function MonkeyPanel({
             </span>
           </header>
 
-          {selectedPkgs.length > 0 && selectedPkgs.length <= 3 ? (
-            <div className="mk-tags">
+          {selectedPkgs.length > 0 && (selectedPkgs.length <= 3 || tagsExpanded) ? (
+            <div className={`mk-tags${selectedPkgs.length > 3 ? " expanded" : ""}`}>
               {selectedPkgs.map((pkg) => (
                 <button
                   key={pkg}
@@ -922,35 +932,6 @@ export default function MonkeyPanel({
                   <i aria-hidden>×</i>
                 </button>
               ))}
-            </div>
-          ) : selectedPkgs.length > 3 ? (
-            <div className="mk-tags-summary">
-              <button
-                type="button"
-                className="mk-tags-summary-btn"
-                onClick={() => setTagsExpanded((v) => !v)}
-              >
-                <span>已选 {selectedPkgs.length} 个应用</span>
-                <span className="mk-tags-summary-act">
-                  {tagsExpanded ? "收起" : "查看已选"}
-                </span>
-              </button>
-              {tagsExpanded ? (
-                <div className="mk-tags expanded">
-                  {selectedPkgs.map((pkg) => (
-                    <button
-                      key={pkg}
-                      type="button"
-                      disabled={live}
-                      title={`${pkg}（点击移除）`}
-                      onClick={() => togglePackage(pkg)}
-                    >
-                      <span className="mk-tag-name">{pkg}</span>
-                      <i aria-hidden>×</i>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
           ) : null}
 
@@ -1050,14 +1031,7 @@ export default function MonkeyPanel({
               </>
             ) : (
               <div className="mk-empty">
-                <span>尚未加载设备应用列表</span>
-                <Button
-                  size="sm"
-                  disabled={!snOk || live || pkgBusy}
-                  onClick={() => void loadCatalog()}
-                >
-                  {pkgBusy ? "载入中…" : "载入应用列表"}
-                </Button>
+                <span>点击上方「载入」获取设备应用</span>
               </div>
             )}
           </div>
