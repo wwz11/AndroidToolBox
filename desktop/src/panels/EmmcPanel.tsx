@@ -436,13 +436,19 @@ export default function EmmcPanel({
   }
 
   async function openAny(path: string) {
-    if (!path) {
+    const trimmed = path.trim();
+    if (!trimmed) {
       setStatus("路径为空");
       return;
     }
+    if (/^https?:\/\//i.test(trimmed)) {
+      window.open(trimmed, "_blank", "noopener,noreferrer");
+      setStatus(`已在浏览器打开 ${shortPath(trimmed)}`);
+      return;
+    }
     try {
-      const r = await api.openPath(path);
-      setStatus(r.message || `已打开 ${shortPath(path)}`);
+      const r = await api.openPath(trimmed);
+      setStatus(r.message || `已打开 ${shortPath(trimmed)}`);
     } catch (e) {
       setStatus(`打开路径失败：${toErrorMessage(e)}`);
     }

@@ -112,7 +112,16 @@ def b64_decode(body: Base64Body) -> dict:
 
 @router.post("/open-path")
 def open_path(body: OpenPathBody) -> dict:
-    """用系统资源管理器打开文件或目录。"""
+    """用系统资源管理器打开文件/目录，或用默认浏览器打开 http(s) 链接。"""
+    raw = body.path.strip()
+    if raw.lower().startswith(("http://", "https://")):
+        import webbrowser
+
+        try:
+            webbrowser.open(raw)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        return {"ok": True, "path": raw, "message": f"已在浏览器打开 {raw}"}
     p = Path(body.path).expanduser()
     try:
         p = p.resolve()
