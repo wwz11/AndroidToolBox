@@ -1587,6 +1587,14 @@ export default function EmmcPanel({
         }
       >
         <div className="emmc-header-grid">
+          <div className="emmc-param emmc-param-wide">
+            <span
+              className="emmc-hint"
+              style={{ color: "var(--danger)", fontWeight: 500, lineHeight: 1.5 }}
+            >
+              注意：请务必填写准确流程号！流程号是本地 Excel 与飞书在线报告的唯一汇总标识；若填错或多设备未填同一流程号，会导致测试结果分散到不同报告或覆盖旧测试数据，无法自动汇总。
+            </span>
+          </div>
           {(
             [
               ["flow_no", "流程号 *"],
