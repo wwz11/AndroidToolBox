@@ -633,6 +633,9 @@ def send_feishu_report_notification(
     initial_result: str = "",
     summary: str = "",
     title: str = "eMMC 测试报告已更新",
+    sn: str = "",
+    steps_text: str = "",
+    is_start: bool = False,
 ) -> dict[str, Any]:
     """通过飞书应用机器人私聊通知已扫码登录的测试人员（使用永久 open_id + 应用凭证，长测不失效）。"""
     target_open_id = (open_id or load_feishu_config().get("user_open_id") or "").strip()
@@ -641,24 +644,60 @@ def send_feishu_report_notification(
 
     token = get_tenant_access_token(app_id, app_secret)
 
-    lines: list[list[dict[str, Any]]] = []
-    if project or flow_no:
-        lines.append([{"tag": "text", "text": f"项目：{project or '-'}  |  流程号：{flow_no or '-'}"}])
-    if initial_result:
-        lines.append([{"tag": "text", "text": f"当前初判：{initial_result}"}])
+    proj = (project or "").strip()
+    flow = (flow_no or "").strip()
+    md_lines: list[str] = []
+    if proj and proj != flow:
+        md_lines.append(f"**导入项目**：{proj}（流程号：{flow or '-'}）")
+    elif flow:
+        md_lines.append(f"**流程号**：{flow}")
+    if sn:
+        md_lines.append(f"**设备 SN**：`{sn}`")
+    if steps_text:
+        md_lines.append(f"**测试项**：{steps_text}")
     if summary:
-        lines.append([{"tag": "text", "text": summary}])
-    if report_url:
-        lines.append([
-            {"tag": "text", "text": "在线报告："},
-            {"tag": "a", "text": "点击打开飞书表格", "href": report_url},
-        ])
+        md_lines.append(f"**本次进度**：{summary}")
+    if not is_start and initial_result:
+        md_lines.append(f"**当前初判**：{initial_result}")
 
-    post_body = {
-        "zh_cn": {
-            "title": title,
-            "content": lines or [[{"tag": "text", "text": "eMMC 测试结果已写入在线报告"}]],
+    header_template = "blue"
+    if not is_start:
+        if "Fail" in summary or initial_result == "Fail":
+            header_template = "red"
+        elif "Pass" in summary or initial_result == "Pass":
+            header_template = "green"
+
+    elements: list[dict[str, Any]] = [
+        {
+            "tag": "div",
+            "text": {
+                "tag": "lark_md",
+                "content": "\n".join(md_lines) if md_lines else "eMMC 测试状态已更新",
+            },
         }
+    ]
+    if report_url:
+        elements.append(
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "打开飞书在线报告"},
+                        "type": "primary",
+                        "url": report_url,
+                    }
+                ],
+            }
+        )
+
+    card = {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "template": header_template,
+            "title": {"tag": "plain_text", "content": title},
+        },
+        "elements": elements,
     }
     res = _request_json(
         "POST",
@@ -666,8 +705,8 @@ def send_feishu_report_notification(
         token=token,
         body={
             "receive_id": target_open_id,
-            "msg_type": "post",
-            "content": json.dumps(post_body, ensure_ascii=False),
+            "msg_type": "interactive",
+            "content": json.dumps(card, ensure_ascii=False),
         },
     )
     msg_id = str((res.get("data") or {}).get("message_id") or "").strip()

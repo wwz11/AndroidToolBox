@@ -242,22 +242,17 @@ def _notify_feishu_start(
     try:
         meta = read_report_header(local_report) if local_report.is_file() else ReportHeaderMeta()
         step_names = "、".join(AUTO_LABELS.get(s, s) for s in (steps or []))
-        parts = []
-        if sn:
-            parts.append(f"设备：{sn}")
-        if step_names:
-            parts.append(f"测试项：{step_names}")
-        summary = " | ".join(parts) if parts else "eMMC 测试已开始，后续每项结果会自动写入此在线报告"
         send_feishu_report_notification(
             app_id=cfg["app_id"],
             app_secret=cfg["app_secret"],
             open_id=cfg["user_open_id"],
-            project=meta.import_project or flow,
+            project=meta.import_project,
             flow_no=flow,
             report_url=url,
-            initial_result=meta.initial_result,
             title="eMMC 测试已开始",
-            summary=summary,
+            sn=sn,
+            steps_text=step_names,
+            is_start=True,
         )
     except Exception:
         pass
