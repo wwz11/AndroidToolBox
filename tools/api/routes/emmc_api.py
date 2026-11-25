@@ -288,7 +288,7 @@ def _ensure_feishu_report_for_flow(
             # 旧在线报告已被删除，清除绑定并重新从模板复制
             set_feishu_report_for_flow(flow, "")
 
-        if not cfg["template_url"]:
+        if not cfg.get("user_open_id") or not cfg["template_url"]:
             return "", ""
         try:
             res = copy_feishu_spreadsheet(

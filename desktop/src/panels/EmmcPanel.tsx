@@ -1830,7 +1830,13 @@ export default function EmmcPanel({
         <div className="emmc-header-grid">
           <div className="emmc-param emmc-param-wide">
             <p className="emmc-hint" style={{ margin: 0, lineHeight: 1.6 }}>
-              扫码登录飞书后，将自动填写测试人并在测试开始与结果更新时私聊通知您（不登录也可继续）。
+              扫码登录飞书后，将自动填写测试人、生成飞书在线报告并私聊通知进度。
+            </p>
+            <p
+              className="emmc-hint"
+              style={{ margin: 0, lineHeight: 1.6, color: "var(--danger)", fontWeight: 500 }}
+            >
+              注意：不登录将仅生成本地报告，不会生成飞书在线报告，也没有飞书通知。
             </p>
             {feishuMsg ? <span className="emmc-hint">{feishuMsg}</span> : null}
           </div>
