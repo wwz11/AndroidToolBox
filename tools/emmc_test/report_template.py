@@ -8,8 +8,23 @@ import datetime as dt
 import re
 import shutil
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
+
+_FLOW_LOCKS_GUARD = threading.Lock()
+_FLOW_LOCKS: dict[str, threading.RLock] = {}
+
+
+def flow_lock(flow_no: str) -> threading.RLock:
+    """按流程号提供可重入互斥锁，避免多设备并行写入同一本地/在线报告时互相覆盖。"""
+    key = (flow_no or "").strip() or "_default"
+    with _FLOW_LOCKS_GUARD:
+        lock = _FLOW_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _FLOW_LOCKS[key] = lock
+        return lock
 
 _TEMPLATE_NAME = "eMMC For SEIxxxxx 导入测试报告模版v3.0.xlsx"
 _REPORT_DIR_NAME = "reports"
@@ -699,41 +714,43 @@ def write_stress_result(
     if report_path is None:
         raise ValueError("report_path 必填：请在测试开始时调用 create_report() 生成独立报告文件")
     out = report_path
-    touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
-    wb = _load_workbook(out)
-    _stamp_test_time(wb)
-    write_fail = max(0, run_count - write_pass)
-    read_fail = max(0, run_count - read_pass)
-    check_fail = max(0, run_count - check_pass)
-    # 用字符串写入，避免部分 Excel「不显示零值」把失败次数 0 显示成空白；
-    # 同时清掉模版占位「（次）」长空格文本。
-    from openpyxl.styles import Alignment
+    flow = flow_no_from_report_path(out)
+    with flow_lock(flow):
+        touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
+        wb = _load_workbook(out)
+        _stamp_test_time(wb)
+        write_fail = max(0, run_count - write_pass)
+        read_fail = max(0, run_count - read_pass)
+        check_fail = max(0, run_count - check_pass)
+        # 用字符串写入，避免部分 Excel「不显示零值」把失败次数 0 显示成空白；
+        # 同时清掉模版占位「（次）」长空格文本。
+        from openpyxl.styles import Alignment
 
-    center = Alignment(horizontal="center", vertical="center")
-    for ws in _iter_report_sheets(wb):
-        _safe_set_cell(ws, 26, 6, _stress_duration_label(ws, run_count, loop_num))
-        _safe_set_cell(ws, 27, 1, int(loop_num))
-        _safe_set_cell(ws, 27, 3, int(make_file_kb))
-        _safe_set_cell(ws, 27, 4, int(make_file_kb))
-        _safe_set_cell(ws, 27, 5, int(make_file_kb))
-        _safe_set_cell(ws, 28, 3, str(int(write_pass)))
-        _safe_set_cell(ws, 28, 4, str(int(read_pass)))
-        _safe_set_cell(ws, 28, 5, str(int(check_pass)))
-        _safe_set_cell(ws, 28, 6, round(float(duration_minutes), 1))
-        _safe_set_cell(ws, 28, 8, "Pass" if passed else "Fail")
-        _safe_set_cell(ws, 29, 3, str(int(write_fail)))
-        _safe_set_cell(ws, 29, 4, str(int(read_fail)))
-        _safe_set_cell(ws, 29, 5, str(int(check_fail)))
-        for row, col in ((28, 3), (28, 4), (28, 5), (29, 3), (29, 4), (29, 5)):
-            ws.cell(row, col).alignment = center
-    _finalize_report_workbook(wb, out)
-    saved = _save_workbook(wb, out)
-    wb.close()
-    _try_sync_online_report(
-        saved,
-        summary=f"读写压力测试：{'Pass' if passed else 'Fail'}（成功 {write_pass}/{read_pass}/{check_pass}，共 {run_count} 次）",
-    )
-    return saved
+        center = Alignment(horizontal="center", vertical="center")
+        for ws in _iter_report_sheets(wb):
+            _safe_set_cell(ws, 26, 6, _stress_duration_label(ws, run_count, loop_num))
+            _safe_set_cell(ws, 27, 1, int(loop_num))
+            _safe_set_cell(ws, 27, 3, int(make_file_kb))
+            _safe_set_cell(ws, 27, 4, int(make_file_kb))
+            _safe_set_cell(ws, 27, 5, int(make_file_kb))
+            _safe_set_cell(ws, 28, 3, str(int(write_pass)))
+            _safe_set_cell(ws, 28, 4, str(int(read_pass)))
+            _safe_set_cell(ws, 28, 5, str(int(check_pass)))
+            _safe_set_cell(ws, 28, 6, round(float(duration_minutes), 1))
+            _safe_set_cell(ws, 28, 8, "Pass" if passed else "Fail")
+            _safe_set_cell(ws, 29, 3, str(int(write_fail)))
+            _safe_set_cell(ws, 29, 4, str(int(read_fail)))
+            _safe_set_cell(ws, 29, 5, str(int(check_fail)))
+            for row, col in ((28, 3), (28, 4), (28, 5), (29, 3), (29, 4), (29, 5)):
+                ws.cell(row, col).alignment = center
+        _finalize_report_workbook(wb, out)
+        saved = _save_workbook(wb, out)
+        wb.close()
+        _try_sync_online_report(
+            saved,
+            summary=f"读写压力测试：{'Pass' if passed else 'Fail'}（成功 {write_pass}/{read_pass}/{check_pass}，共 {run_count} 次）",
+        )
+        return saved
 
 
 _IOZONE_LOG_COL = 10  # J 列「Izone 的 日志文件」（v3.0 新增）
@@ -1090,53 +1107,54 @@ def write_iozone_result(
     if report_path is None:
         raise ValueError("report_path 必填：请在测试开始时调用 create_report() 生成独立报告文件")
     out = report_path
-    touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
-    r1, r2, r3, r_avg, size_label = _iozone_row_group(file_size_mb)
-    wb = _load_workbook(out)
-    _stamp_test_time(wb)
+    with flow_lock(flow_no or flow_no_from_report_path(out)):
+        touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
+        r1, r2, r3, r_avg, size_label = _iozone_row_group(file_size_mb)
+        wb = _load_workbook(out)
+        _stamp_test_time(wb)
 
-    def _fill_row(ws, row: int, rates: dict[str, str]) -> None:
-        for keys, col in _RATE_COLS:
-            _safe_set_cell(ws, row, col, _rate_value(rates, keys))
+        def _fill_row(ws, row: int, rates: dict[str, str]) -> None:
+            for keys, col in _RATE_COLS:
+                _safe_set_cell(ws, row, col, _rate_value(rates, keys))
 
-    passed = _iozone_pass(
-        average,
-        samsung_emmc=samsung_emmc,
-        write_min_mbs=write_min_mbs,
-        read_min_mbs=read_min_mbs,
-    )
+        passed = _iozone_pass(
+            average,
+            samsung_emmc=samsung_emmc,
+            write_min_mbs=write_min_mbs,
+            read_min_mbs=read_min_mbs,
+        )
 
-    for ws in _iter_report_sheets(wb):
-        log_col, result_col, shot_col = _iozone_cols_for_sheet(ws)
-        _safe_set_cell(ws, r1, 1, size_label)
-        _safe_set_cell(ws, r1, 2, round(duration_minutes, 1))
-        for idx, row in enumerate((r1, r2, r3)):
-            if idx < len(runs):
-                _fill_row(ws, row, runs[idx])
+        for ws in _iter_report_sheets(wb):
+            log_col, result_col, shot_col = _iozone_cols_for_sheet(ws)
+            _safe_set_cell(ws, r1, 1, size_label)
+            _safe_set_cell(ws, r1, 2, round(duration_minutes, 1))
+            for idx, row in enumerate((r1, r2, r3)):
+                if idx < len(runs):
+                    _fill_row(ws, row, runs[idx])
+                if log_col is not None:
+                    if log_paths and idx < len(log_paths) and log_paths[idx] is not None:
+                        lp = Path(log_paths[idx])
+                        _safe_set_cell(ws, row, log_col, lp.name)
+                        try:
+                            ws.cell(row, log_col).hyperlink = f"../logs/{lp.name}"
+                        except Exception:
+                            pass
+                    elif run_logs and idx < len(run_logs) and run_logs[idx].strip():
+                        _safe_set_cell(ws, row, log_col, run_logs[idx].strip()[-1000:])
+            _fill_row(ws, r_avg, average)
             if log_col is not None:
-                if log_paths and idx < len(log_paths) and log_paths[idx] is not None:
-                    lp = Path(log_paths[idx])
-                    _safe_set_cell(ws, row, log_col, lp.name)
-                    try:
-                        ws.cell(row, log_col).hyperlink = f"../logs/{lp.name}"
-                    except Exception:
-                        pass
-                elif run_logs and idx < len(run_logs) and run_logs[idx].strip():
-                    _safe_set_cell(ws, row, log_col, run_logs[idx].strip()[-1000:])
-        _fill_row(ws, r_avg, average)
-        if log_col is not None:
-            _safe_set_cell(ws, r_avg, log_col, "N/A")
-        _safe_set_cell(ws, r_avg, result_col, passed)
-        if screenshot_path is not None and screenshot_path.is_file():
-            _embed_sheet_image(ws, r1, shot_col, screenshot_path)
-    _finalize_report_workbook(wb, out)
-    saved = _save_workbook(wb, out)
-    wb.close()
-    _try_sync_online_report(
-        saved,
-        summary=f"Iozone {size_label} 读写速度测试：{passed}",
-    )
-    return saved
+                _safe_set_cell(ws, r_avg, log_col, "N/A")
+            _safe_set_cell(ws, r_avg, result_col, passed)
+            if screenshot_path is not None and screenshot_path.is_file():
+                _embed_sheet_image(ws, r1, shot_col, screenshot_path)
+        _finalize_report_workbook(wb, out)
+        saved = _save_workbook(wb, out)
+        wb.close()
+        _try_sync_online_report(
+            saved,
+            summary=f"Iozone {size_label} 读写速度测试：{passed}",
+        )
+        return saved
 
 
 def write_rpmb_result(
@@ -1154,22 +1172,23 @@ def write_rpmb_result(
     if report_path is None:
         raise ValueError("report_path 必填：请在测试开始时调用 create_report() 生成独立报告文件")
     out = report_path
-    touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
-    wb = _load_workbook(out)
-    _stamp_test_time(wb)
-    for ws in _iter_report_sheets(wb):
-        _safe_set_cell(ws, _RPMB_ROW, _RPMB_DURATION_COL, round(duration_hours, 2))
-        _safe_set_cell(ws, _RPMB_ROW, _RPMB_RESULT_COL, "Pass" if passed else "Fail")
-        if screenshot_path is not None and screenshot_path.is_file():
-            _embed_sheet_image(ws, _RPMB_ROW, _RPMB_SCREENSHOT_COL, screenshot_path)
-    _finalize_report_workbook(wb, out)
-    saved = _save_workbook(wb, out)
-    wb.close()
-    _try_sync_online_report(
-        saved,
-        summary=f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)}h）",
-    )
-    return saved
+    with flow_lock(flow_no or flow_no_from_report_path(out)):
+        touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
+        wb = _load_workbook(out)
+        _stamp_test_time(wb)
+        for ws in _iter_report_sheets(wb):
+            _safe_set_cell(ws, _RPMB_ROW, _RPMB_DURATION_COL, round(duration_hours, 2))
+            _safe_set_cell(ws, _RPMB_ROW, _RPMB_RESULT_COL, "Pass" if passed else "Fail")
+            if screenshot_path is not None and screenshot_path.is_file():
+                _embed_sheet_image(ws, _RPMB_ROW, _RPMB_SCREENSHOT_COL, screenshot_path)
+        _finalize_report_workbook(wb, out)
+        saved = _save_workbook(wb, out)
+        wb.close()
+        _try_sync_online_report(
+            saved,
+            summary=f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)}h）",
+        )
+        return saved
 
 
 def write_reboot_result(
@@ -1189,25 +1208,26 @@ def write_reboot_result(
     if report_path is None:
         raise ValueError("report_path 必填：请在测试开始时调用 create_report() 生成独立报告文件")
     out = report_path
-    touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
-    wb = _load_workbook(out)
-    _stamp_test_time(wb)
-    for ws in _iter_report_sheets(wb):
-        # 字符串写入，避免 Excel「不显示零值」导致失败次数空白
-        _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_SUCCESS_COL, str(int(success_count)))
-        _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_FAIL_COL, str(int(fail_count)))
-        _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_DURATION_COL, round(float(duration_hours), 2))
-        _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_RESULT_COL, "Pass" if passed else "Fail")
-        if screenshot_path is not None and screenshot_path.is_file():
-            _embed_sheet_image(ws, _REBOOT_ROW, _REBOOT_SCREENSHOT_COL, screenshot_path)
-    _finalize_report_workbook(wb, out)
-    saved = _save_workbook(wb, out)
-    wb.close()
-    _try_sync_online_report(
-        saved,
-        summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
-    )
-    return saved
+    with flow_lock(flow_no or flow_no_from_report_path(out)):
+        touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
+        wb = _load_workbook(out)
+        _stamp_test_time(wb)
+        for ws in _iter_report_sheets(wb):
+            # 字符串写入，避免 Excel「不显示零值」导致失败次数空白
+            _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_SUCCESS_COL, str(int(success_count)))
+            _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_FAIL_COL, str(int(fail_count)))
+            _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_DURATION_COL, round(float(duration_hours), 2))
+            _safe_set_cell(ws, _REBOOT_ROW, _REBOOT_RESULT_COL, "Pass" if passed else "Fail")
+            if screenshot_path is not None and screenshot_path.is_file():
+                _embed_sheet_image(ws, _REBOOT_ROW, _REBOOT_SCREENSHOT_COL, screenshot_path)
+        _finalize_report_workbook(wb, out)
+        saved = _save_workbook(wb, out)
+        wb.close()
+        _try_sync_online_report(
+            saved,
+            summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+        )
+        return saved
 
 
 def write_ota_result(
@@ -1227,24 +1247,25 @@ def write_ota_result(
     if report_path is None:
         raise ValueError("report_path 必填：请在测试开始时调用 create_report() 生成独立报告文件")
     out = report_path
-    touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
-    wb = _load_workbook(out)
-    _stamp_test_time(wb)
-    for ws in _iter_report_sheets(wb):
-        _safe_set_cell(ws, _OTA_ROW, _OTA_SUCCESS_COL, success_count)
-        _safe_set_cell(ws, _OTA_ROW, _OTA_FAIL_COL, fail_count)
-        _safe_set_cell(ws, _OTA_ROW, _OTA_DURATION_COL, round(duration_minutes, 1))
-        _safe_set_cell(ws, _OTA_ROW, _OTA_RESULT_COL, "Pass" if passed else "Fail")
-        if screenshot_path is not None and screenshot_path.is_file():
-            _embed_sheet_image(ws, _OTA_ROW, _OTA_SCREENSHOT_COL, screenshot_path)
-    _finalize_report_workbook(wb, out)
-    saved = _save_workbook(wb, out)
-    wb.close()
-    _try_sync_online_report(
-        saved,
-        summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
-    )
-    return saved
+    with flow_lock(flow_no or flow_no_from_report_path(out)):
+        touch_report_test_time(out, template_path=tpl, base_dir=base_dir)
+        wb = _load_workbook(out)
+        _stamp_test_time(wb)
+        for ws in _iter_report_sheets(wb):
+            _safe_set_cell(ws, _OTA_ROW, _OTA_SUCCESS_COL, success_count)
+            _safe_set_cell(ws, _OTA_ROW, _OTA_FAIL_COL, fail_count)
+            _safe_set_cell(ws, _OTA_ROW, _OTA_DURATION_COL, round(duration_minutes, 1))
+            _safe_set_cell(ws, _OTA_ROW, _OTA_RESULT_COL, "Pass" if passed else "Fail")
+            if screenshot_path is not None and screenshot_path.is_file():
+                _embed_sheet_image(ws, _OTA_ROW, _OTA_SCREENSHOT_COL, screenshot_path)
+        _finalize_report_workbook(wb, out)
+        saved = _save_workbook(wb, out)
+        wb.close()
+        _try_sync_online_report(
+            saved,
+            summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+        )
+        return saved
 
 
 def _try_sync_online_report(

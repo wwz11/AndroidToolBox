@@ -26,6 +26,7 @@ from tools.emmc_test.report_template import (
     create_report_with_header,
     emmc_reports_dir,
     ensure_flow_report,
+    flow_lock,
     get_feishu_report_for_flow,
     read_report_header,
     report_filename,
@@ -266,60 +267,61 @@ def _ensure_feishu_report_for_flow(
     steps: list[str] | None = None,
 ) -> tuple[str, str]:
     """开始测试前确保当前流程已从飞书模板复制生成独立在线报告，并异步同步表头与通知。"""
-    cfg = load_feishu_config()
-    if not cfg["app_id"] or not cfg["app_secret"]:
-        return get_feishu_report_for_flow(flow), ""
+    with flow_lock(flow):
+        cfg = load_feishu_config()
+        if not cfg["app_id"] or not cfg["app_secret"]:
+            return get_feishu_report_for_flow(flow), ""
 
-    existing = get_feishu_report_for_flow(flow)
-    if existing:
-        if is_feishu_file_alive(
-            app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
-        ):
-            threading.Thread(
-                target=_notify_feishu_start,
-                args=(cfg, flow, local_report, existing),
-                kwargs={"sn": sn, "steps": steps},
-                name=f"feishu-start-{flow}",
-                daemon=True,
-            ).start()
-            return existing, ""
-        # 旧在线报告已被删除，清除绑定并重新从模板复制
-        set_feishu_report_for_flow(flow, "")
+        existing = get_feishu_report_for_flow(flow)
+        if existing:
+            if is_feishu_file_alive(
+                app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
+            ):
+                threading.Thread(
+                    target=_notify_feishu_start,
+                    args=(cfg, flow, local_report, existing),
+                    kwargs={"sn": sn, "steps": steps},
+                    name=f"feishu-start-{flow}",
+                    daemon=True,
+                ).start()
+                return existing, ""
+            # 旧在线报告已被删除，清除绑定并重新从模板复制
+            set_feishu_report_for_flow(flow, "")
 
-    if not cfg["template_url"]:
-        return "", ""
-    try:
-        res = copy_feishu_spreadsheet(
-            app_id=cfg["app_id"],
-            app_secret=cfg["app_secret"],
-            url_or_token=cfg["template_url"],
-            name=local_report.stem,
-        )
-        url = str(res.get("url") or "").strip()
-        if url:
-            set_feishu_report_for_flow(flow, url)
+        if not cfg["template_url"]:
+            return "", ""
+        try:
+            res = copy_feishu_spreadsheet(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                url_or_token=cfg["template_url"],
+                name=local_report.stem,
+            )
+            url = str(res.get("url") or "").strip()
+            if url:
+                set_feishu_report_for_flow(flow, url)
 
-            def _bg_sync_and_notify() -> None:
-                try:
-                    if local_report.is_file():
-                        sync_report_xlsx_to_feishu(
-                            app_id=cfg["app_id"],
-                            app_secret=cfg["app_secret"],
-                            report_path=local_report,
-                            url_or_token=url,
-                        )
-                except Exception:
-                    pass
-                _notify_feishu_start(cfg, flow, local_report, url, sn=sn, steps=steps)
+                def _bg_sync_and_notify() -> None:
+                    try:
+                        if local_report.is_file():
+                            sync_report_xlsx_to_feishu(
+                                app_id=cfg["app_id"],
+                                app_secret=cfg["app_secret"],
+                                report_path=local_report,
+                                url_or_token=url,
+                            )
+                    except Exception:
+                        pass
+                    _notify_feishu_start(cfg, flow, local_report, url, sn=sn, steps=steps)
 
-            threading.Thread(
-                target=_bg_sync_and_notify,
-                name=f"feishu-sync-start-{flow}",
-                daemon=True,
-            ).start()
-        return url, ""
-    except Exception as exc:
-        return "", str(exc)
+                threading.Thread(
+                    target=_bg_sync_and_notify,
+                    name=f"feishu-sync-start-{flow}",
+                    daemon=True,
+                ).start()
+            return url, ""
+        except Exception as exc:
+            return "", str(exc)
 
 
 @router.post("/jobs")
