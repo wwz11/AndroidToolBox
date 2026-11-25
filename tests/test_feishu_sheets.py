@@ -73,6 +73,7 @@ class TestFeishuSheets(unittest.TestCase):
         with (
             patch.object(fs, "get_tenant_access_token", return_value="t-tok"),
             patch.object(fs, "_request_json", side_effect=fake_req),
+            patch.object(fs, "load_feishu_config", return_value={"user_open_id": "ou_tester_1"}),
         ):
             res = fs.copy_feishu_spreadsheet(
                 app_id="aid",
@@ -83,6 +84,7 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["spreadsheet_token"], "shtNEW999")
             self.assertEqual(res["url"], "https://feishu.cn/sheets/shtNEW999")
             self.assertTrue(any(p.endswith("/copy") for _, p in calls))
+            self.assertTrue(any("/permissions/shtNEW999/members" in p for _, p in calls))
 
     def test_send_feishu_report_notification_by_open_id(self) -> None:
         calls: list[tuple[str, str]] = []

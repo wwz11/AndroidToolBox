@@ -398,6 +398,38 @@ def copy_feishu_spreadsheet(
     except Exception:
         pass
 
+    # 给当前已扫码登录的测试人员授予完全管理权限（含删除）并尝试转交所有权（保留应用编辑权限）
+    user_open_id = str(load_feishu_config().get("user_open_id") or "").strip()
+    if user_open_id:
+        try:
+            _request_json(
+                "POST",
+                f"/drive/v1/permissions/{new_token}/members?type=sheet&need_notification=false",
+                token=token,
+                body={
+                    "member_type": "openid",
+                    "member_id": user_open_id,
+                    "perm": "full_access",
+                },
+            )
+        except Exception:
+            pass
+        try:
+            _request_json(
+                "POST",
+                f"/drive/v1/permissions/{new_token}/members/transfer_owner?type=sheet",
+                token=token,
+                body={
+                    "member_type": "openid",
+                    "member_id": user_open_id,
+                    "need_notification": False,
+                    "remove_old_owner": False,
+                    "stay_put": False,
+                },
+            )
+        except Exception:
+            pass
+
     return {
         "ok": True,
         "spreadsheet_token": new_token,
