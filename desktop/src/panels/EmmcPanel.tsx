@@ -129,6 +129,7 @@ export default function EmmcPanel({
   const [feishuMsg, setFeishuMsg] = useState("");
   const feishuLoginCancelRef = useRef(false);
   const feishuPopupRef = useRef<Window | null>(null);
+  const localReportInputRef = useRef<HTMLInputElement | null>(null);
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
     Record<string, { current: number; total: number; text: string }>
@@ -440,7 +441,49 @@ export default function EmmcPanel({
       const r = await api.emmcDirs();
       await openAny(r.reports_dir);
     } catch (e) {
-      setStatus(`打开报告目录失败：${toErrorMessage(e)}`);
+      setStatus(`打开本地报告目录失败：${toErrorMessage(e)}`);
+    }
+  }
+
+  async function openOnlineReportsDir() {
+    setFeishuBusy(true);
+    try {
+      const r = await api.emmcFeishuFolderUrl();
+      await openAny(r.url);
+    } catch (e) {
+      setStatus(`打开在线报告目录失败：${toErrorMessage(e)}`);
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  function triggerCopyLocalToFeishu() {
+    if (!feishuUserOpenId) {
+      setStatus("请先扫码登录飞书，再复制本地报告到飞书");
+      void loginFeishuQr();
+      return;
+    }
+    localReportInputRef.current?.click();
+  }
+
+  async function onLocalReportPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setFeishuBusy(true);
+    setStatus(`正在复制本地报告到飞书：${file.name}...`);
+    try {
+      const r = await api.emmcCopyLocalReportToFeishu(file, flowNo.trim());
+      if (r.url) setFeishuReportUrl(r.url);
+      const msg = r.url
+        ? `已复制本地报告到飞书：${r.url}`
+        : "已复制本地报告到飞书";
+      setStatus(msg);
+      setFeishuMsg(msg);
+    } catch (err) {
+      setStatus(`复制本地报告到飞书失败：${toErrorMessage(err)}`);
+    } finally {
+      setFeishuBusy(false);
     }
   }
 
@@ -959,20 +1002,27 @@ export default function EmmcPanel({
               </div>
             </div>
             <div className="emmc-report-strip">
+              <input
+                ref={localReportInputRef}
+                type="file"
+                accept=".xlsx"
+                style={{ display: "none" }}
+                onChange={(e) => void onLocalReportPicked(e)}
+              />
               <div className="emmc-btn-row">
                 <Button
-                  disabled={headerBusy || running}
-                  onClick={() => void openHeaderEditor()}
-                >
-                  填写头部
-                </Button>
-                <Button
                   disabled={feishuBusy || running}
-                  onClick={() => void openFeishuModal()}
+                  onClick={() => triggerCopyLocalToFeishu()}
                 >
-                  飞书在线报告
+                  复制本地报告到飞书
                 </Button>
-                <Button onClick={() => void openReportsDir()}>报告目录</Button>
+                <Button onClick={() => void openReportsDir()}>本地报告目录</Button>
+                <Button
+                  disabled={feishuBusy}
+                  onClick={() => void openOnlineReportsDir()}
+                >
+                  在线报告目录
+                </Button>
                 <Button onClick={() => void openLogsDir()}>日志目录</Button>
               </div>
               {reportPath ? (
@@ -985,7 +1035,7 @@ export default function EmmcPanel({
                   {shortPath(reportPath, 52)}
                 </button>
               ) : (
-                <span className="emmc-hint">同流程号汇总 · 尚无报告时可先填写头部</span>
+                <span className="emmc-hint">同流程号汇总 · 点击开始时填写报告头部</span>
               )}
               {feishuReportUrl ? (
                 <button
@@ -1778,11 +1828,11 @@ export default function EmmcPanel({
           <label className="emmc-check">
             <input
               type="checkbox"
-              checked={feishuNotifyEnabled}
-              disabled={feishuBusy}
-              onChange={(e) => setFeishuNotifyEnabled(e.target.checked)}
+              checked={true}
+              disabled
+              readOnly
             />
-            写入在线报告时飞书私聊通知当前登录测试人员
+            写入在线报告时飞书私聊通知当前登录测试人员（默认开启，不可修改）
           </label>
           <label className="emmc-param emmc-param-wide">
             <span>当前流程（{flowNo.trim() || "1"}）对应在线报告链接</span>

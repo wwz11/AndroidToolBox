@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import re
+import tempfile
 import threading
 import uuid
 from collections import deque
@@ -12,7 +13,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -39,6 +40,7 @@ from tools.feishu_sheets import (
     build_feishu_oauth_url,
     copy_feishu_spreadsheet,
     exchange_feishu_oauth_code,
+    get_feishu_reports_folder_url,
     is_feishu_file_alive,
     load_feishu_config,
     logout_feishu_user,
@@ -868,3 +870,84 @@ def delete_feishu_synced_template() -> dict:
     synced = synced_template_path(app_base_dir())
     synced.unlink(missing_ok=True)
     return {"ok": True, **_feishu_status_payload()}
+
+
+@router.get("/feishu/folder-url")
+def feishu_reports_folder_url() -> dict:
+    cfg = load_feishu_config()
+    if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
+        raise HTTPException(status_code=400, detail="飞书模板或应用凭证未配置")
+    try:
+        url = get_feishu_reports_folder_url(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            template_url=cfg["template_url"],
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"url": url}
+
+
+@router.post("/feishu/copy-local-report")
+async def copy_local_report_to_feishu(
+    file: UploadFile = File(...),
+    flow_no: str = Query(""),
+) -> dict:
+    cfg = load_feishu_config()
+    if not cfg.get("user_open_id"):
+        raise HTTPException(status_code=400, detail="请先扫码登录飞书")
+    if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
+        raise HTTPException(status_code=400, detail="飞书模板或应用凭证未配置")
+
+    filename = Path(file.filename or "report.xlsx").name
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="仅支持上传 .xlsx 格式本地报告")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="上传的本地报告文件为空")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        local_path = Path(tmp) / filename
+        local_path.write_bytes(data)
+        try:
+            res = copy_feishu_spreadsheet(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                url_or_token=cfg["template_url"],
+                name=local_path.stem,
+            )
+            url = str(res.get("url") or "").strip()
+            sync_res = sync_report_xlsx_to_feishu(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                report_path=local_path,
+                url_or_token=url,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        meta = read_report_header(local_path)
+        flow = flow_no.strip() or meta.import_project or local_path.stem
+        notified = ""
+        notify_err = ""
+        try:
+            send_feishu_report_notification(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                open_id=cfg["user_open_id"],
+                project=meta.import_project or flow,
+                flow_no=flow,
+                report_url=url,
+                initial_result=meta.initial_result,
+            )
+            notified = cfg["user_name"] or cfg["user_open_id"]
+        except Exception as exc:
+            notify_err = str(exc)
+
+    return {
+        **_feishu_status_payload(flow_no),
+        **res,
+        **sync_res,
+        "notified": notified,
+        "notify_error": notify_err,
+    }

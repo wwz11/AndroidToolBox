@@ -1468,6 +1468,21 @@ export const api = {
       synced_path: string;
       synced_mtime: string;
     }>("/emmc/feishu/synced-template", { method: "DELETE" }),
+  emmcFeishuFolderUrl: () =>
+    request<{ url: string }>("/emmc/feishu/folder-url"),
+  emmcCopyLocalReportToFeishu: (file: File, flowNo = "") => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request<{
+      url: string;
+      spreadsheet_token: string;
+      notified: string;
+      notify_error: string;
+    }>(`/emmc/feishu/copy-local-report${q({ flow_no: flowNo || undefined })}`, {
+      method: "POST",
+      body: fd,
+    });
+  },
 
   apkAnalyze: (file: File) => {
     const fd = new FormData();

@@ -47,12 +47,8 @@ def load_feishu_config() -> dict[str, Any]:
     app_id = str(get(_KEY_APP_ID, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_ID_ENC)
     app_secret = str(get(_KEY_APP_SECRET, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_SECRET_ENC)
     template_url = str(get(_KEY_TEMPLATE_URL, "") or "").strip() or _DEFAULT_TEMPLATE_URL
-    raw_notify = get(_KEY_NOTIFY_ENABLED, True)
-    notify_enabled = (
-        raw_notify
-        if isinstance(raw_notify, bool)
-        else str(raw_notify).strip().lower() in ("1", "true", "yes", "on")
-    )
+    # 默认通知到飞书，不可关闭
+    notify_enabled = True
     user_open_id = str(get(_KEY_USER_OPEN_ID, "") or "").strip()
     user_name = str(get(_KEY_USER_NAME, "") or "").strip()
     return {
@@ -85,7 +81,7 @@ def save_feishu_config(
     if template_url is not None:
         put(_KEY_TEMPLATE_URL, template_url.strip())
     if notify_enabled is not None:
-        put(_KEY_NOTIFY_ENABLED, bool(notify_enabled))
+        put(_KEY_NOTIFY_ENABLED, True)
     return load_feishu_config()
 
 
@@ -369,6 +365,33 @@ def _get_parent_folder_token(
     except Exception:
         pass
     return ""
+
+
+def get_feishu_reports_folder_url(
+    *,
+    app_id: str,
+    app_secret: str,
+    template_url: str,
+) -> str:
+    """获取飞书在线报告所在云盘文件夹链接。"""
+    from urllib.parse import urlparse
+
+    tenant_token = get_tenant_access_token(app_id, app_secret)
+    kind, _raw_tok = parse_feishu_doc_url(template_url)
+    sheet_token = resolve_spreadsheet_token(tenant_token, template_url)
+    folder_token = _get_parent_folder_token(
+        tenant_token,
+        sheet_token,
+        "sheet",
+        is_wiki=(kind == "wiki"),
+        app_id=app_id,
+    )
+    if not folder_token:
+        raise RuntimeError("无法获取飞书在线报告目录")
+    parsed = urlparse(template_url.strip())
+    scheme = parsed.scheme or "https"
+    netloc = parsed.netloc or "seirobotics.feishu.cn"
+    return f"{scheme}://{netloc}/drive/folder/{folder_token}"
 
 
 def is_feishu_file_alive(*, app_id: str, app_secret: str, url_or_token: str) -> bool:
