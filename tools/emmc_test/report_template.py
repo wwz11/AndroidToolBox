@@ -26,9 +26,9 @@ def flow_lock(flow_no: str) -> threading.RLock:
             _FLOW_LOCKS[key] = lock
         return lock
 
-_TEMPLATE_NAME = "eMMC For SEIxxxxx 导入测试报告模版v3.0.xlsx"
+_TEMPLATE_NAME = "eMMC_For_SEIxxxxx_导入测试报告模版v3.0.xlsx"
 _REPORT_DIR_NAME = "reports"
-_REPORT_FILENAME_MIDDLE = " 导入测试报告模版v3.0 "
+_REPORT_FILENAME_MIDDLE = "_导入测试报告模版v3.0_"
 _LEGACY_REPORT_FILENAME_MIDDLE = " 导入测试报告模版v2.0 "
 _REPORT_HEADER_TITLE_CN = " 导入测试报告3.0"
 _REPORT_HEADER_TITLE_EN = " Import Test Report v3.0"
@@ -127,7 +127,7 @@ def _sanitize_flow_for_filename(flow_no: str) -> str:
 def report_filename(flow_no: str, import_project: str) -> str:
     project = _sanitize_report_name_part(import_project or flow_no)
     flow = _sanitize_flow_for_filename(flow_no)
-    return f"eMMC For {project}{_REPORT_FILENAME_MIDDLE}{flow}.xlsx"
+    return f"eMMC_For_{project}{_REPORT_FILENAME_MIDDLE}{flow}.xlsx"
 
 
 def report_path_for_project(
@@ -241,6 +241,7 @@ def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
         sanitized = _sanitize_report_name_part(import_project)
         safe_flow = _sanitize_flow_for_filename(flow)
         for legacy_name in (
+            f"eMMC For {sanitized} 导入测试报告模版v3.0 {safe_flow}.xlsx",
             f"eMMC For {sanitized}{_LEGACY_REPORT_FILENAME_MIDDLE}{safe_flow}.xlsx",
             f"eMMC For {sanitized} 导入测试报告模版v2.0 OA.xlsx",
         ):
@@ -1125,24 +1126,47 @@ def write_iozone_result(
         )
 
         for ws in _iter_report_sheets(wb):
+            from openpyxl.cell.cell import MergedCell
+
             log_col, result_col, shot_col = _iozone_cols_for_sheet(ws)
             _safe_set_cell(ws, r1, 1, size_label)
             _safe_set_cell(ws, r1, 2, round(duration_minutes, 1))
+            log_col_merged = log_col is not None and isinstance(
+                ws.cell(r_avg, log_col), MergedCell
+            )
+            merged_log_names: list[str] = []
+            merged_first_log: str | None = None
             for idx, row in enumerate((r1, r2, r3)):
                 if idx < len(runs):
                     _fill_row(ws, row, runs[idx])
                 if log_col is not None:
                     if log_paths and idx < len(log_paths) and log_paths[idx] is not None:
                         lp = Path(log_paths[idx])
-                        _safe_set_cell(ws, row, log_col, lp.name)
-                        try:
-                            ws.cell(row, log_col).hyperlink = f"../logs/{lp.name}"
-                        except Exception:
-                            pass
+                        if log_col_merged:
+                            merged_log_names.append(lp.name)
+                            if merged_first_log is None:
+                                merged_first_log = lp.name
+                        else:
+                            _safe_set_cell(ws, row, log_col, lp.name)
+                            try:
+                                ws.cell(row, log_col).hyperlink = f"../logs/{lp.name}"
+                            except Exception:
+                                pass
                     elif run_logs and idx < len(run_logs) and run_logs[idx].strip():
-                        _safe_set_cell(ws, row, log_col, run_logs[idx].strip()[-1000:])
+                        snippet = run_logs[idx].strip()[-1000:]
+                        if log_col_merged:
+                            merged_log_names.append(snippet)
+                        else:
+                            _safe_set_cell(ws, row, log_col, snippet)
+            if log_col is not None and log_col_merged and merged_log_names:
+                _safe_set_cell(ws, r1, log_col, "\n".join(merged_log_names))
+                if merged_first_log is not None:
+                    try:
+                        ws.cell(r1, log_col).hyperlink = f"../logs/{merged_first_log}"
+                    except Exception:
+                        pass
             _fill_row(ws, r_avg, average)
-            if log_col is not None:
+            if log_col is not None and not log_col_merged:
                 _safe_set_cell(ws, r_avg, log_col, "N/A")
             _safe_set_cell(ws, r_avg, result_col, passed)
             if screenshot_path is not None and screenshot_path.is_file():

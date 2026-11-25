@@ -72,7 +72,6 @@ class TestReportTemplateV3(unittest.TestCase):
                 ws = next(rt._iter_report_sheets(wb))
                 self.assertEqual(ws.cell(1, 1).value, "eMMC For PROJ_X 导入测试报告3.0")
                 self.assertEqual(ws.cell(17, 10).value, "iozone_100M_run1.log")
-                self.assertEqual(ws.cell(20, 10).value, "N/A")
                 self.assertEqual(rt._cell_display_value(ws, 20, 11), "Pass")
                 self.assertEqual(ws.cell(38, 8).value, "N/A")
             finally:
