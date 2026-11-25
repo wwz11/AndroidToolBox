@@ -904,11 +904,18 @@ def send_feishu_report_notification(
             }
         )
 
+    title_tags: list[str] = []
+    if proj and proj != flow:
+        title_tags.append(proj)
+    if flow:
+        title_tags.append(f"流程{flow}")
+    display_title = f"{title}（{' / '.join(title_tags)}）" if title_tags else title
+
     card = {
         "config": {"wide_screen_mode": True},
         "header": {
             "template": header_template,
-            "title": {"tag": "plain_text", "content": title},
+            "title": {"tag": "plain_text", "content": display_title},
         },
         "elements": elements,
     }
