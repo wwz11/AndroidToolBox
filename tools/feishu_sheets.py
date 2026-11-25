@@ -482,6 +482,96 @@ def _match_online_sheet_id(local_title: str, online_sheets: list[dict[str, Any]]
     return ""
 
 
+def _upload_file_to_feishu_drive(
+    tenant_token: str,
+    file_path: Path,
+    folder_token: str,
+) -> dict[str, str]:
+    """上传本地日志等附件到飞书云空间并开启企业可读，返回 file_token 与访问链接。"""
+    import uuid
+
+    raw = file_path.read_bytes()
+    boundary = f"----ToolboxBoundary{uuid.uuid4().hex}"
+    fields = {
+        "file_name": file_path.name,
+        "parent_type": "explorer",
+        "parent_node": folder_token,
+        "size": str(len(raw)),
+    }
+    parts: list[bytes] = []
+    for k, v in fields.items():
+        parts.append(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'
+            ).encode("utf-8")
+        )
+    parts.append(
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{file_path.name}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8")
+        + raw
+        + b"\r\n"
+        + f"--{boundary}--\r\n".encode("utf-8")
+    )
+    body = b"".join(parts)
+    req = urllib.request.Request(
+        f"{_BASE_URL}/drive/v1/files/upload_all",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {tenant_token}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30.0) as resp:
+        payload = json.loads(resp.read().decode("utf-8", "replace") or "{}")
+    if payload.get("code", 0) not in (0, None):
+        raise RuntimeError(f"上传飞书附件失败 ({payload.get('code')}): {payload.get('msg')}")
+    ftok = str((payload.get("data") or {}).get("file_token") or "").strip()
+    if not ftok:
+        raise RuntimeError("上传飞书附件未返回 file_token")
+    try:
+        _request_json(
+            "PATCH",
+            f"/drive/v1/permissions/{ftok}/public?type=file",
+            token=tenant_token,
+            body={"link_share_entity": "tenant_readable"},
+        )
+    except Exception:
+        pass
+    return {
+        "file_token": ftok,
+        "url": f"https://feishu.cn/file/{ftok}",
+        "name": file_path.name,
+    }
+
+
+def _write_feishu_cell_image(
+    tenant_token: str,
+    sheet_token: str,
+    sheet_id: str,
+    row: int,
+    col: int,
+    png_bytes: bytes,
+    name: str,
+) -> None:
+    a1 = f"{_col_letter(col)}{row}"
+    _request_json(
+        "POST",
+        f"/sheets/v2/spreadsheets/{sheet_token}/values_image",
+        token=tenant_token,
+        body={
+            "range": f"{sheet_id}!{a1}:{a1}",
+            "image": list(png_bytes),
+            "name": name,
+        },
+        timeout=30.0,
+    )
+
+
 def sync_report_xlsx_to_feishu(
     *,
     app_id: str,
@@ -489,7 +579,7 @@ def sync_report_xlsx_to_feishu(
     report_path: Path,
     url_or_token: str,
 ) -> dict[str, Any]:
-    """将本地 eMMC 报告表头与各测试项结果直接写入在线飞书表格。"""
+    """将本地 eMMC 报告表头、测试结果、日志文件与截图同步写入在线飞书表格。"""
     from tools.emmc_test import report_template as rt
 
     if not report_path.is_file():
@@ -501,24 +591,22 @@ def sync_report_xlsx_to_feishu(
     if not online_sheets:
         raise RuntimeError("在线飞书表格未包含任何工作表")
 
+    folder_token = _get_parent_folder_token(token, sheet_token, "sheet", app_id=app_id)
+    logs_dir = report_path.parent.parent / "logs"
+    uploaded_logs: dict[str, str] = {}
+
     wb = rt._load_workbook(report_path)
     value_ranges: list[dict[str, Any]] = []
+    image_tasks: list[tuple[str, int, int, bytes, str]] = []
     try:
         for ws in rt._iter_report_sheets(wb):
             sid = _match_online_sheet_id(ws.title or "", online_sheets)
             if not sid:
                 continue
-            rows_1_to_38: list[list[Any]] = []
-            for r in range(1, 39):
-                row_vals: list[Any] = []
-                for c in range(1, 15):
-                    v = ws.cell(r, c).value
-                    row_vals.append("" if v is None else v)
-                rows_1_to_38.append(row_vals)
             # 按单元格粒度只写有值的单元格（避免覆盖模板原有说明/公式/合并格占位）
             for r in range(1, 39):
                 for c in range(1, 15):
-                    # 仅同步软件写入区：R1C1标题、R3-R9表头值、R13-R24 iozone、R26-R29 压测、R32 reboot、R35 rpmb、R38 ota
+                    # 仅同步软件写入区：R1C1标题、R3-R9表头值、R13-R24 iozone(含J列日志与K列结果)、R26-R29 压测、R32 reboot、R35 rpmb、R38 ota
                     if not (
                         (r == 1 and c == 1)
                         or (3 <= r <= 9 and c in (2, 5, 8))
@@ -531,7 +619,32 @@ def sync_report_xlsx_to_feishu(
                     if v is None:
                         continue
                     a1 = f"{_col_letter(c)}{r}"
-                    value_ranges.append({"range": f"{sid}!{a1}:{a1}", "values": [[v]]})
+                    cell_val: Any = v
+                    # Iozone J 列（第 10 列）：若有对应本地日志文件则上传飞书并写入可点击附件链接
+                    if 13 <= r <= 24 and c == 10 and isinstance(v, str) and v.strip() and v.strip() != "N/A":
+                        fname = v.strip()
+                        if fname not in uploaded_logs and folder_token:
+                            cand = logs_dir / fname
+                            if cand.is_file():
+                                try:
+                                    up = _upload_file_to_feishu_drive(token, cand, folder_token)
+                                    uploaded_logs[fname] = up["url"]
+                                except Exception:
+                                    uploaded_logs[fname] = ""
+                        if uploaded_logs.get(fname):
+                            cell_val = [{"type": "url", "text": fname, "link": uploaded_logs[fname]}]
+                    value_ranges.append({"range": f"{sid}!{a1}:{a1}", "values": [[cell_val]]})
+
+            for idx, img in enumerate(getattr(ws, "_images", ()) or ()):
+                pos = rt._image_anchor_cell(img)
+                if pos is None:
+                    continue
+                try:
+                    raw_img = img._data()
+                except Exception:
+                    continue
+                if raw_img:
+                    image_tasks.append((sid, pos[0], pos[1], raw_img, f"shot_{pos[0]}_{pos[1]}_{idx}.png"))
     finally:
         wb.close()
 
@@ -545,10 +658,17 @@ def sync_report_xlsx_to_feishu(
                 body={"valueRanges": value_ranges[i : i + 100]},
             )
 
+    for sid, r, c, raw_img, name in image_tasks:
+        try:
+            _write_feishu_cell_image(token, sheet_token, sid, r, c, raw_img, name)
+        except Exception:
+            pass
+
     return {
         "ok": True,
         "spreadsheet_token": sheet_token,
         "updated_cells": len(value_ranges),
+        "uploaded_logs": sum(1 for u in uploaded_logs.values() if u),
         "url": f"https://feishu.cn/sheets/{sheet_token}",
     }
 
