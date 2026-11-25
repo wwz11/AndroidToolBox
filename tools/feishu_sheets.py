@@ -394,14 +394,85 @@ def get_feishu_reports_folder_url(
 
 
 def is_feishu_file_alive(*, app_id: str, app_secret: str, url_or_token: str) -> bool:
-    """检查飞书在线表格是否仍存在且可访问（避免已被删除的旧链接继续挂在流程上）。"""
+    """检查飞书在线表格是否仍存在且可访问；仅在明确已删除/不存在时返回 False。"""
     try:
         token = get_tenant_access_token(app_id, app_secret)
         sheet_token = resolve_spreadsheet_token(token, url_or_token)
         _request_json("GET", f"/sheets/v3/spreadsheets/{sheet_token}", token=token, timeout=8.0)
         return True
+    except Exception as exc:
+        msg = str(exc).lower()
+        for marker in ("1061007", "1061044", "1310002", "404", "not found", "deleted", "不存在", "已删除"):
+            if marker in msg:
+                return False
+        # 网络波动或权限瞬态异常时不误判为已删除，避免重复建表
+        return True
+
+
+def find_feishu_spreadsheet_in_folder(
+    *,
+    app_id: str,
+    app_secret: str,
+    template_url: str,
+    name: str,
+    flow_no: str = "",
+) -> dict[str, Any] | None:
+    """在飞书在线报告目录中查找同名或同流程号的已有在线表格，避免重复生成。"""
+    from urllib.parse import quote, urlparse
+
+    try:
+        token = get_tenant_access_token(app_id, app_secret)
+        kind, _ = parse_feishu_doc_url(template_url)
+        src_token = resolve_spreadsheet_token(token, template_url)
+        folder_token = _get_parent_folder_token(
+            token, src_token, "sheet", is_wiki=(kind == "wiki"), app_id=app_id
+        )
+        if not folder_token:
+            return None
+        parsed = urlparse(template_url.strip())
+        scheme = parsed.scheme or "https"
+        netloc = parsed.netloc or "seirobotics.feishu.cn"
+
+        target_name = name.strip()
+        flow_clean = re.sub(r'[<>:"/\\|?*]', "_", flow_no.strip()) if flow_no.strip() else ""
+        files: list[dict[str, Any]] = []
+        page_token = ""
+        for _ in range(5):
+            qs = f"folder_token={quote(folder_token)}&page_size=200"
+            if page_token:
+                qs += f"&page_token={quote(page_token)}"
+            res = _request_json("GET", f"/drive/v1/files?{qs}", token=token, timeout=15.0)
+            data = res.get("data") or {}
+            files.extend(data.get("files") or [])
+            if not data.get("has_more"):
+                break
+            page_token = str(data.get("next_page_token") or "").strip()
+            if not page_token:
+                break
+
+        def _hit(item: dict[str, Any]) -> dict[str, Any]:
+            tok = str(item.get("token") or "").strip()
+            url = str(item.get("url") or "").strip() or f"{scheme}://{netloc}/sheets/{tok}"
+            return {
+                "spreadsheet_token": tok,
+                "name": str(item.get("name") or "").strip(),
+                "url": url,
+            }
+
+        sheets = [f for f in files if str(f.get("type") or "").lower() == "sheet" and f.get("token")]
+        for item in sheets:
+            if target_name and str(item.get("name") or "").strip() == target_name:
+                return _hit(item)
+        if flow_clean:
+            for item in sheets:
+                fname = str(item.get("name") or "").strip()
+                if "导入测试报告" in fname and (
+                    fname.endswith(f"_{flow_clean}") or fname.endswith(f" {flow_clean}")
+                ):
+                    return _hit(item)
     except Exception:
-        return False
+        return None
+    return None
 
 
 def copy_feishu_spreadsheet(

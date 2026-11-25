@@ -40,6 +40,7 @@ from tools.feishu_sheets import (
     build_feishu_oauth_url,
     copy_feishu_spreadsheet,
     exchange_feishu_oauth_code,
+    find_feishu_spreadsheet_in_folder,
     get_feishu_reports_folder_url,
     is_feishu_file_alive,
     load_feishu_config,
@@ -293,13 +294,23 @@ def _ensure_feishu_report_for_flow(
         if not cfg.get("user_open_id") or not cfg["template_url"]:
             return "", ""
         try:
-            res = copy_feishu_spreadsheet(
+            found = find_feishu_spreadsheet_in_folder(
                 app_id=cfg["app_id"],
                 app_secret=cfg["app_secret"],
-                url_or_token=cfg["template_url"],
+                template_url=cfg["template_url"],
                 name=local_report.stem,
+                flow_no=flow,
             )
-            url = str(res.get("url") or "").strip()
+            if found and found.get("url"):
+                url = str(found["url"]).strip()
+            else:
+                res = copy_feishu_spreadsheet(
+                    app_id=cfg["app_id"],
+                    app_secret=cfg["app_secret"],
+                    url_or_token=cfg["template_url"],
+                    name=local_report.stem,
+                )
+                url = str(res.get("url") or "").strip()
             if url:
                 set_feishu_report_for_flow(flow, url)
 
@@ -906,14 +917,40 @@ async def copy_local_report_to_feishu(
     with tempfile.TemporaryDirectory() as tmp:
         local_path = Path(tmp) / filename
         local_path.write_bytes(data)
+        meta = read_report_header(local_path)
+        flow = flow_no.strip()
+        if not flow:
+            m = re.search(r"导入测试报告模版v\d+\.\d+[_\s]+(.+)$", local_path.stem)
+            if m:
+                flow = m.group(1).strip()
+        flow = flow or meta.import_project or local_path.stem
+
         try:
-            res = copy_feishu_spreadsheet(
-                app_id=cfg["app_id"],
-                app_secret=cfg["app_secret"],
-                url_or_token=cfg["template_url"],
-                name=local_path.stem,
-            )
+            existing = get_feishu_report_for_flow(flow)
+            if existing and is_feishu_file_alive(
+                app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
+            ):
+                res = {"url": existing, "spreadsheet_token": "", "name": local_path.stem}
+            else:
+                found = find_feishu_spreadsheet_in_folder(
+                    app_id=cfg["app_id"],
+                    app_secret=cfg["app_secret"],
+                    template_url=cfg["template_url"],
+                    name=local_path.stem,
+                    flow_no=flow,
+                )
+                if found and found.get("url"):
+                    res = found
+                else:
+                    res = copy_feishu_spreadsheet(
+                        app_id=cfg["app_id"],
+                        app_secret=cfg["app_secret"],
+                        url_or_token=cfg["template_url"],
+                        name=local_path.stem,
+                    )
             url = str(res.get("url") or "").strip()
+            if url:
+                set_feishu_report_for_flow(flow, url)
             sync_res = sync_report_xlsx_to_feishu(
                 app_id=cfg["app_id"],
                 app_secret=cfg["app_secret"],
@@ -923,8 +960,6 @@ async def copy_local_report_to_feishu(
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-        meta = read_report_header(local_path)
-        flow = flow_no.strip() or meta.import_project or local_path.stem
         notified = ""
         notify_err = ""
         try:
