@@ -32,6 +32,7 @@ from tools.emmc_test.report_template import (
     read_report_header,
     report_filename,
     report_path_for_flow,
+    report_path_for_project,
     set_feishu_report_for_flow,
     synced_template_path,
     update_report_header,
@@ -206,12 +207,14 @@ def save_report_header(body: ReportHeaderBody) -> dict:
         raise HTTPException(status_code=400, detail="请填写「导入项目」")
     meta = _meta_from_body(body)
     path = report_path_for_flow(flow, base_dir=_base())
+    target_path = report_path_for_project(flow, meta.import_project or flow, base_dir=_base())
+    existing_path = path if path.is_file() else (target_path if target_path.is_file() else None)
     try:
-        if path.is_file():
+        if existing_path is not None:
             saved = update_report_header(
                 flow,
                 meta,
-                current_path=path,
+                current_path=existing_path,
                 base_dir=_base(),
             )
             created = False
