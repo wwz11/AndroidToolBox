@@ -1327,6 +1327,68 @@ export const api = {
     }>(`/emmc/jobs/${encodeURIComponent(jobId)}${q({ since })}`),
   emmcStop: (jobId: string) =>
     request<{ ok: boolean }>(`/emmc/jobs/${jobId}/stop`, { method: "POST" }),
+  emmcFeishuConfig: () =>
+    request<{
+      app_id: string;
+      has_secret: boolean;
+      template_url: string;
+      synced_exists: boolean;
+      synced_path: string;
+      synced_mtime: string;
+    }>("/emmc/feishu/config"),
+  emmcSaveFeishuConfig: (body: {
+    app_id: string;
+    app_secret?: string;
+    template_url: string;
+  }) =>
+    request<{
+      app_id: string;
+      has_secret: boolean;
+      template_url: string;
+      synced_exists: boolean;
+      synced_path: string;
+      synced_mtime: string;
+    }>("/emmc/feishu/config", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  emmcTestFeishu: (body: {
+    app_id?: string;
+    app_secret?: string;
+    template_url?: string;
+  }) =>
+    request<{ ok: boolean; message: string; title?: string }>(
+      "/emmc/feishu/test",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
+  emmcSyncFeishuTemplate: (body: {
+    app_id?: string;
+    app_secret?: string;
+    template_url?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      app_id: string;
+      has_secret: boolean;
+      template_url: string;
+      synced_exists: boolean;
+      synced_path: string;
+      synced_mtime: string;
+      title?: string;
+    }>("/emmc/feishu/sync-template", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  emmcResetFeishuTemplate: () =>
+    request<{
+      ok: boolean;
+      synced_exists: boolean;
+      synced_path: string;
+      synced_mtime: string;
+    }>("/emmc/feishu/synced-template", { method: "DELETE" }),
 
   apkAnalyze: (file: File) => {
     const fd = new FormData();

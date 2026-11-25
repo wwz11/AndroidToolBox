@@ -54,9 +54,17 @@ def _dev_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def synced_template_path(base_dir: Path | None = None) -> Path:
+    """从飞书在线表格同步到本地缓存的 .xlsx 模板路径。"""
+    return _report_base_dir(base_dir) / "output" / "emmc" / "feishu_template_cache.xlsx"
+
+
 def default_template_path(base_dir: Path | None = None) -> Path:
     from tools.bundled_paths import resolve_vendor, repo_root
 
+    synced = synced_template_path(base_dir)
+    if synced.is_file():
+        return synced
     found = resolve_vendor("emmc", _TEMPLATE_NAME)
     if found is not None and found.is_file():
         return found

@@ -27,7 +27,14 @@ from tools.emmc_test.report_template import (
     ensure_flow_report,
     read_report_header,
     report_path_for_flow,
+    synced_template_path,
     update_report_header,
+)
+from tools.feishu_sheets import (
+    export_feishu_spreadsheet_xlsx,
+    load_feishu_config,
+    save_feishu_config,
+    test_feishu_connection,
 )
 
 router = APIRouter()
@@ -482,3 +489,88 @@ def stop_job(job_id: str) -> dict:
         raise HTTPException(status_code=404, detail="任务不存在")
     job.stop.set()
     return {"job_id": job_id, "ok": True, "message": "已请求停止"}
+
+
+class FeishuConfigBody(BaseModel):
+    app_id: str = ""
+    app_secret: str = ""
+    template_url: str = ""
+
+
+def _feishu_status_payload() -> dict:
+    cfg = load_feishu_config()
+    synced = synced_template_path(app_base_dir())
+    exists = synced.is_file()
+    mtime = ""
+    if exists:
+        mtime = datetime.fromtimestamp(synced.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+    return {
+        "app_id": cfg["app_id"],
+        "has_secret": cfg["has_secret"],
+        "template_url": cfg["template_url"],
+        "synced_exists": exists,
+        "synced_path": str(synced) if exists else "",
+        "synced_mtime": mtime,
+    }
+
+
+@router.get("/feishu/config")
+def get_feishu_config() -> dict:
+    return _feishu_status_payload()
+
+
+@router.put("/feishu/config")
+def put_feishu_config(body: FeishuConfigBody) -> dict:
+    save_feishu_config(
+        app_id=body.app_id,
+        app_secret=body.app_secret or None,
+        template_url=body.template_url,
+    )
+    return _feishu_status_payload()
+
+
+@router.post("/feishu/test")
+def test_feishu(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    app_id = body.app_id.strip() or cfg["app_id"]
+    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    url = body.template_url.strip() or cfg["template_url"]
+    try:
+        return test_feishu_connection(
+            app_id=app_id,
+            app_secret=app_secret,
+            url_or_token=url,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/feishu/sync-template")
+def sync_feishu_template(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    app_id = body.app_id.strip() or cfg["app_id"]
+    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    url = body.template_url.strip() or cfg["template_url"]
+    if body.app_id.strip() or body.app_secret.strip() or body.template_url.strip():
+        save_feishu_config(
+            app_id=app_id,
+            app_secret=body.app_secret.strip() or None,
+            template_url=url,
+        )
+    try:
+        res = export_feishu_spreadsheet_xlsx(
+            app_id=app_id,
+            app_secret=app_secret,
+            url_or_token=url,
+            dest_path=synced_template_path(app_base_dir()),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {**_feishu_status_payload(), **res}
+
+
+@router.delete("/feishu/synced-template")
+def delete_feishu_synced_template() -> dict:
+    synced = synced_template_path(app_base_dir())
+    synced.unlink(missing_ok=True)
+    return {"ok": True, **_feishu_status_payload()}

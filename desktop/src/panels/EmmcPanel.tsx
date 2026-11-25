@@ -114,6 +114,15 @@ export default function EmmcPanel({
   const [headerOpen, setHeaderOpen] = useState(false);
   const [headerBusy, setHeaderBusy] = useState(false);
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft>(EMPTY_HEADER);
+  const [feishuOpen, setFeishuOpen] = useState(false);
+  const [feishuBusy, setFeishuBusy] = useState(false);
+  const [feishuAppId, setFeishuAppId] = useState("");
+  const [feishuSecret, setFeishuSecret] = useState("");
+  const [feishuHasSecret, setFeishuHasSecret] = useState(false);
+  const [feishuUrl, setFeishuUrl] = useState("");
+  const [feishuSynced, setFeishuSynced] = useState(false);
+  const [feishuMtime, setFeishuMtime] = useState("");
+  const [feishuMsg, setFeishuMsg] = useState("");
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
     Record<string, { current: number; total: number; text: string }>
@@ -485,6 +494,101 @@ export default function EmmcPanel({
     }
   }
 
+  async function openFeishuModal() {
+    setFeishuOpen(true);
+    setFeishuMsg("");
+    setFeishuBusy(true);
+    try {
+      const r = await api.emmcFeishuConfig();
+      setFeishuAppId(r.app_id || "");
+      setFeishuHasSecret(Boolean(r.has_secret));
+      setFeishuSecret("");
+      setFeishuUrl(r.template_url || "");
+      setFeishuSynced(Boolean(r.synced_exists));
+      setFeishuMtime(r.synced_mtime || "");
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function saveFeishuOnly() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      const r = await api.emmcSaveFeishuConfig({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        template_url: feishuUrl.trim(),
+      });
+      setFeishuHasSecret(Boolean(r.has_secret));
+      setFeishuSecret("");
+      setFeishuMsg("飞书配置已保存");
+      setStatus("飞书配置已保存");
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function testFeishu() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      const r = await api.emmcTestFeishu({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        template_url: feishuUrl.trim(),
+      });
+      setFeishuMsg(r.message || "连接成功");
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function syncFeishuTemplate() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      const r = await api.emmcSyncFeishuTemplate({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        template_url: feishuUrl.trim(),
+      });
+      setFeishuHasSecret(Boolean(r.has_secret));
+      setFeishuSecret("");
+      setFeishuSynced(Boolean(r.synced_exists));
+      setFeishuMtime(r.synced_mtime || "");
+      const okMsg = `已同步飞书在线模板${r.title ? `：${r.title}` : ""}`;
+      setFeishuMsg(okMsg);
+      setStatus(okMsg);
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function resetFeishuTemplate() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      const r = await api.emmcResetFeishuTemplate();
+      setFeishuSynced(Boolean(r.synced_exists));
+      setFeishuMtime(r.synced_mtime || "");
+      setFeishuMsg("已恢复使用内置 v3.0 模板");
+      setStatus("已恢复使用内置 v3.0 模板");
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
   async function start() {
     if (!snOk) return;
     const picked = steps.filter((s) => selected[s.id]).map((s) => s.id);
@@ -694,6 +798,12 @@ export default function EmmcPanel({
                   onClick={() => void openHeaderEditor()}
                 >
                   填写头部
+                </Button>
+                <Button
+                  disabled={feishuBusy || running}
+                  onClick={() => void openFeishuModal()}
+                >
+                  飞书模板
                 </Button>
                 <Button onClick={() => void openReportsDir()}>报告目录</Button>
                 <Button onClick={() => void openLogsDir()}>日志目录</Button>
@@ -1408,6 +1518,81 @@ export default function EmmcPanel({
             />
             A/B 升级（需 OTA）
           </label>
+        </div>
+      </Modal>
+      <Modal
+        open={feishuOpen}
+        title="飞书在线模板同步（应用凭证）"
+        onClose={() => setFeishuOpen(false)}
+        footer={
+          <>
+            {feishuSynced ? (
+              <Button
+                disabled={feishuBusy}
+                onClick={() => void resetFeishuTemplate()}
+              >
+                恢复内置模板
+              </Button>
+            ) : null}
+            <Button disabled={feishuBusy} onClick={() => void saveFeishuOnly()}>
+              保存配置
+            </Button>
+            <Button disabled={feishuBusy} onClick={() => void testFeishu()}>
+              测试连接
+            </Button>
+            <Button
+              variant="primary"
+              disabled={feishuBusy}
+              loading={feishuBusy}
+              onClick={() => void syncFeishuTemplate()}
+            >
+              同步在线模板
+            </Button>
+          </>
+        }
+      >
+        <div className="emmc-header-grid">
+          <label className="emmc-param emmc-param-wide">
+            <span>飞书 App ID</span>
+            <input
+              className="field"
+              value={feishuAppId}
+              disabled={feishuBusy}
+              placeholder="cli_xxxxxxxxxx"
+              onChange={(e) => setFeishuAppId(e.target.value)}
+            />
+          </label>
+          <label className="emmc-param emmc-param-wide">
+            <span>
+              飞书 App Secret{feishuHasSecret ? "（已保存，留空不修改）" : ""}
+            </span>
+            <input
+              type="password"
+              className="field"
+              value={feishuSecret}
+              disabled={feishuBusy}
+              placeholder={feishuHasSecret ? "已保存，如需更换请重新输入" : "输入 App Secret"}
+              onChange={(e) => setFeishuSecret(e.target.value)}
+            />
+          </label>
+          <label className="emmc-param emmc-param-wide">
+            <span>在线表格 / Wiki 链接</span>
+            <input
+              className="field"
+              value={feishuUrl}
+              disabled={feishuBusy}
+              placeholder="https://xxx.feishu.cn/sheets/... 或 /wiki/..."
+              onChange={(e) => setFeishuUrl(e.target.value)}
+            />
+          </label>
+          <div className="emmc-param emmc-param-wide">
+            <span className="emmc-hint">
+              {feishuSynced
+                ? `当前模板：已同步飞书在线模板（${feishuMtime || "已缓存"}）`
+                : "当前模板：内置 eMMC 导入测试报告模版 v3.0"}
+            </span>
+            {feishuMsg ? <span className="emmc-hint">{feishuMsg}</span> : null}
+          </div>
         </div>
       </Modal>
     </div>
