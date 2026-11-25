@@ -896,6 +896,86 @@ def feishu_reports_folder_url() -> dict:
     return {"url": url}
 
 
+def _copy_and_sync_local_path_to_feishu(
+    cfg: dict,
+    local_path: Path,
+    flow: str,
+) -> dict:
+    existing = get_feishu_report_for_flow(flow)
+    if existing and is_feishu_file_alive(
+        app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
+    ):
+        res = {"url": existing, "spreadsheet_token": "", "name": local_path.stem}
+    else:
+        found = find_feishu_spreadsheet_in_folder(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            template_url=cfg["template_url"],
+            name=local_path.stem,
+            flow_no=flow,
+        )
+        if found and found.get("url"):
+            res = found
+        else:
+            res = copy_feishu_spreadsheet(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                url_or_token=cfg["template_url"],
+                name=local_path.stem,
+            )
+    url = str(res.get("url") or "").strip()
+    if url:
+        set_feishu_report_for_flow(flow, url)
+    sync_res = sync_report_xlsx_to_feishu(
+        app_id=cfg["app_id"],
+        app_secret=cfg["app_secret"],
+        report_path=local_path,
+        url_or_token=url,
+    )
+    meta = read_report_header(local_path)
+    notified = ""
+    notify_err = ""
+    try:
+        send_feishu_report_notification(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            open_id=cfg["user_open_id"],
+            project=meta.import_project or flow,
+            flow_no=flow,
+            report_url=url,
+            initial_result=meta.initial_result,
+        )
+        notified = cfg["user_name"] or cfg["user_open_id"]
+    except Exception as exc:
+        notify_err = str(exc)
+    return {
+        **_feishu_status_payload(flow),
+        **res,
+        **sync_res,
+        "notified": notified,
+        "notify_error": notify_err,
+    }
+
+
+@router.post("/feishu/copy-flow-local-report")
+def copy_flow_local_report_to_feishu(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    if not cfg.get("user_open_id"):
+        raise HTTPException(status_code=400, detail="请先扫码登录飞书")
+    if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
+        raise HTTPException(status_code=400, detail="飞书模板或应用凭证未配置")
+    flow = body.flow_no.strip()
+    if not flow:
+        raise HTTPException(status_code=400, detail="请先填写流程号")
+    local_path = report_path_for_flow(flow, base_dir=_base())
+    if not local_path.is_file():
+        raise HTTPException(status_code=404, detail=f"流程 {flow} 尚无本地报告")
+    try:
+        return _copy_and_sync_local_path_to_feishu(cfg, local_path, flow)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.post("/feishu/copy-local-report")
 async def copy_local_report_to_feishu(
     file: UploadFile = File(...),
@@ -924,62 +1004,7 @@ async def copy_local_report_to_feishu(
             if m:
                 flow = m.group(1).strip()
         flow = flow or meta.import_project or local_path.stem
-
         try:
-            existing = get_feishu_report_for_flow(flow)
-            if existing and is_feishu_file_alive(
-                app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
-            ):
-                res = {"url": existing, "spreadsheet_token": "", "name": local_path.stem}
-            else:
-                found = find_feishu_spreadsheet_in_folder(
-                    app_id=cfg["app_id"],
-                    app_secret=cfg["app_secret"],
-                    template_url=cfg["template_url"],
-                    name=local_path.stem,
-                    flow_no=flow,
-                )
-                if found and found.get("url"):
-                    res = found
-                else:
-                    res = copy_feishu_spreadsheet(
-                        app_id=cfg["app_id"],
-                        app_secret=cfg["app_secret"],
-                        url_or_token=cfg["template_url"],
-                        name=local_path.stem,
-                    )
-            url = str(res.get("url") or "").strip()
-            if url:
-                set_feishu_report_for_flow(flow, url)
-            sync_res = sync_report_xlsx_to_feishu(
-                app_id=cfg["app_id"],
-                app_secret=cfg["app_secret"],
-                report_path=local_path,
-                url_or_token=url,
-            )
+            return _copy_and_sync_local_path_to_feishu(cfg, local_path, flow)
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-        notified = ""
-        notify_err = ""
-        try:
-            send_feishu_report_notification(
-                app_id=cfg["app_id"],
-                app_secret=cfg["app_secret"],
-                open_id=cfg["user_open_id"],
-                project=meta.import_project or flow,
-                flow_no=flow,
-                report_url=url,
-                initial_result=meta.initial_result,
-            )
-            notified = cfg["user_name"] or cfg["user_open_id"]
-        except Exception as exc:
-            notify_err = str(exc)
-
-    return {
-        **_feishu_status_payload(flow_no),
-        **res,
-        **sync_res,
-        "notified": notified,
-        "notify_error": notify_err,
-    }

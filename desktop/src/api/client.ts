@@ -1470,6 +1470,16 @@ export const api = {
     }>("/emmc/feishu/synced-template", { method: "DELETE" }),
   emmcFeishuFolderUrl: () =>
     request<{ url: string }>("/emmc/feishu/folder-url"),
+  emmcCopyFlowLocalToFeishu: (flowNo: string) =>
+    request<{
+      url: string;
+      spreadsheet_token: string;
+      notified: string;
+      notify_error: string;
+    }>("/emmc/feishu/copy-flow-local-report", {
+      method: "POST",
+      body: JSON.stringify({ flow_no: flowNo }),
+    }),
   emmcCopyLocalReportToFeishu: (file: File, flowNo = "") => {
     const fd = new FormData();
     fd.append("file", file);

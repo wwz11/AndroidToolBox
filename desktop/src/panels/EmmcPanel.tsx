@@ -85,7 +85,14 @@ export default function EmmcPanel({
 }: Props) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [flowNo, setFlowNo] = useState("");
+  const [flowNo, setFlowNo] = useState(() => {
+    try {
+      return localStorage.getItem("emmc.lastFlowNo") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [importProject, setImportProject] = useState("");
   const [jobId, setJobId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
@@ -127,7 +134,6 @@ export default function EmmcPanel({
   const [feishuMsg, setFeishuMsg] = useState("");
   const feishuLoginCancelRef = useRef(false);
   const feishuPopupRef = useRef<Window | null>(null);
-  const localReportInputRef = useRef<HTMLInputElement | null>(null);
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
     Record<string, { current: number; total: number; text: string }>
@@ -259,6 +265,8 @@ export default function EmmcPanel({
       .then((r) => {
         if (cancelled) return;
         reportLoadedRef.current = flow;
+        setReportPath(r.path || "");
+        setImportProject(String(r.header?.import_project || ""));
         setFeishuReportUrl(r.feishu_report_url || "");
         const ab = headerAbOn(r.header);
         if (ab != null) setAbUpgrade(ab);
@@ -275,12 +283,14 @@ export default function EmmcPanel({
     if (!active) return;
     let cancelled = false;
     void api
-      .emmcFeishuConfig(flowNo.trim() || "1")
+      .emmcFeishuConfig(flowNo.trim())
       .then((cfg) => {
         if (cancelled) return;
         setFeishuUserName(cfg.user_name || "");
         setFeishuUserOpenId(cfg.user_open_id || "");
-        if (cfg.flow_report_url) setFeishuReportUrl(cfg.flow_report_url);
+        if (flowNo.trim() && cfg.flow_report_url) {
+          setFeishuReportUrl(cfg.flow_report_url);
+        }
       })
       .catch(() => {
         /* 飞书配置查询失败时保持未登录展示 */
@@ -443,39 +453,28 @@ export default function EmmcPanel({
     }
   }
 
-  async function openOnlineReportsDir() {
-    setFeishuBusy(true);
-    try {
-      const r = await api.emmcFeishuFolderUrl();
-      await openAny(r.url);
-    } catch (e) {
-      setStatus(`打开在线报告目录失败：${toErrorMessage(e)}`);
-    } finally {
-      setFeishuBusy(false);
-    }
+  async function openOnlineReport() {
+    const url = feishuReportUrl.trim();
+    if (!url) return;
+    await openAny(url);
   }
 
-  function triggerCopyLocalToFeishu() {
+  async function copyFlowLocalToFeishu() {
+    const flow = flowNo.trim();
+    if (!flow || !reportPath) return;
     if (!feishuUserOpenId) {
       setStatus("请先扫码登录飞书，再复制本地报告到飞书");
       void loginFeishuQr();
       return;
     }
-    localReportInputRef.current?.click();
-  }
-
-  async function onLocalReportPicked(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
     setFeishuBusy(true);
-    setStatus(`正在复制本地报告到飞书：${file.name}...`);
+    setStatus(`正在将流程 ${flow} 的本地报告复制到飞书...`);
     try {
-      const r = await api.emmcCopyLocalReportToFeishu(file, flowNo.trim());
+      const r = await api.emmcCopyFlowLocalToFeishu(flow);
       if (r.url) setFeishuReportUrl(r.url);
       const msg = r.url
-        ? `已复制本地报告到飞书：${r.url}`
-        : "已复制本地报告到飞书";
+        ? `已将流程 ${flow} 本地报告复制到飞书：${r.url}`
+        : `已将流程 ${flow} 本地报告复制到飞书`;
       setStatus(msg);
       setFeishuMsg(msg);
     } catch (err) {
@@ -564,6 +563,12 @@ export default function EmmcPanel({
         ...metaFields,
       });
       setFlowNo(flow);
+      setImportProject(project);
+      try {
+        localStorage.setItem("emmc.lastFlowNo", flow);
+      } catch {
+        /* ignore */
+      }
       reportLoadedRef.current = flow;
       setReportPath(r.path);
       setHeaderOpen(false);
@@ -909,26 +914,37 @@ export default function EmmcPanel({
               </div>
             </div>
             <div className="emmc-report-strip">
-              <input
-                ref={localReportInputRef}
-                type="file"
-                accept=".xlsx"
-                style={{ display: "none" }}
-                onChange={(e) => void onLocalReportPicked(e)}
-              />
+              <div className="emmc-flow-summary">
+                <span>
+                  流程号：<strong>{flowNo.trim() || "未设置"}</strong>
+                </span>
+                <span>
+                  项目：<strong>{importProject.trim() || "—"}</strong>
+                </span>
+              </div>
               <div className="emmc-btn-row">
                 <Button
-                  disabled={feishuBusy || running}
-                  onClick={() => triggerCopyLocalToFeishu()}
+                  disabled={!flowNo.trim() || !reportPath || feishuBusy || running}
+                  title={
+                    !flowNo.trim() || !reportPath
+                      ? "当前流程尚无本地报告"
+                      : "将当前流程的本地报告复制并同步到飞书"
+                  }
+                  onClick={() => void copyFlowLocalToFeishu()}
                 >
                   复制本地报告到飞书
                 </Button>
                 <Button onClick={() => void openReportsDir()}>本地报告目录</Button>
                 <Button
-                  disabled={feishuBusy}
-                  onClick={() => void openOnlineReportsDir()}
+                  disabled={!feishuReportUrl.trim() || feishuBusy}
+                  title={
+                    feishuReportUrl.trim()
+                      ? feishuReportUrl.trim()
+                      : "当前流程尚未生成飞书在线报告"
+                  }
+                  onClick={() => void openOnlineReport()}
                 >
-                  在线报告目录
+                  在线报告
                 </Button>
                 <Button onClick={() => void openLogsDir()}>日志目录</Button>
               </div>

@@ -144,6 +144,20 @@
   cursor: not-allowed;
 }
 
+.emmc-flow-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.emmc-flow-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .emmc-status-line {
   line-height: 1.35;
   word-break: break-word;
