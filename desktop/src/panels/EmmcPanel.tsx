@@ -22,6 +22,7 @@ type Props = {
 type Step = { id: string; label: string };
 
 type HeaderDraft = {
+  flow_no: string;
   import_project: string;
   internal_model: string;
   emmc_brand: string;
@@ -39,6 +40,7 @@ type HeaderDraft = {
 };
 
 const EMPTY_HEADER: HeaderDraft = {
+  flow_no: "",
   import_project: "",
   internal_model: "",
   emmc_brand: "",
@@ -114,6 +116,8 @@ export default function EmmcPanel({
   const [abUpgrade, setAbUpgrade] = useState(true);
   const [headerOpen, setHeaderOpen] = useState(false);
   const [headerBusy, setHeaderBusy] = useState(false);
+  const [headerStartPending, setHeaderStartPending] = useState(false);
+  const [headerErr, setHeaderErr] = useState("");
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft>(EMPTY_HEADER);
   const [feishuOpen, setFeishuOpen] = useState(false);
   const [feishuBusy, setFeishuBusy] = useState(false);
@@ -427,19 +431,25 @@ export default function EmmcPanel({
     }
   }
 
-  async function openHeaderEditor() {
+  async function openHeaderEditor(forStart = false) {
     const flow = flowNo.trim();
-    if (!flow) {
-      setStatus("请填写流程号");
-      return;
-    }
+    setHeaderStartPending(forStart);
+    setHeaderErr("");
     setHeaderBusy(true);
     try {
-      const r = await api.emmcReport(flow);
-      setReportPath(r.path);
-      const h = r.header || {};
+      let h: Record<string, string | boolean> = {};
+      if (flow) {
+        try {
+          const r = await api.emmcReport(flow);
+          setReportPath(r.path);
+          h = r.header || {};
+        } catch {
+          /* 流程尚未建表时用空表头 */
+        }
+      }
       setHeaderDraft({
-        import_project: String(h.import_project || flow),
+        flow_no: flow,
+        import_project: String(h.import_project || ""),
         internal_model: String(h.internal_model || ""),
         emmc_brand: String(h.emmc_brand || ""),
         emmc_capacity_gb: String(h.emmc_capacity_gb || ""),
@@ -456,7 +466,7 @@ export default function EmmcPanel({
         remarks: String(h.remarks || ""),
         ab_upgrade: h.ab_upgrade !== false,
       });
-      const ab = headerAbOn(h as Record<string, string | boolean>);
+      const ab = headerAbOn(h);
       if (ab != null) setAbUpgrade(ab);
       setHeaderOpen(true);
     } catch (e) {
@@ -467,28 +477,44 @@ export default function EmmcPanel({
   }
 
   async function saveHeader() {
-    const flow = flowNo.trim();
+    const flow = headerDraft.flow_no.trim();
+    const project = headerDraft.import_project.trim();
     if (!flow) {
-      setStatus("请填写流程号");
+      const msg = "请填写流程号（必填）";
+      setHeaderErr(msg);
+      toast.push(msg, "warn");
       return;
     }
-    if (!headerDraft.import_project.trim()) {
-      setStatus("请填写「导入项目」");
+    if (!project) {
+      const msg = "请填写「导入项目」（必填）";
+      setHeaderErr(msg);
+      toast.push(msg, "warn");
       return;
     }
+    setHeaderErr("");
     setHeaderBusy(true);
+    const shouldStart = headerStartPending;
     try {
+      const { flow_no: _omit, ...metaFields } = headerDraft;
       const r = await api.emmcSaveReportHeader({
         flow_no: flow,
-        ...headerDraft,
+        ...metaFields,
       });
+      setFlowNo(flow);
+      reportLoadedRef.current = flow;
       setReportPath(r.path);
       setHeaderOpen(false);
+      setHeaderStartPending(false);
       setAbUpgrade(Boolean(headerDraft.ab_upgrade));
       setStatus(r.message);
       setLogs((prev) => [...prev, `INFO ${r.message}`]);
+      if (shouldStart) {
+        await executeStart(flow, Boolean(headerDraft.ab_upgrade));
+      }
     } catch (e) {
-      setStatus(`保存报告表头失败：${toErrorMessage(e)}`);
+      const msg = `保存报告表头失败：${toErrorMessage(e)}`;
+      setHeaderErr(msg);
+      setStatus(msg);
     } finally {
       setHeaderBusy(false);
     }
@@ -638,20 +664,32 @@ export default function EmmcPanel({
     if (!snOk) return;
     const picked = steps.filter((s) => selected[s.id]).map((s) => s.id);
     if (!picked.length) {
+      toast.push("请至少选择一项测试", "warn");
+      return;
+    }
+    await openHeaderEditor(true);
+  }
+
+  async function executeStart(flowOverride?: string, abOverride?: boolean) {
+    if (!snOk) return;
+    const picked = steps.filter((s) => selected[s.id]).map((s) => s.id);
+    if (!picked.length) {
       setStatus("请至少选择一项");
       return;
     }
-    const flow = flowNo.trim() || "1";
-    let abOn = abUpgrade;
-    try {
-      const info = await api.emmcReport(flow);
-      const ab = headerAbOn(info.header);
-      if (ab != null) {
-        abOn = ab;
-        setAbUpgrade(ab);
+    const flow = (flowOverride ?? flowNo).trim() || "1";
+    let abOn = abOverride ?? abUpgrade;
+    if (abOverride === undefined) {
+      try {
+        const info = await api.emmcReport(flow);
+        const ab = headerAbOn(info.header);
+        if (ab != null) {
+          abOn = ab;
+          setAbUpgrade(ab);
+        }
+      } catch {
+        /* 报告尚未创建时沿用本页已知的 A/B 状态 */
       }
-    } catch {
-      /* 报告尚未创建时沿用本页已知的 A/B 状态 */
     }
     if (picked.includes("ota") && !abOn) {
       const onlyOta = picked.every((id) => id === "ota");
@@ -1506,18 +1544,28 @@ export default function EmmcPanel({
       <Modal
         open={headerOpen}
         size="lg"
-        onClose={() => setHeaderOpen(false)}
-        title={`测试报告头部 · 流程 ${flowNo.trim() || "—"}`}
+        onClose={() => {
+          setHeaderOpen(false);
+          setHeaderStartPending(false);
+        }}
+        title={`测试报告头部 · 流程 ${headerDraft.flow_no.trim() || "—"}`}
         footer={
           <>
-            <Button onClick={() => setHeaderOpen(false)}>取消</Button>
+            <Button
+              onClick={() => {
+                setHeaderOpen(false);
+                setHeaderStartPending(false);
+              }}
+            >
+              取消
+            </Button>
             <Button
               variant="primary"
               disabled={headerBusy}
               loading={headerBusy}
               onClick={() => void saveHeader()}
             >
-              保存报告头部
+              {headerStartPending ? "保存并开始测试" : "保存报告头部"}
             </Button>
           </>
         }
@@ -1525,6 +1573,7 @@ export default function EmmcPanel({
         <div className="emmc-header-grid">
           {(
             [
+              ["flow_no", "流程号 *"],
               ["import_project", "导入项目 *"],
               ["internal_model", "内部型号"],
               ["emmc_brand", "eMMC 品牌"],
@@ -1582,6 +1631,13 @@ export default function EmmcPanel({
             />
             A/B 升级（需 OTA）
           </label>
+          {headerErr ? (
+            <div className="emmc-param emmc-param-wide">
+              <span className="emmc-hint" style={{ color: "var(--danger)" }}>
+                {headerErr}
+              </span>
+            </div>
+          ) : null}
         </div>
       </Modal>
       <Modal
