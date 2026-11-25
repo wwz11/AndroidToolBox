@@ -449,7 +449,7 @@ export default function EmmcPanel({
         sw_test_userdebug: String(h.sw_test_userdebug || ""),
         emmc_spec: String(h.emmc_spec || ""),
         gota_version: String(h.gota_version || ""),
-        tester: String(h.tester || ""),
+        tester: String(h.tester || feishuUserName || ""),
         test_time:
           String(h.test_time || "") ||
           new Date().toISOString().slice(0, 19).replace("T", " "),

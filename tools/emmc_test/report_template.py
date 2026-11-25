@@ -620,7 +620,7 @@ def write_report_header(
         saved = _save_workbook(wb, report_path)
     finally:
         wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(saved, notify=False)
     return saved
 
 
@@ -729,7 +729,10 @@ def write_stress_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(
+        saved,
+        summary=f"读写压力测试：{'Pass' if passed else 'Fail'}（成功 {write_pass}/{read_pass}/{check_pass}，共 {run_count} 次）",
+    )
     return saved
 
 
@@ -1129,7 +1132,10 @@ def write_iozone_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(
+        saved,
+        summary=f"Iozone {size_label} 读写速度测试：{passed}",
+    )
     return saved
 
 
@@ -1159,7 +1165,10 @@ def write_rpmb_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(
+        saved,
+        summary=f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)}h）",
+    )
     return saved
 
 
@@ -1194,7 +1203,10 @@ def write_reboot_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(
+        saved,
+        summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+    )
     return saved
 
 
@@ -1228,12 +1240,20 @@ def write_ota_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
-    _try_sync_online_report(saved)
+    _try_sync_online_report(
+        saved,
+        summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+    )
     return saved
 
 
-def _try_sync_online_report(report_path: Path) -> None:
-    """若当前流程已绑定在线飞书报告，后台静默同步最新数据并私聊通知测试人员。"""
+def _try_sync_online_report(
+    report_path: Path,
+    *,
+    summary: str = "",
+    notify: bool = True,
+) -> None:
+    """若当前流程已绑定在线飞书报告，同步最新数据并私聊通知测试人员（失败不影响本地报告）。"""
     flow = flow_no_from_report_path(report_path)
     if not flow:
         return
@@ -1256,7 +1276,7 @@ def _try_sync_online_report(report_path: Path) -> None:
             report_path=report_path,
             url_or_token=url,
         )
-        if cfg.get("notify_enabled") and cfg.get("user_open_id"):
+        if notify and cfg.get("notify_enabled") and cfg.get("user_open_id"):
             meta = read_report_header(report_path)
             send_feishu_report_notification(
                 app_id=cfg["app_id"],
@@ -1266,6 +1286,7 @@ def _try_sync_online_report(report_path: Path) -> None:
                 flow_no=flow,
                 report_url=url,
                 initial_result=meta.initial_result,
+                summary=summary,
             )
     except Exception:
         pass

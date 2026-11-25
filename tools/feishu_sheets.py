@@ -33,6 +33,7 @@ _DEFAULT_APP_SECRET_ENC = "NDYjKCQYERY4MgEIAVUVXAsuKxsXOgYFBQEJL0FfcHs="
 
 _TOKEN_LOCK = threading.Lock()
 _TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+_ROOT_FOLDER_CACHE: dict[str, str] = {}
 
 
 def _decode_default_cred(blob: str) -> str:
@@ -333,29 +334,52 @@ def get_spreadsheet_sheets(tenant_token: str, spreadsheet_token: str) -> list[di
     return list((payload.get("data") or {}).get("sheets") or [])
 
 
-def _get_parent_folder_token(tenant_token: str, file_token: str, file_type: str = "sheet") -> str:
-    try:
-        res = _request_json(
-            "POST",
-            "/drive/v1/metas/batch_query",
-            token=tenant_token,
-            body={"request_docs": [{"doc_token": file_token, "doc_type": file_type}]},
-        )
-        metas = (res.get("data") or {}).get("metas") or []
-        if metas:
-            parent = str(metas[0].get("parent_token") or "").strip()
-            if parent:
-                return parent
-    except Exception:
-        pass
+def _get_parent_folder_token(
+    tenant_token: str,
+    file_token: str,
+    file_type: str = "sheet",
+    *,
+    is_wiki: bool = False,
+    app_id: str = "",
+) -> str:
+    if not is_wiki:
+        try:
+            res = _request_json(
+                "POST",
+                "/drive/v1/metas/batch_query",
+                token=tenant_token,
+                body={"request_docs": [{"doc_token": file_token, "doc_type": file_type}]},
+            )
+            metas = (res.get("data") or {}).get("metas") or []
+            if metas:
+                parent = str(metas[0].get("parent_token") or "").strip()
+                if parent:
+                    return parent
+        except Exception:
+            pass
+    if app_id and app_id in _ROOT_FOLDER_CACHE:
+        return _ROOT_FOLDER_CACHE[app_id]
     try:
         root_res = _request_json("GET", "/drive/explorer/v2/root_folder/meta", token=tenant_token)
         root_tok = str((root_res.get("data") or {}).get("token") or "").strip()
         if root_tok:
+            if app_id:
+                _ROOT_FOLDER_CACHE[app_id] = root_tok
             return root_tok
     except Exception:
         pass
     return ""
+
+
+def is_feishu_file_alive(*, app_id: str, app_secret: str, url_or_token: str) -> bool:
+    """检查飞书在线表格是否仍存在且可访问（避免已被删除的旧链接继续挂在流程上）。"""
+    try:
+        token = get_tenant_access_token(app_id, app_secret)
+        sheet_token = resolve_spreadsheet_token(token, url_or_token)
+        _request_json("GET", f"/sheets/v3/spreadsheets/{sheet_token}", token=token, timeout=8.0)
+        return True
+    except Exception:
+        return False
 
 
 def copy_feishu_spreadsheet(
@@ -368,8 +392,11 @@ def copy_feishu_spreadsheet(
 ) -> dict[str, Any]:
     """复制在线飞书表格生成新在线报告，返回新表格 token 与 URL。"""
     token = get_tenant_access_token(app_id, app_secret)
+    kind, _ = parse_feishu_doc_url(url_or_token)
     src_token = resolve_spreadsheet_token(token, url_or_token)
-    target_folder = folder_token.strip() or _get_parent_folder_token(token, src_token, "sheet")
+    target_folder = folder_token.strip() or _get_parent_folder_token(
+        token, src_token, "sheet", is_wiki=(kind == "wiki"), app_id=app_id
+    )
 
     body: dict[str, Any] = {"name": name.strip() or "eMMC 测试报告", "type": "sheet"}
     if target_folder:
@@ -605,6 +632,7 @@ def send_feishu_report_notification(
     report_url: str = "",
     initial_result: str = "",
     summary: str = "",
+    title: str = "eMMC 测试报告已更新",
 ) -> dict[str, Any]:
     """通过飞书应用机器人私聊通知已扫码登录的测试人员（使用永久 open_id + 应用凭证，长测不失效）。"""
     target_open_id = (open_id or load_feishu_config().get("user_open_id") or "").strip()
@@ -628,7 +656,7 @@ def send_feishu_report_notification(
 
     post_body = {
         "zh_cn": {
-            "title": "eMMC 测试报告已更新",
+            "title": title,
             "content": lines or [[{"tag": "text", "text": "eMMC 测试结果已写入在线报告"}]],
         }
     }

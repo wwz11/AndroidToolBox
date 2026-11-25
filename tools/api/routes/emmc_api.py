@@ -38,6 +38,7 @@ from tools.feishu_sheets import (
     build_feishu_oauth_url,
     copy_feishu_spreadsheet,
     exchange_feishu_oauth_code,
+    is_feishu_file_alive,
     load_feishu_config,
     logout_feishu_user,
     save_feishu_config,
@@ -228,12 +229,25 @@ def save_report_header(body: ReportHeaderBody) -> dict:
 
 
 def _notify_feishu_start(
-    cfg: dict, flow: str, local_report: Path, url: str
+    cfg: dict,
+    flow: str,
+    local_report: Path,
+    url: str,
+    *,
+    sn: str = "",
+    steps: list[str] | None = None,
 ) -> None:
     if not cfg.get("notify_enabled") or not cfg.get("user_open_id"):
         return
     try:
         meta = read_report_header(local_report) if local_report.is_file() else ReportHeaderMeta()
+        step_names = "、".join(AUTO_LABELS.get(s, s) for s in (steps or []))
+        parts = []
+        if sn:
+            parts.append(f"设备：{sn}")
+        if step_names:
+            parts.append(f"测试项：{step_names}")
+        summary = " | ".join(parts) if parts else "eMMC 测试已开始，后续每项结果会自动写入此在线报告"
         send_feishu_report_notification(
             app_id=cfg["app_id"],
             app_secret=cfg["app_secret"],
@@ -242,20 +256,42 @@ def _notify_feishu_start(
             flow_no=flow,
             report_url=url,
             initial_result=meta.initial_result,
-            summary="eMMC 测试已开始，后续每项结果会自动写入此在线报告",
+            title="eMMC 测试已开始",
+            summary=summary,
         )
     except Exception:
         pass
 
 
-def _ensure_feishu_report_for_flow(flow: str, local_report: Path) -> tuple[str, str]:
-    """开始测试前确保当前流程已从飞书模板复制生成独立在线报告，并通知测试人员。"""
+def _ensure_feishu_report_for_flow(
+    flow: str,
+    local_report: Path,
+    *,
+    sn: str = "",
+    steps: list[str] | None = None,
+) -> tuple[str, str]:
+    """开始测试前确保当前流程已从飞书模板复制生成独立在线报告，并异步同步表头与通知。"""
     cfg = load_feishu_config()
+    if not cfg["app_id"] or not cfg["app_secret"]:
+        return get_feishu_report_for_flow(flow), ""
+
     existing = get_feishu_report_for_flow(flow)
     if existing:
-        _notify_feishu_start(cfg, flow, local_report, existing)
-        return existing, ""
-    if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
+        if is_feishu_file_alive(
+            app_id=cfg["app_id"], app_secret=cfg["app_secret"], url_or_token=existing
+        ):
+            threading.Thread(
+                target=_notify_feishu_start,
+                args=(cfg, flow, local_report, existing),
+                kwargs={"sn": sn, "steps": steps},
+                name=f"feishu-start-{flow}",
+                daemon=True,
+            ).start()
+            return existing, ""
+        # 旧在线报告已被删除，清除绑定并重新从模板复制
+        set_feishu_report_for_flow(flow, "")
+
+    if not cfg["template_url"]:
         return "", ""
     try:
         res = copy_feishu_spreadsheet(
@@ -267,14 +303,25 @@ def _ensure_feishu_report_for_flow(flow: str, local_report: Path) -> tuple[str, 
         url = str(res.get("url") or "").strip()
         if url:
             set_feishu_report_for_flow(flow, url)
-            if local_report.is_file():
-                sync_report_xlsx_to_feishu(
-                    app_id=cfg["app_id"],
-                    app_secret=cfg["app_secret"],
-                    report_path=local_report,
-                    url_or_token=url,
-                )
-            _notify_feishu_start(cfg, flow, local_report, url)
+
+            def _bg_sync_and_notify() -> None:
+                try:
+                    if local_report.is_file():
+                        sync_report_xlsx_to_feishu(
+                            app_id=cfg["app_id"],
+                            app_secret=cfg["app_secret"],
+                            report_path=local_report,
+                            url_or_token=url,
+                        )
+                except Exception:
+                    pass
+                _notify_feishu_start(cfg, flow, local_report, url, sn=sn, steps=steps)
+
+            threading.Thread(
+                target=_bg_sync_and_notify,
+                name=f"feishu-sync-start-{flow}",
+                daemon=True,
+            ).start()
         return url, ""
     except Exception as exc:
         return "", str(exc)
@@ -314,7 +361,9 @@ def start_job(body: StartBody) -> dict:
             detail=f"准备测试报告失败: {exc}",
         ) from exc
 
-    feishu_url, feishu_warn = _ensure_feishu_report_for_flow(flow, report)
+    feishu_url, feishu_warn = _ensure_feishu_report_for_flow(
+        flow, report, sn=sn, steps=selected
+    )
 
     p = body.params
     params = DeviceStepParams(
