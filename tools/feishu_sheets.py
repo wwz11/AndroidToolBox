@@ -343,7 +343,16 @@ def _get_parent_folder_token(tenant_token: str, file_token: str, file_type: str 
         )
         metas = (res.get("data") or {}).get("metas") or []
         if metas:
-            return str(metas[0].get("parent_token") or "").strip()
+            parent = str(metas[0].get("parent_token") or "").strip()
+            if parent:
+                return parent
+    except Exception:
+        pass
+    try:
+        root_res = _request_json("GET", "/drive/explorer/v2/root_folder/meta", token=tenant_token)
+        root_tok = str((root_res.get("data") or {}).get("token") or "").strip()
+        if root_tok:
+            return root_tok
     except Exception:
         pass
     return ""
