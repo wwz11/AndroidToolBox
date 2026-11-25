@@ -135,6 +135,16 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["name"], "李四")
             self.assertTrue(m_put.called)
 
+    def test_default_credentials_and_template_url_fallback(self) -> None:
+        with patch("tools.settings_store.get", return_value=""):
+            cfg = fs.load_feishu_config()
+            self.assertEqual(cfg["app_id"], "cli_ab8c2f031cbb5c14")
+            self.assertTrue(cfg["has_secret"])
+            self.assertEqual(
+                cfg["template_url"],
+                "https://seirobotics.feishu.cn/wiki/LxtOwpFGRi6mWskBXeBcqq8wnOe",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

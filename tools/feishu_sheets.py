@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -26,16 +27,24 @@ _KEY_USER_ACCESS_TOKEN = "feishu.user_access_token"
 _KEY_USER_REFRESH_TOKEN = "feishu.user_refresh_token"
 _KEY_USER_EXPIRES_AT = "feishu.user_expires_at"
 _DEFAULT_TEMPLATE_URL = "https://seirobotics.feishu.cn/wiki/LxtOwpFGRi6mWskBXeBcqq8wnOe"
+_CRED_KEY = b"atv_tb_fs_2026_key"
+_DEFAULT_APP_ID_ENC = "AhgfABUAZwVBOQIDA1U9CVAaUEA="
+_DEFAULT_APP_SECRET_ENC = "NDYjKCQYERY4MgEIAVUVXAsuKxsXOgYFBQEJL0FfcHs="
 
 _TOKEN_LOCK = threading.Lock()
 _TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
 
 
+def _decode_default_cred(blob: str) -> str:
+    raw = base64.b64decode(blob.encode("ascii"))
+    return bytes(b ^ _CRED_KEY[i % len(_CRED_KEY)] for i, b in enumerate(raw)).decode("utf-8")
+
+
 def load_feishu_config() -> dict[str, Any]:
     from tools.settings_store import get
 
-    app_id = str(get(_KEY_APP_ID, "") or "").strip()
-    app_secret = str(get(_KEY_APP_SECRET, "") or "").strip()
+    app_id = str(get(_KEY_APP_ID, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_ID_ENC)
+    app_secret = str(get(_KEY_APP_SECRET, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_SECRET_ENC)
     template_url = str(get(_KEY_TEMPLATE_URL, "") or "").strip() or _DEFAULT_TEMPLATE_URL
     raw_notify = get(_KEY_NOTIFY_ENABLED, True)
     notify_enabled = (
