@@ -617,10 +617,11 @@ def write_report_header(
             )
             set_ab_upgrade_for_flow(fn, meta.ab_upgrade)
         _finalize_report_workbook(wb, report_path)
-        _save_workbook(wb, report_path)
+        saved = _save_workbook(wb, report_path)
     finally:
         wb.close()
-    return report_path
+    _try_sync_online_report(saved)
+    return saved
 
 
 def _safe_set_cell(ws, row: int, col: int, value) -> None:

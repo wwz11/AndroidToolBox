@@ -583,7 +583,16 @@ def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     set_feishu_report_for_flow(flow, res["url"])
-    return {**_feishu_status_payload(flow), **res}
+    local_path = report_path_for_flow(flow, base_dir=app_base_dir())
+    sync_info: dict = {}
+    if local_path.is_file():
+        sync_info = sync_report_xlsx_to_feishu(
+            app_id=app_id,
+            app_secret=app_secret,
+            report_path=local_path,
+            url_or_token=res["url"],
+        )
+    return {**_feishu_status_payload(flow), **res, **sync_info}
 
 
 @router.post("/feishu/sync-report")
