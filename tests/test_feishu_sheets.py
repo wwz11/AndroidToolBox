@@ -144,7 +144,7 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertTrue(cfg["has_secret"])
             self.assertEqual(
                 cfg["template_url"],
-                "https://seirobotics.feishu.cn/wiki/LxtOwpFGRi6mWskBXeBcqq8wnOe",
+                "https://seirobotics.feishu.cn/sheets/shtcnYmpb0mKyOwYTFIHSqjBYic",
             )
 
 
