@@ -117,6 +117,7 @@ export default function EmmcPanel({
   const [headerOpen, setHeaderOpen] = useState(false);
   const [headerBusy, setHeaderBusy] = useState(false);
   const [headerStartPending, setHeaderStartPending] = useState(false);
+  const [startLoginOpen, setStartLoginOpen] = useState(false);
   const [headerErr, setHeaderErr] = useState("");
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft>(EMPTY_HEADER);
   const [feishuOpen, setFeishuOpen] = useState(false);
@@ -431,7 +432,7 @@ export default function EmmcPanel({
     }
   }
 
-  async function openHeaderEditor(forStart = false) {
+  async function openHeaderEditor(forStart = false, testerOverride = "") {
     const flow = flowNo.trim();
     setHeaderStartPending(forStart);
     setHeaderErr("");
@@ -459,7 +460,7 @@ export default function EmmcPanel({
         sw_test_userdebug: String(h.sw_test_userdebug || ""),
         emmc_spec: String(h.emmc_spec || ""),
         gota_version: String(h.gota_version || ""),
-        tester: String(h.tester || feishuUserName || ""),
+        tester: String(testerOverride || h.tester || feishuUserName || ""),
         test_time:
           String(h.test_time || "") ||
           new Date().toISOString().slice(0, 19).replace("T", " "),
@@ -599,7 +600,7 @@ export default function EmmcPanel({
     }
   }
 
-  async function loginFeishuQr() {
+  async function loginFeishuQr(): Promise<string | null> {
     setFeishuBusy(true);
     setFeishuMsg("");
     try {
@@ -615,16 +616,19 @@ export default function EmmcPanel({
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
         if (cfg.user_logged_in) {
+          const name = cfg.user_name || cfg.user_open_id || "";
           setFeishuUserName(cfg.user_name || "");
           setFeishuUserOpenId(cfg.user_open_id || "");
-          const okMsg = `飞书已登录：${cfg.user_name || cfg.user_open_id}`;
+          const okMsg = `飞书已登录：${name}`;
           setFeishuMsg(okMsg);
           setStatus(okMsg);
-          break;
+          return name;
         }
       }
+      return null;
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
+      return null;
     } finally {
       setFeishuBusy(false);
     }
@@ -667,7 +671,19 @@ export default function EmmcPanel({
       toast.push("请至少选择一项测试", "warn");
       return;
     }
-    await openHeaderEditor(true);
+    try {
+      const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
+      if (cfg.user_logged_in) {
+        setFeishuUserName(cfg.user_name || "");
+        setFeishuUserOpenId(cfg.user_open_id || "");
+        await openHeaderEditor(true, cfg.user_name || "");
+        return;
+      }
+    } catch {
+      /* 飞书配置查询失败时照常弹登录提示 */
+    }
+    setFeishuMsg("");
+    setStartLoginOpen(true);
   }
 
   async function executeStart(flowOverride?: string, abOverride?: boolean) {
@@ -1722,6 +1738,55 @@ export default function EmmcPanel({
                 绑定在线报告后，每次测试完成也会自动把结果写入飞书在线表格
               </span>
             )}
+            {feishuMsg ? <span className="emmc-hint">{feishuMsg}</span> : null}
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        open={startLoginOpen}
+        title="飞书账号登录提示"
+        onClose={() => setStartLoginOpen(false)}
+        footer={
+          <>
+            <Button disabled={feishuBusy} onClick={() => setStartLoginOpen(false)}>
+              取消
+            </Button>
+            <Button
+              disabled={feishuBusy}
+              onClick={() => {
+                setStartLoginOpen(false);
+                void openHeaderEditor(true);
+              }}
+            >
+              暂不登录，继续
+            </Button>
+            <Button
+              variant="primary"
+              disabled={feishuBusy}
+              loading={feishuBusy}
+              onClick={() => {
+                void (async () => {
+                  const name = await loginFeishuQr();
+                  if (name) {
+                    setStartLoginOpen(false);
+                    await openHeaderEditor(true, name);
+                  }
+                })();
+              }}
+            >
+              扫码登录飞书
+            </Button>
+          </>
+        }
+      >
+        <div className="emmc-header-grid">
+          <div className="emmc-param emmc-param-wide">
+            <p className="emmc-hint" style={{ margin: 0, lineHeight: 1.6 }}>
+              建议先扫码登录飞书：登录后测试开始及各测试项结果都会通过飞书私聊实时同步通知您，并自动为您填写报告「测试人员」及授予在线报告管理权限。
+            </p>
+            <p className="emmc-hint" style={{ margin: 0, lineHeight: 1.6 }}>
+              如果不登录也可以点「暂不登录，继续」，直接进入报告头部填写并开始测试。
+            </p>
             {feishuMsg ? <span className="emmc-hint">{feishuMsg}</span> : null}
           </div>
         </div>
