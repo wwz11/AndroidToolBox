@@ -25,15 +25,20 @@ from tools.emmc_test.report_template import (
     create_report_with_header,
     emmc_reports_dir,
     ensure_flow_report,
+    get_feishu_report_for_flow,
     read_report_header,
+    report_filename,
     report_path_for_flow,
+    set_feishu_report_for_flow,
     synced_template_path,
     update_report_header,
 )
 from tools.feishu_sheets import (
+    copy_feishu_spreadsheet,
     export_feishu_spreadsheet_xlsx,
     load_feishu_config,
     save_feishu_config,
+    sync_report_xlsx_to_feishu,
     test_feishu_connection,
 )
 
@@ -495,9 +500,12 @@ class FeishuConfigBody(BaseModel):
     app_id: str = ""
     app_secret: str = ""
     template_url: str = ""
+    flow_no: str = ""
+    report_url: str = ""
+    report_name: str = ""
 
 
-def _feishu_status_payload() -> dict:
+def _feishu_status_payload(flow_no: str = "") -> dict:
     cfg = load_feishu_config()
     synced = synced_template_path(app_base_dir())
     exists = synced.is_file()
@@ -508,6 +516,7 @@ def _feishu_status_payload() -> dict:
         "app_id": cfg["app_id"],
         "has_secret": cfg["has_secret"],
         "template_url": cfg["template_url"],
+        "flow_report_url": get_feishu_report_for_flow(flow_no) if flow_no.strip() else "",
         "synced_exists": exists,
         "synced_path": str(synced) if exists else "",
         "synced_mtime": mtime,
@@ -515,8 +524,8 @@ def _feishu_status_payload() -> dict:
 
 
 @router.get("/feishu/config")
-def get_feishu_config() -> dict:
-    return _feishu_status_payload()
+def get_feishu_config(flow_no: str = "") -> dict:
+    return _feishu_status_payload(flow_no)
 
 
 @router.put("/feishu/config")
@@ -526,7 +535,9 @@ def put_feishu_config(body: FeishuConfigBody) -> dict:
         app_secret=body.app_secret or None,
         template_url=body.template_url,
     )
-    return _feishu_status_payload()
+    if body.flow_no.strip() and body.report_url.strip():
+        set_feishu_report_for_flow(body.flow_no, body.report_url)
+    return _feishu_status_payload(body.flow_no)
 
 
 @router.post("/feishu/test")
@@ -543,6 +554,59 @@ def test_feishu(body: FeishuConfigBody) -> dict:
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/feishu/copy-template")
+def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    app_id = body.app_id.strip() or cfg["app_id"]
+    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    url = body.template_url.strip() or cfg["template_url"]
+    if body.app_id.strip() or body.app_secret.strip() or body.template_url.strip():
+        save_feishu_config(
+            app_id=app_id,
+            app_secret=body.app_secret.strip() or None,
+            template_url=url,
+        )
+    flow = body.flow_no.strip() or "1"
+    name = body.report_name.strip()
+    if not name:
+        local_path = report_path_for_flow(flow, base_dir=app_base_dir())
+        name = local_path.stem if local_path.name else report_filename(flow, flow).removesuffix(".xlsx")
+    try:
+        res = copy_feishu_spreadsheet(
+            app_id=app_id,
+            app_secret=app_secret,
+            url_or_token=url,
+            name=name,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    set_feishu_report_for_flow(flow, res["url"])
+    return {**_feishu_status_payload(flow), **res}
+
+
+@router.post("/feishu/sync-report")
+def sync_report_to_feishu(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    app_id = body.app_id.strip() or cfg["app_id"]
+    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    flow = body.flow_no.strip() or "1"
+    target_url = body.report_url.strip() or get_feishu_report_for_flow(flow)
+    if not target_url:
+        raise HTTPException(status_code=400, detail="请先复制生成在线报告或填入目标在线表格链接")
+    set_feishu_report_for_flow(flow, target_url)
+    local_path = ensure_flow_report(flow, base_dir=app_base_dir())
+    try:
+        res = sync_report_xlsx_to_feishu(
+            app_id=app_id,
+            app_secret=app_secret,
+            report_path=local_path,
+            url_or_token=target_url,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {**_feishu_status_payload(flow), **res}
 
 
 @router.post("/feishu/sync-template")

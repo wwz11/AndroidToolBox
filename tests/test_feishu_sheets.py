@@ -50,6 +50,40 @@ class TestFeishuSheets(unittest.TestCase):
             )
             self.assertEqual(tok, "shtABC12345")
 
+    def test_copy_feishu_spreadsheet_payload(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_req(method: str, path: str, **kwargs: object) -> dict:
+            calls.append((method, path))
+            if path.endswith("/copy"):
+                return {
+                    "code": 0,
+                    "data": {
+                        "file": {
+                            "token": "shtNEW999",
+                            "url": "https://feishu.cn/sheets/shtNEW999",
+                            "name": "Report_Flow1",
+                        }
+                    },
+                }
+            if "metas/batch_query" in path:
+                return {"code": 0, "data": {"metas": [{"parent_token": "fldPARENT"}]}}
+            return {"code": 0, "data": {}}
+
+        with (
+            patch.object(fs, "get_tenant_access_token", return_value="t-tok"),
+            patch.object(fs, "_request_json", side_effect=fake_req),
+        ):
+            res = fs.copy_feishu_spreadsheet(
+                app_id="aid",
+                app_secret="sec",
+                url_or_token="https://seirobotics.feishu.cn/sheets/shtSRC111",
+                name="Report_Flow1",
+            )
+            self.assertEqual(res["spreadsheet_token"], "shtNEW999")
+            self.assertEqual(res["url"], "https://feishu.cn/sheets/shtNEW999")
+            self.assertTrue(any(p.endswith("/copy") for _, p in calls))
+
 
 if __name__ == "__main__":
     unittest.main()

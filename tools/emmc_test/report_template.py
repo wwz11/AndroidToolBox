@@ -139,6 +139,34 @@ def _flow_import_project_key(flow_no: str) -> str:
     return f"emmc_test.report.flow.{flow_no.strip()}.import_project"
 
 
+def _flow_feishu_report_key(flow_no: str) -> str:
+    return f"emmc_test.report.flow.{flow_no.strip()}.feishu_url"
+
+
+def get_feishu_report_for_flow(flow_no: str) -> str:
+    flow = flow_no.strip()
+    if not flow:
+        return ""
+    try:
+        from tools.settings_store import get
+
+        return str(get(_flow_feishu_report_key(flow), "") or "").strip()
+    except ImportError:
+        return ""
+
+
+def set_feishu_report_for_flow(flow_no: str, url: str) -> None:
+    flow = flow_no.strip()
+    if not flow:
+        return
+    try:
+        from tools.settings_store import put
+
+        put(_flow_feishu_report_key(flow), url.strip())
+    except ImportError:
+        pass
+
+
 def _report_path_flow_key(report_path: Path) -> str:
     return f"emmc_test.report.path.{str(report_path.resolve()).replace(chr(92), '/')}.flow_no"
 
@@ -700,6 +728,7 @@ def write_stress_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
+    _try_sync_online_report(saved)
     return saved
 
 
@@ -1099,6 +1128,7 @@ def write_iozone_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
+    _try_sync_online_report(saved)
     return saved
 
 
@@ -1128,6 +1158,7 @@ def write_rpmb_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
+    _try_sync_online_report(saved)
     return saved
 
 
@@ -1162,6 +1193,7 @@ def write_reboot_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
+    _try_sync_online_report(saved)
     return saved
 
 
@@ -1195,4 +1227,29 @@ def write_ota_result(
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()
+    _try_sync_online_report(saved)
     return saved
+
+
+def _try_sync_online_report(report_path: Path) -> None:
+    """若当前流程已绑定在线飞书报告，后台静默同步最新数据（失败不影响本地报告）。"""
+    flow = flow_no_from_report_path(report_path)
+    if not flow:
+        return
+    url = get_feishu_report_for_flow(flow)
+    if not url:
+        return
+    try:
+        from tools.feishu_sheets import load_feishu_config, sync_report_xlsx_to_feishu
+
+        cfg = load_feishu_config()
+        if not cfg["app_id"] or not cfg["app_secret"]:
+            return
+        sync_report_xlsx_to_feishu(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            report_path=report_path,
+            url_or_token=url,
+        )
+    except Exception:
+        pass

@@ -268,3 +268,173 @@ def export_feishu_spreadsheet_xlsx(
         "spreadsheet_token": sheet_token,
         "title": title,
     }
+
+
+def _col_letter(col: int) -> str:
+    res = ""
+    n = col
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        res = chr(65 + rem) + res
+    return res
+
+
+def get_spreadsheet_sheets(tenant_token: str, spreadsheet_token: str) -> list[dict[str, Any]]:
+    payload = _request_json(
+        "GET",
+        f"/sheets/v3/spreadsheets/{spreadsheet_token}/sheets/query",
+        token=tenant_token,
+    )
+    return list((payload.get("data") or {}).get("sheets") or [])
+
+
+def _get_parent_folder_token(tenant_token: str, file_token: str, file_type: str = "sheet") -> str:
+    try:
+        res = _request_json(
+            "POST",
+            "/drive/v1/metas/batch_query",
+            token=tenant_token,
+            body={"request_docs": [{"doc_token": file_token, "doc_type": file_type}]},
+        )
+        metas = (res.get("data") or {}).get("metas") or []
+        if metas:
+            return str(metas[0].get("parent_token") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def copy_feishu_spreadsheet(
+    *,
+    app_id: str,
+    app_secret: str,
+    url_or_token: str,
+    name: str,
+    folder_token: str = "",
+) -> dict[str, Any]:
+    """复制在线飞书表格生成新在线报告，返回新表格 token 与 URL。"""
+    token = get_tenant_access_token(app_id, app_secret)
+    src_token = resolve_spreadsheet_token(token, url_or_token)
+    target_folder = folder_token.strip() or _get_parent_folder_token(token, src_token, "sheet")
+
+    body: dict[str, Any] = {"name": name.strip() or "eMMC 测试报告", "type": "sheet"}
+    if target_folder:
+        body["folder_token"] = target_folder
+
+    res = _request_json(
+        "POST",
+        f"/drive/v1/files/{src_token}/copy",
+        token=token,
+        body=body,
+    )
+    file_info = (res.get("data") or {}).get("file") or {}
+    new_token = str(file_info.get("token") or "").strip()
+    new_url = str(file_info.get("url") or "").strip() or f"https://feishu.cn/sheets/{new_token}"
+    if not new_token:
+        raise RuntimeError("复制飞书表格失败：未返回新文件 token")
+
+    # 尽量开启企业内可编辑链接，方便团队成员直接查看/编辑
+    try:
+        _request_json(
+            "PATCH",
+            f"/drive/v1/permissions/{new_token}/public?type=sheet",
+            token=token,
+            body={"link_share_entity": "tenant_editable"},
+        )
+    except Exception:
+        pass
+
+    return {
+        "ok": True,
+        "spreadsheet_token": new_token,
+        "url": new_url,
+        "name": str(file_info.get("name") or name).strip(),
+    }
+
+
+def _match_online_sheet_id(local_title: str, online_sheets: list[dict[str, Any]]) -> str:
+    low = (local_title or "").lower()
+    is_en = "import" in low or "(en)" in low or "english" in low
+    for s in online_sheets:
+        title = str(s.get("title") or "")
+        tlow = title.lower()
+        if tlow == "history":
+            continue
+        online_en = "import" in tlow or "english" in tlow
+        if is_en == online_en:
+            return str(s.get("sheet_id") or "")
+    for s in online_sheets:
+        if str(s.get("title") or "").lower() != "history":
+            return str(s.get("sheet_id") or "")
+    return ""
+
+
+def sync_report_xlsx_to_feishu(
+    *,
+    app_id: str,
+    app_secret: str,
+    report_path: Path,
+    url_or_token: str,
+) -> dict[str, Any]:
+    """将本地 eMMC 报告表头与各测试项结果直接写入在线飞书表格。"""
+    from tools.emmc_test import report_template as rt
+
+    if not report_path.is_file():
+        raise FileNotFoundError(f"本地报告不存在: {report_path}")
+
+    token = get_tenant_access_token(app_id, app_secret)
+    sheet_token = resolve_spreadsheet_token(token, url_or_token)
+    online_sheets = get_spreadsheet_sheets(token, sheet_token)
+    if not online_sheets:
+        raise RuntimeError("在线飞书表格未包含任何工作表")
+
+    wb = rt._load_workbook(report_path)
+    value_ranges: list[dict[str, Any]] = []
+    try:
+        for ws in rt._iter_report_sheets(wb):
+            sid = _match_online_sheet_id(ws.title or "", online_sheets)
+            if not sid:
+                continue
+            rows_1_to_38: list[list[Any]] = []
+            for r in range(1, 39):
+                row_vals: list[Any] = []
+                for c in range(1, 15):
+                    v = ws.cell(r, c).value
+                    row_vals.append("" if v is None else v)
+                rows_1_to_38.append(row_vals)
+            # 按单元格粒度只写有值的单元格（避免覆盖模板原有说明/公式/合并格占位）
+            for r in range(1, 39):
+                for c in range(1, 15):
+                    # 仅同步软件写入区：R1C1标题、R3-R9表头值、R13-R24 iozone、R26-R29 压测、R32 reboot、R35 rpmb、R38 ota
+                    if not (
+                        (r == 1 and c == 1)
+                        or (3 <= r <= 9 and c in (2, 5, 8))
+                        or (13 <= r <= 24 and 1 <= c <= 11)
+                        or (26 <= r <= 29 and 1 <= c <= 8)
+                        or (r in (32, 35, 38) and 1 <= c <= 8)
+                    ):
+                        continue
+                    v = ws.cell(r, c).value
+                    if v is None:
+                        continue
+                    a1 = f"{_col_letter(c)}{r}"
+                    value_ranges.append({"range": f"{sid}!{a1}:{a1}", "values": [[v]]})
+    finally:
+        wb.close()
+
+    if value_ranges:
+        # 飞书 values_batch_update 单次建议分批（每批最多 100 个 range）
+        for i in range(0, len(value_ranges), 100):
+            _request_json(
+                "POST",
+                f"/sheets/v2/spreadsheets/{sheet_token}/values_batch_update",
+                token=token,
+                body={"valueRanges": value_ranges[i : i + 100]},
+            )
+
+    return {
+        "ok": True,
+        "spreadsheet_token": sheet_token,
+        "updated_cells": len(value_ranges),
+        "url": f"https://feishu.cn/sheets/{sheet_token}",
+    }

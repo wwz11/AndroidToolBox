@@ -1327,24 +1327,28 @@ export const api = {
     }>(`/emmc/jobs/${encodeURIComponent(jobId)}${q({ since })}`),
   emmcStop: (jobId: string) =>
     request<{ ok: boolean }>(`/emmc/jobs/${jobId}/stop`, { method: "POST" }),
-  emmcFeishuConfig: () =>
+  emmcFeishuConfig: (flowNo = "") =>
     request<{
       app_id: string;
       has_secret: boolean;
       template_url: string;
+      flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
       synced_mtime: string;
-    }>("/emmc/feishu/config"),
+    }>(`/emmc/feishu/config${q({ flow_no: flowNo })}`),
   emmcSaveFeishuConfig: (body: {
     app_id: string;
     app_secret?: string;
     template_url: string;
+    flow_no?: string;
+    report_url?: string;
   }) =>
     request<{
       app_id: string;
       has_secret: boolean;
       template_url: string;
+      flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
       synced_mtime: string;
@@ -1364,6 +1368,39 @@ export const api = {
         body: JSON.stringify(body),
       },
     ),
+  emmcCopyFeishuTemplate: (body: {
+    app_id?: string;
+    app_secret?: string;
+    template_url?: string;
+    flow_no?: string;
+    report_name?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      url: string;
+      spreadsheet_token: string;
+      name: string;
+      flow_report_url: string;
+    }>("/emmc/feishu/copy-template", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  emmcSyncFeishuReport: (body: {
+    app_id?: string;
+    app_secret?: string;
+    flow_no?: string;
+    report_url?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      url: string;
+      spreadsheet_token: string;
+      updated_cells: number;
+      flow_report_url: string;
+    }>("/emmc/feishu/sync-report", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   emmcSyncFeishuTemplate: (body: {
     app_id?: string;
     app_secret?: string;

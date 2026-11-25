@@ -120,8 +120,7 @@ export default function EmmcPanel({
   const [feishuSecret, setFeishuSecret] = useState("");
   const [feishuHasSecret, setFeishuHasSecret] = useState(false);
   const [feishuUrl, setFeishuUrl] = useState("");
-  const [feishuSynced, setFeishuSynced] = useState(false);
-  const [feishuMtime, setFeishuMtime] = useState("");
+  const [feishuReportUrl, setFeishuReportUrl] = useState("");
   const [feishuMsg, setFeishuMsg] = useState("");
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
@@ -499,13 +498,12 @@ export default function EmmcPanel({
     setFeishuMsg("");
     setFeishuBusy(true);
     try {
-      const r = await api.emmcFeishuConfig();
+      const r = await api.emmcFeishuConfig(flowNo.trim() || "1");
       setFeishuAppId(r.app_id || "");
       setFeishuHasSecret(Boolean(r.has_secret));
       setFeishuSecret("");
       setFeishuUrl(r.template_url || "");
-      setFeishuSynced(Boolean(r.synced_exists));
-      setFeishuMtime(r.synced_mtime || "");
+      setFeishuReportUrl(r.flow_report_url || "");
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -521,9 +519,12 @@ export default function EmmcPanel({
         app_id: feishuAppId.trim(),
         app_secret: feishuSecret.trim() || undefined,
         template_url: feishuUrl.trim(),
+        flow_no: flowNo.trim() || "1",
+        report_url: feishuReportUrl.trim() || undefined,
       });
       setFeishuHasSecret(Boolean(r.has_secret));
       setFeishuSecret("");
+      setFeishuReportUrl(r.flow_report_url || feishuReportUrl.trim());
       setFeishuMsg("飞书配置已保存");
       setStatus("飞书配置已保存");
     } catch (e) {
@@ -550,20 +551,18 @@ export default function EmmcPanel({
     }
   }
 
-  async function syncFeishuTemplate() {
+  async function copyFeishuReport() {
     setFeishuBusy(true);
     setFeishuMsg("");
     try {
-      const r = await api.emmcSyncFeishuTemplate({
+      const r = await api.emmcCopyFeishuTemplate({
         app_id: feishuAppId.trim(),
         app_secret: feishuSecret.trim() || undefined,
         template_url: feishuUrl.trim(),
+        flow_no: flowNo.trim() || "1",
       });
-      setFeishuHasSecret(Boolean(r.has_secret));
-      setFeishuSecret("");
-      setFeishuSynced(Boolean(r.synced_exists));
-      setFeishuMtime(r.synced_mtime || "");
-      const okMsg = `已同步飞书在线模板${r.title ? `：${r.title}` : ""}`;
+      setFeishuReportUrl(r.url);
+      const okMsg = `已复制生成在线报告：${r.name}`;
       setFeishuMsg(okMsg);
       setStatus(okMsg);
     } catch (e) {
@@ -573,15 +572,20 @@ export default function EmmcPanel({
     }
   }
 
-  async function resetFeishuTemplate() {
+  async function syncFeishuReportNow() {
     setFeishuBusy(true);
     setFeishuMsg("");
     try {
-      const r = await api.emmcResetFeishuTemplate();
-      setFeishuSynced(Boolean(r.synced_exists));
-      setFeishuMtime(r.synced_mtime || "");
-      setFeishuMsg("已恢复使用内置 v3.0 模板");
-      setStatus("已恢复使用内置 v3.0 模板");
+      const r = await api.emmcSyncFeishuReport({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        flow_no: flowNo.trim() || "1",
+        report_url: feishuReportUrl.trim(),
+      });
+      setFeishuReportUrl(r.url || feishuReportUrl);
+      const okMsg = `已同步 ${r.updated_cells} 个单元格到飞书在线报告`;
+      setFeishuMsg(okMsg);
+      setStatus(okMsg);
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -803,7 +807,7 @@ export default function EmmcPanel({
                   disabled={feishuBusy || running}
                   onClick={() => void openFeishuModal()}
                 >
-                  飞书模板
+                  飞书在线报告
                 </Button>
                 <Button onClick={() => void openReportsDir()}>报告目录</Button>
                 <Button onClick={() => void openLogsDir()}>日志目录</Button>
@@ -1522,18 +1526,10 @@ export default function EmmcPanel({
       </Modal>
       <Modal
         open={feishuOpen}
-        title="飞书在线模板同步（应用凭证）"
+        title="飞书在线报告（复制模板 + 直接写入）"
         onClose={() => setFeishuOpen(false)}
         footer={
           <>
-            {feishuSynced ? (
-              <Button
-                disabled={feishuBusy}
-                onClick={() => void resetFeishuTemplate()}
-              >
-                恢复内置模板
-              </Button>
-            ) : null}
             <Button disabled={feishuBusy} onClick={() => void saveFeishuOnly()}>
               保存配置
             </Button>
@@ -1541,12 +1537,18 @@ export default function EmmcPanel({
               测试连接
             </Button>
             <Button
-              variant="primary"
               disabled={feishuBusy}
-              loading={feishuBusy}
-              onClick={() => void syncFeishuTemplate()}
+              onClick={() => void copyFeishuReport()}
             >
-              同步在线模板
+              复制生成在线报告
+            </Button>
+            <Button
+              variant="primary"
+              disabled={feishuBusy || !feishuReportUrl.trim()}
+              loading={feishuBusy}
+              onClick={() => void syncFeishuReportNow()}
+            >
+              同步当前结果到飞书
             </Button>
           </>
         }
@@ -1576,7 +1578,7 @@ export default function EmmcPanel({
             />
           </label>
           <label className="emmc-param emmc-param-wide">
-            <span>在线表格 / Wiki 链接</span>
+            <span>飞书模板链接（用于复制新建报告）</span>
             <input
               className="field"
               value={feishuUrl}
@@ -1585,12 +1587,30 @@ export default function EmmcPanel({
               onChange={(e) => setFeishuUrl(e.target.value)}
             />
           </label>
+          <label className="emmc-param emmc-param-wide">
+            <span>当前流程（{flowNo.trim() || "1"}）对应在线报告链接</span>
+            <input
+              className="field"
+              value={feishuReportUrl}
+              disabled={feishuBusy}
+              placeholder="点「复制生成在线报告」自动创建，或粘贴已有报告链接"
+              onChange={(e) => setFeishuReportUrl(e.target.value)}
+            />
+          </label>
           <div className="emmc-param emmc-param-wide">
-            <span className="emmc-hint">
-              {feishuSynced
-                ? `当前模板：已同步飞书在线模板（${feishuMtime || "已缓存"}）`
-                : "当前模板：内置 eMMC 导入测试报告模版 v3.0"}
-            </span>
+            {feishuReportUrl.trim() ? (
+              <button
+                type="button"
+                className="emmc-path-btn"
+                onClick={() => void openAny(feishuReportUrl.trim())}
+              >
+                在浏览器打开在线报告：{feishuReportUrl.trim()}
+              </button>
+            ) : (
+              <span className="emmc-hint">
+                绑定在线报告后，每次测试完成也会自动把结果写入飞书在线表格
+              </span>
+            )}
             {feishuMsg ? <span className="emmc-hint">{feishuMsg}</span> : null}
           </div>
         </div>
