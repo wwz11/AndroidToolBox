@@ -905,7 +905,7 @@ def send_feishu_report_notification(
         )
 
     title_tags: list[str] = []
-    if proj and proj != flow:
+    if proj:
         title_tags.append(proj)
     if flow:
         title_tags.append(f"流程{flow}")
