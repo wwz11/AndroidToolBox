@@ -228,7 +228,7 @@ def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
         saved = str(get(_flow_report_path_key(flow), "")).strip()
         if saved:
             path = Path(saved)
-            if path.is_file():
+            if path.is_file() and "模版v2.0" not in path.name:
                 return path
     except ImportError:
         pass
@@ -236,23 +236,15 @@ def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
     named = report_path_for_project(flow, import_project, base_dir=base_dir)
     if named.is_file():
         return named
-    # 旧版：…导入测试报告模版v2.0 {流程号}.xlsx / …OA.xlsx
+    # 兼容 v3.0 空格命名
     try:
         sanitized = _sanitize_report_name_part(import_project)
         safe_flow = _sanitize_flow_for_filename(flow)
-        for legacy_name in (
-            f"eMMC For {sanitized} 导入测试报告模版v3.0 {safe_flow}.xlsx",
-            f"eMMC For {sanitized}{_LEGACY_REPORT_FILENAME_MIDDLE}{safe_flow}.xlsx",
-            f"eMMC For {sanitized} 导入测试报告模版v2.0 OA.xlsx",
-        ):
-            legacy_p = _reports_root(base_dir) / legacy_name
-            if legacy_p.is_file():
-                return legacy_p
+        spaced_v3 = _reports_root(base_dir) / f"eMMC For {sanitized} 导入测试报告模版v3.0 {safe_flow}.xlsx"
+        if spaced_v3.is_file():
+            return spaced_v3
     except ValueError:
         pass
-    legacy = _legacy_report_path(flow, base_dir=base_dir)
-    if legacy.is_file():
-        return legacy
     return named
 
 

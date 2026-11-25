@@ -85,7 +85,7 @@ export default function EmmcPanel({
 }: Props) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [flowNo, setFlowNo] = useState("1");
+  const [flowNo, setFlowNo] = useState("");
   const [jobId, setJobId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
