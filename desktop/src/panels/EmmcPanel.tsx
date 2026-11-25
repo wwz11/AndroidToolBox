@@ -3,7 +3,7 @@ import { toErrorMessage } from "../errors";
 import { api } from "../api/client";
 import { reportActivity } from "../activity";
 import { useDialog } from "../components/dialog";
-import { useStatusNotify } from "../components/toast";
+import { useStatusNotify, useToast } from "../components/toast";
 import Modal from "../components/Modal";
 import { useStickyLogScroll } from "../hooks/useStickyLogScroll";
 import { Button, EmptyState } from "../ui";
@@ -89,6 +89,7 @@ export default function EmmcPanel({
   const [running, setRunning] = useState(false);
   const [reportPath, setReportPath] = useState("");
   const setStatus = useStatusNotify();
+  const toast = useToast();
   const dialog = useDialog();
 
   const [loopNum, setLoopNum] = useState("1000");
@@ -252,6 +253,7 @@ export default function EmmcPanel({
       .then((r) => {
         if (cancelled) return;
         reportLoadedRef.current = flow;
+        setFeishuReportUrl(r.feishu_report_url || "");
         const ab = headerAbOn(r.header);
         if (ab != null) setAbUpgrade(ab);
       })
@@ -769,6 +771,15 @@ export default function EmmcPanel({
       setStepsDone(0);
       setStepsTotal(sendSteps.length);
       setReportPath(r.report_path || "");
+      if (r.feishu_report_url) {
+        setFeishuReportUrl(r.feishu_report_url);
+        toast.push(
+          `已复制飞书在线报告，后续结果将自动写入：${r.feishu_report_url}`,
+          "ok",
+        );
+      } else if (r.feishu_report_warn) {
+        toast.push(`飞书模板复制失败（将继续本地测试）：${r.feishu_report_warn}`, "warn");
+      }
       setStatus(
         r.report_path
           ? `任务 ${r.job_id} 运行中 · ${shortPath(r.report_path, 36)}`
@@ -863,6 +874,16 @@ export default function EmmcPanel({
               ) : (
                 <span className="emmc-hint">同流程号汇总 · 尚无报告时可先填写头部</span>
               )}
+              {feishuReportUrl ? (
+                <button
+                  type="button"
+                  className="emmc-path-btn"
+                  title={`点击在浏览器打开复制后的飞书在线报告：${feishuReportUrl}`}
+                  onClick={() => void openAny(feishuReportUrl)}
+                >
+                  飞书在线报告：{shortPath(feishuReportUrl, 44)}
+                </button>
+              ) : null}
             </div>
           </div>
 

@@ -1242,6 +1242,7 @@ export const api = {
       exists: boolean;
       reports_dir: string;
       header: Record<string, string | boolean>;
+      feishu_report_url?: string;
     }>(`/emmc/report${q({ flow_no: flowNo })}`),
   emmcSaveReportHeader: (body: {
     flow_no: string;
@@ -1294,7 +1295,12 @@ export const api = {
     },
     stopOnFail = false,
   ) =>
-    request<{ job_id: string; report_path: string }>("/emmc/jobs", {
+    request<{
+      job_id: string;
+      report_path: string;
+      feishu_report_url?: string;
+      feishu_report_warn?: string;
+    }>("/emmc/jobs", {
       method: "POST",
       body: JSON.stringify({
         device,
@@ -1313,6 +1319,7 @@ export const api = {
       logs: string[];
       log_cursor: number;
       report_path: string;
+      feishu_report_url?: string;
       current_step?: string;
       step_results?: Record<string, string>;
       step_progress?: Record<

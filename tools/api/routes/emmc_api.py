@@ -64,6 +64,7 @@ class _Job:
     started_at: str = ""
     finished_at: str = ""
     report_path: str = ""
+    feishu_report_url: str = ""
     current_step: str = ""
     step_results: dict[str, str] = field(default_factory=dict)
     # 每项进度：{ step_id: { current, total, text } }
@@ -187,6 +188,7 @@ def report_info(flow_no: str = Query(..., min_length=1)) -> dict:
         "exists": exists,
         "reports_dir": str(emmc_reports_dir(base_dir=_base()).resolve()),
         "header": header,
+        "feishu_report_url": get_feishu_report_for_flow(flow),
     }
 
 
@@ -225,6 +227,36 @@ def save_report_header(body: ReportHeaderBody) -> dict:
     }
 
 
+def _ensure_feishu_report_for_flow(flow: str, local_report: Path) -> tuple[str, str]:
+    """开始测试前确保当前流程已从飞书模板复制生成独立在线报告。"""
+    existing = get_feishu_report_for_flow(flow)
+    if existing:
+        return existing, ""
+    cfg = load_feishu_config()
+    if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
+        return "", ""
+    try:
+        res = copy_feishu_spreadsheet(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            url_or_token=cfg["template_url"],
+            name=local_report.stem,
+        )
+        url = str(res.get("url") or "").strip()
+        if url:
+            set_feishu_report_for_flow(flow, url)
+            if local_report.is_file():
+                sync_report_xlsx_to_feishu(
+                    app_id=cfg["app_id"],
+                    app_secret=cfg["app_secret"],
+                    report_path=local_report,
+                    url_or_token=url,
+                )
+        return url, ""
+    except Exception as exc:
+        return "", str(exc)
+
+
 @router.post("/jobs")
 def start_job(body: StartBody) -> dict:
     sn = body.device.strip()
@@ -259,6 +291,8 @@ def start_job(body: StartBody) -> dict:
             detail=f"准备测试报告失败: {exc}",
         ) from exc
 
+    feishu_url, feishu_warn = _ensure_feishu_report_for_flow(flow, report)
+
     p = body.params
     params = DeviceStepParams(
         loop_num=p.loop_num,
@@ -290,7 +324,14 @@ def start_job(body: StartBody) -> dict:
         running=True,
         started_at=datetime.now().isoformat(timespec="seconds"),
         report_path=str(report.resolve()),
+        feishu_report_url=feishu_url,
     )
+    if feishu_url:
+        job.logs.append(f"INFO 飞书在线报告已就绪: {feishu_url}")
+        job.log_seq += 1
+    elif feishu_warn:
+        job.logs.append(f"WARNING 复制飞书模板失败（将继续本地测试）: {feishu_warn}")
+        job.log_seq += 1
 
     def _log(line: str) -> None:
         with _LOCK:
@@ -432,6 +473,8 @@ def start_job(body: StartBody) -> dict:
         "device": sn,
         "steps": selected,
         "report_path": str(report.resolve()),
+        "feishu_report_url": feishu_url,
+        "feishu_report_warn": feishu_warn,
     }
 
 
@@ -470,6 +513,7 @@ def job_status(
             "started_at": job.started_at,
             "finished_at": job.finished_at,
             "report_path": job.report_path,
+            "feishu_report_url": job.feishu_report_url,
             "current_step": job.current_step,
             "step_results": dict(job.step_results),
             "step_progress": {
