@@ -116,10 +116,6 @@ export default function EmmcPanel({
   const [headerDraft, setHeaderDraft] = useState<HeaderDraft>(EMPTY_HEADER);
   const [feishuOpen, setFeishuOpen] = useState(false);
   const [feishuBusy, setFeishuBusy] = useState(false);
-  const [feishuAppId, setFeishuAppId] = useState("");
-  const [feishuSecret, setFeishuSecret] = useState("");
-  const [feishuHasSecret, setFeishuHasSecret] = useState(false);
-  const [feishuUrl, setFeishuUrl] = useState("");
   const [feishuReportUrl, setFeishuReportUrl] = useState("");
   const [feishuNotifyEnabled, setFeishuNotifyEnabled] = useState(true);
   const [feishuUserName, setFeishuUserName] = useState("");
@@ -502,10 +498,6 @@ export default function EmmcPanel({
     setFeishuBusy(true);
     try {
       const r = await api.emmcFeishuConfig(flowNo.trim() || "1");
-      setFeishuAppId(r.app_id || "");
-      setFeishuHasSecret(Boolean(r.has_secret));
-      setFeishuSecret("");
-      setFeishuUrl(r.template_url || "");
       setFeishuReportUrl(r.flow_report_url || "");
       setFeishuNotifyEnabled(r.notify_enabled ?? true);
       setFeishuUserName(r.user_name || "");
@@ -522,35 +514,13 @@ export default function EmmcPanel({
     setFeishuMsg("");
     try {
       const r = await api.emmcSaveFeishuConfig({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
-        template_url: feishuUrl.trim(),
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim() || undefined,
         notify_enabled: feishuNotifyEnabled,
       });
-      setFeishuHasSecret(Boolean(r.has_secret));
-      setFeishuSecret("");
       setFeishuReportUrl(r.flow_report_url || feishuReportUrl.trim());
-      setFeishuMsg("飞书配置已保存");
-      setStatus("飞书配置已保存");
-    } catch (e) {
-      setFeishuMsg(toErrorMessage(e));
-    } finally {
-      setFeishuBusy(false);
-    }
-  }
-
-  async function testFeishu() {
-    setFeishuBusy(true);
-    setFeishuMsg("");
-    try {
-      const r = await api.emmcTestFeishu({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
-        template_url: feishuUrl.trim(),
-      });
-      setFeishuMsg(r.message || "连接成功");
+      setFeishuMsg("飞书在线报告设置已保存");
+      setStatus("飞书在线报告设置已保存");
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -563,9 +533,6 @@ export default function EmmcPanel({
     setFeishuMsg("");
     try {
       const r = await api.emmcCopyFeishuTemplate({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
-        template_url: feishuUrl.trim(),
         flow_no: flowNo.trim() || "1",
       });
       setFeishuReportUrl(r.url);
@@ -584,8 +551,6 @@ export default function EmmcPanel({
     setFeishuMsg("");
     try {
       const r = await api.emmcSyncFeishuReport({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim(),
         notify_enabled: feishuNotifyEnabled,
@@ -611,14 +576,11 @@ export default function EmmcPanel({
     setFeishuMsg("");
     try {
       await api.emmcSaveFeishuConfig({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
-        template_url: feishuUrl.trim(),
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim() || undefined,
         notify_enabled: feishuNotifyEnabled,
       });
-      const r = await api.emmcFeishuOAuthUrl(feishuAppId.trim());
+      const r = await api.emmcFeishuOAuthUrl();
       setFeishuMsg(`请在弹出的飞书页面扫码确认（回调地址：${r.redirect_uri}）`);
       window.open(r.url, "_blank", "width=520,height=700");
       for (let i = 0; i < 40; i += 1) {
@@ -659,8 +621,6 @@ export default function EmmcPanel({
     setFeishuMsg("");
     try {
       const r = await api.emmcTestFeishuNotify({
-        app_id: feishuAppId.trim(),
-        app_secret: feishuSecret.trim() || undefined,
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim(),
       });
@@ -1605,15 +1565,12 @@ export default function EmmcPanel({
       </Modal>
       <Modal
         open={feishuOpen}
-        title="飞书在线报告（复制模板 + 直接写入）"
+        title="飞书在线报告"
         onClose={() => setFeishuOpen(false)}
         footer={
           <>
             <Button disabled={feishuBusy} onClick={() => void saveFeishuOnly()}>
-              保存配置
-            </Button>
-            <Button disabled={feishuBusy} onClick={() => void testFeishu()}>
-              测试连接
+              保存设置
             </Button>
             <Button disabled={feishuBusy} onClick={() => void testFeishuNotify()}>
               测试通知
@@ -1636,49 +1593,6 @@ export default function EmmcPanel({
         }
       >
         <div className="emmc-header-grid">
-          <label className="emmc-param emmc-param-wide">
-            <span>飞书 App ID</span>
-            <input
-              className="field"
-              value={feishuAppId}
-              disabled={feishuBusy}
-              placeholder="cli_xxxxxxxxxx"
-              onChange={(e) => setFeishuAppId(e.target.value)}
-            />
-          </label>
-          <label className="emmc-param emmc-param-wide">
-            <span>
-              飞书 App Secret{feishuHasSecret ? "（已保存，留空不修改）" : ""}
-            </span>
-            <input
-              type="password"
-              className="field"
-              value={feishuSecret}
-              disabled={feishuBusy}
-              placeholder={feishuHasSecret ? "已保存，如需更换请重新输入" : "输入 App Secret"}
-              onChange={(e) => setFeishuSecret(e.target.value)}
-            />
-          </label>
-          <label className="emmc-param emmc-param-wide">
-            <span>飞书模板链接（用于复制新建报告）</span>
-            <input
-              className="field"
-              value={feishuUrl}
-              disabled={feishuBusy}
-              placeholder="https://xxx.feishu.cn/sheets/... 或 /wiki/..."
-              onChange={(e) => setFeishuUrl(e.target.value)}
-            />
-          </label>
-          <label className="emmc-param emmc-param-wide">
-            <span>当前流程（{flowNo.trim() || "1"}）对应在线报告链接</span>
-            <input
-              className="field"
-              value={feishuReportUrl}
-              disabled={feishuBusy}
-              placeholder="点「复制生成在线报告」自动创建，或粘贴已有报告链接"
-              onChange={(e) => setFeishuReportUrl(e.target.value)}
-            />
-          </label>
           <div className="emmc-param emmc-param-wide">
             <span>当前飞书测试人员（扫码登录自动获取，长测不失效）</span>
             <div className="emmc-btn-row">
@@ -1706,6 +1620,16 @@ export default function EmmcPanel({
               onChange={(e) => setFeishuNotifyEnabled(e.target.checked)}
             />
             写入在线报告时飞书私聊通知当前登录测试人员
+          </label>
+          <label className="emmc-param emmc-param-wide">
+            <span>当前流程（{flowNo.trim() || "1"}）对应在线报告链接</span>
+            <input
+              className="field"
+              value={feishuReportUrl}
+              disabled={feishuBusy}
+              placeholder="点「复制生成在线报告」自动创建，或粘贴已有报告链接"
+              onChange={(e) => setFeishuReportUrl(e.target.value)}
+            />
           </label>
           <div className="emmc-param emmc-param-wide">
             {feishuReportUrl.trim() ? (

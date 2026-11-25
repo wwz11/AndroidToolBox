@@ -501,9 +501,9 @@ def stop_job(job_id: str) -> dict:
 
 
 class FeishuConfigBody(BaseModel):
-    app_id: str = ""
-    app_secret: str = ""
-    template_url: str = ""
+    app_id: str | None = None
+    app_secret: str | None = None
+    template_url: str | None = None
     flow_no: str = ""
     report_url: str = ""
     report_name: str = ""
@@ -511,16 +511,22 @@ class FeishuConfigBody(BaseModel):
 
 
 def _feishu_status_payload(flow_no: str = "") -> dict:
+    from tools.settings_store import get as _get_setting
+
     cfg = load_feishu_config()
+    custom_app_id = str(_get_setting("feishu.app_id", "") or "").strip()
+    custom_secret = str(_get_setting("feishu.app_secret", "") or "").strip()
+    custom_tpl = str(_get_setting("feishu.template_url", "") or "").strip()
     synced = synced_template_path(app_base_dir())
     exists = synced.is_file()
     mtime = ""
     if exists:
         mtime = datetime.fromtimestamp(synced.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
     return {
-        "app_id": cfg["app_id"],
-        "has_secret": cfg["has_secret"],
-        "template_url": cfg["template_url"],
+        "app_id": custom_app_id,
+        "has_secret": bool(custom_secret) or cfg["has_secret"],
+        "has_custom_secret": bool(custom_secret),
+        "template_url": custom_tpl,
         "notify_enabled": cfg["notify_enabled"],
         "user_open_id": cfg["user_open_id"],
         "user_name": cfg["user_name"],
@@ -600,9 +606,9 @@ def feishu_logout(flow_no: str = "") -> dict:
 @router.post("/feishu/test")
 def test_feishu(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
-    app_id = body.app_id.strip() or cfg["app_id"]
-    app_secret = body.app_secret.strip() or cfg["app_secret"]
-    url = body.template_url.strip() or cfg["template_url"]
+    app_id = (body.app_id or "").strip() or cfg["app_id"]
+    app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
+    url = (body.template_url or "").strip() or cfg["template_url"]
     try:
         return test_feishu_connection(
             app_id=app_id,
@@ -616,13 +622,13 @@ def test_feishu(body: FeishuConfigBody) -> dict:
 @router.post("/feishu/copy-template")
 def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
-    app_id = body.app_id.strip() or cfg["app_id"]
-    app_secret = body.app_secret.strip() or cfg["app_secret"]
-    url = body.template_url.strip() or cfg["template_url"]
-    if body.app_id.strip() or body.app_secret.strip() or body.template_url.strip():
+    app_id = (body.app_id or "").strip() or cfg["app_id"]
+    app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
+    url = (body.template_url or "").strip() or cfg["template_url"]
+    if (body.app_id or "").strip() or (body.app_secret or "").strip() or (body.template_url or "").strip():
         save_feishu_config(
             app_id=app_id,
-            app_secret=body.app_secret.strip() or None,
+            app_secret=(body.app_secret or "").strip() or None,
             template_url=url,
         )
     flow = body.flow_no.strip() or "1"
@@ -655,8 +661,8 @@ def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
 @router.post("/feishu/sync-report")
 def sync_report_to_feishu(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
-    app_id = body.app_id.strip() or cfg["app_id"]
-    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    app_id = (body.app_id or "").strip() or cfg["app_id"]
+    app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
     flow = body.flow_no.strip() or "1"
     target_url = body.report_url.strip() or get_feishu_report_for_flow(flow)
     if not target_url:
@@ -701,8 +707,8 @@ def sync_report_to_feishu(body: FeishuConfigBody) -> dict:
 @router.post("/feishu/test-notify")
 def test_feishu_notify(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
-    app_id = body.app_id.strip() or cfg["app_id"]
-    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    app_id = (body.app_id or "").strip() or cfg["app_id"]
+    app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
     flow = body.flow_no.strip() or "1"
     report_url = body.report_url.strip() or get_feishu_report_for_flow(flow)
     try:
@@ -723,13 +729,13 @@ def test_feishu_notify(body: FeishuConfigBody) -> dict:
 @router.post("/feishu/sync-template")
 def sync_feishu_template(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
-    app_id = body.app_id.strip() or cfg["app_id"]
-    app_secret = body.app_secret.strip() or cfg["app_secret"]
-    url = body.template_url.strip() or cfg["template_url"]
-    if body.app_id.strip() or body.app_secret.strip() or body.template_url.strip():
+    app_id = (body.app_id or "").strip() or cfg["app_id"]
+    app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
+    url = (body.template_url or "").strip() or cfg["template_url"]
+    if (body.app_id or "").strip() or (body.app_secret or "").strip() or (body.template_url or "").strip():
         save_feishu_config(
             app_id=app_id,
-            app_secret=body.app_secret.strip() or None,
+            app_secret=(body.app_secret or "").strip() or None,
             template_url=url,
         )
     try:

@@ -7,6 +7,8 @@ import {
   readAppPrefs,
 } from "../../appPrefs";
 import { Button } from "../../ui";
+import { api } from "../../api/client";
+import { toErrorMessage } from "../../errors";
 
 async function pickDir(title: string, current: string): Promise<string> {
   try {
@@ -111,6 +113,28 @@ export default function AppSettingsPanel() {
   const [defaults, setDefaults] = useState({ pull: "", gota: "", update: "" });
   const [savedHint, setSavedHint] = useState("");
   const [sub, setSub] = useState<SubId>("window");
+  const [fsAppId, setFsAppId] = useState("");
+  const [fsSecret, setFsSecret] = useState("");
+  const [fsHasSecret, setFsHasSecret] = useState(false);
+  const [fsTemplateUrl, setFsTemplateUrl] = useState("");
+  const [fsBusy, setFsBusy] = useState(false);
+  const [fsMsg, setFsMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .emmcFeishuConfig()
+      .then((r) => {
+        if (cancelled) return;
+        setFsAppId(r.app_id || "");
+        setFsHasSecret(Boolean(r.has_secret));
+        setFsTemplateUrl(r.template_url || "");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -571,6 +595,91 @@ export default function AppSettingsPanel() {
                 onBlur={() => apply({ updateUrl: prefs.updateUrl })}
               />
             </label>
+          </div>
+
+          <div className="app-settings-card">
+            <label className="app-settings-field">
+              <FieldLabel
+                title="飞书 App ID"
+                hint="已内置默认应用凭证，留空即可使用；如需更换自定义应用再填写"
+              />
+              <input
+                className="field"
+                value={fsAppId}
+                disabled={fsBusy}
+                placeholder="已内置（留空使用默认）"
+                onChange={(e) => setFsAppId(e.target.value)}
+              />
+            </label>
+            <label className="app-settings-field">
+              <FieldLabel
+                title="飞书 App Secret"
+                hint={fsHasSecret ? "已内置/已保存，留空保持不变" : "留空使用内置默认"}
+              />
+              <input
+                type="password"
+                className="field"
+                value={fsSecret}
+                disabled={fsBusy}
+                placeholder="已内置（如需更换请重新输入）"
+                onChange={(e) => setFsSecret(e.target.value)}
+              />
+            </label>
+            <label className="app-settings-field">
+              <FieldLabel
+                title="默认飞书模板链接"
+                hint="eMMC 在线报告模板地址，留空使用内置默认模板"
+              />
+              <input
+                className="field"
+                value={fsTemplateUrl}
+                disabled={fsBusy}
+                placeholder="已内置默认模板（如需更换可粘贴 /sheets/... 或 /wiki/...）"
+                onChange={(e) => setFsTemplateUrl(e.target.value)}
+              />
+            </label>
+            <div className="app-settings-inline">
+              <Button
+                disabled={fsBusy}
+                onClick={() => {
+                  setFsBusy(true);
+                  setFsMsg("");
+                  void api
+                    .emmcSaveFeishuConfig({
+                      app_id: fsAppId.trim(),
+                      app_secret: fsSecret.trim() || undefined,
+                      template_url: fsTemplateUrl.trim(),
+                    })
+                    .then(() => {
+                      setFsSecret("");
+                      setFsMsg("飞书设置已保存");
+                    })
+                    .catch((e) => setFsMsg(toErrorMessage(e)))
+                    .finally(() => setFsBusy(false));
+                }}
+              >
+                保存飞书配置
+              </Button>
+              <Button
+                disabled={fsBusy}
+                onClick={() => {
+                  setFsBusy(true);
+                  setFsMsg("");
+                  void api
+                    .emmcTestFeishu({
+                      app_id: fsAppId.trim() || undefined,
+                      app_secret: fsSecret.trim() || undefined,
+                      template_url: fsTemplateUrl.trim() || undefined,
+                    })
+                    .then((r) => setFsMsg(r.message || "连接成功"))
+                    .catch((e) => setFsMsg(toErrorMessage(e)))
+                    .finally(() => setFsBusy(false));
+                }}
+              >
+                测试连接
+              </Button>
+              {fsMsg ? <span className="app-settings-hint">{fsMsg}</span> : null}
+            </div>
           </div>
         </section>
       ) : null}

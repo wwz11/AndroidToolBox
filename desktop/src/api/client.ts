@@ -1342,9 +1342,9 @@ export const api = {
       synced_mtime: string;
     }>(`/emmc/feishu/config${q({ flow_no: flowNo })}`),
   emmcSaveFeishuConfig: (body: {
-    app_id: string;
+    app_id?: string;
     app_secret?: string;
-    template_url: string;
+    template_url?: string;
     flow_no?: string;
     report_url?: string;
     notify_enabled?: boolean;
