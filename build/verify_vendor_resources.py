@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VENDOR = ROOT / "vendor"
-EMMC_TEMPLATE = VENDOR / "emmc" / "eMMC For SEIxxxxx 导入测试报告模版v2.0.xlsx"
+EMMC_TEMPLATE = VENDOR / "emmc" / "eMMC For SEIxxxxx 导入测试报告模版v3.0.xlsx"
 
 # (相对 vendor/ 的路径, 说明)
 REQUIRED: tuple[tuple[str, str], ...] = (
@@ -20,7 +20,7 @@ REQUIRED: tuple[tuple[str, str], ...] = (
     ("rpmb/mmc_utils", "RPMB mmc_utils"),
     ("rpmb/rpmbkey.bin", "RPMB 密钥文件"),
     ("iozone/iozone", "iozone 二进制（Android push）"),
-    ("emmc/eMMC For SEIxxxxx 导入测试报告模版v2.0.xlsx", "eMMC 测试报告 Excel 模版"),
+    ("emmc/eMMC For SEIxxxxx 导入测试报告模版v3.0.xlsx", "eMMC 测试报告 Excel 模版"),
     ("ota/config.ini.example", "OTA 配置示例"),
 )
 

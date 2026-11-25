@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""eMMC 导入测试报告模版 v2.0 写入（中英文 sheet 同步更新）。"""
+"""eMMC 导入测试报告模版 v3.0 写入（中英文 sheet 同步更新）。"""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-_TEMPLATE_NAME = "eMMC For SEIxxxxx 导入测试报告模版v2.0.xlsx"
+_TEMPLATE_NAME = "eMMC For SEIxxxxx 导入测试报告模版v3.0.xlsx"
 _REPORT_DIR_NAME = "reports"
-_REPORT_FILENAME_MIDDLE = " 导入测试报告模版v2.0 "
-_REPORT_HEADER_TITLE_CN = " 导入测试报告2.0"
-_REPORT_HEADER_TITLE_EN = " Import Test Report v2.0"
+_REPORT_FILENAME_MIDDLE = " 导入测试报告模版v3.0 "
+_LEGACY_REPORT_FILENAME_MIDDLE = " 导入测试报告模版v2.0 "
+_REPORT_HEADER_TITLE_CN = " 导入测试报告3.0"
+_REPORT_HEADER_TITLE_EN = " Import Test Report v3.0"
 # 报告内嵌截图尺寸（日志 PNG 与 Excel 嵌入共用）
 _REPORT_SCREENSHOT_WIDTH = 200
 _REPORT_SCREENSHOT_HEIGHT = 120
@@ -184,13 +185,17 @@ def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
     named = report_path_for_project(flow, import_project, base_dir=base_dir)
     if named.is_file():
         return named
-    # 旧版：…导入测试报告模版v2.0 OA.xlsx
+    # 旧版：…导入测试报告模版v2.0 {流程号}.xlsx / …OA.xlsx
     try:
-        legacy_oa = _reports_root(base_dir) / (
-            f"eMMC For {_sanitize_report_name_part(import_project)} 导入测试报告模版v2.0 OA.xlsx"
-        )
-        if legacy_oa.is_file():
-            return legacy_oa
+        sanitized = _sanitize_report_name_part(import_project)
+        safe_flow = _sanitize_flow_for_filename(flow)
+        for legacy_name in (
+            f"eMMC For {sanitized}{_LEGACY_REPORT_FILENAME_MIDDLE}{safe_flow}.xlsx",
+            f"eMMC For {sanitized} 导入测试报告模版v2.0 OA.xlsx",
+        ):
+            legacy_p = _reports_root(base_dir) / legacy_name
+            if legacy_p.is_file():
+                return legacy_p
     except ValueError:
         pass
     legacy = _legacy_report_path(flow, base_dir=base_dir)
@@ -383,7 +388,23 @@ class ReportHeaderMeta:
     ab_upgrade: bool = True  # True=A/B 升级（需 OTA 测试）；False=非 A/B（OTA 可不测）
 
 
-_REPORT_HEADER_CELLS: dict[str, tuple[int, int]] = {
+_REPORT_HEADER_CELLS_V3: dict[str, tuple[int, int]] = {
+    "import_project": (3, 2),
+    "internal_model": (3, 8),
+    "emmc_brand": (4, 2),
+    "emmc_capacity_gb": (4, 8),
+    "read_speed_mbs": (5, 2),
+    "write_speed_mbs": (5, 8),
+    "emmc_model": (6, 2),
+    "sw_test_userdebug": (6, 8),
+    "emmc_spec": (7, 2),
+    "gota_version": (7, 8),
+    "tester": (8, 2),
+    "test_time": (8, 8),
+    "remarks": (9, 8),
+}
+
+_REPORT_HEADER_CELLS_V2: dict[str, tuple[int, int]] = {
     "import_project": (3, 2),
     "internal_model": (3, 5),
     "emmc_brand": (4, 2),
@@ -399,6 +420,20 @@ _REPORT_HEADER_CELLS: dict[str, tuple[int, int]] = {
     "remarks": (9, 5),
 }
 
+# 默认指向最新版 v3.0
+_REPORT_HEADER_CELLS = _REPORT_HEADER_CELLS_V3
+
+
+def _is_v3_sheet(ws) -> bool:
+    """判断工作表是否为 v3.0 布局（头部右列在 F/H，iozone 新增 J 列日志）。"""
+    f3 = str(ws.cell(3, 6).value or "").strip()
+    k12 = str(ws.cell(12, 11).value or "").strip()
+    return bool(f3) or "Pass/Fail" in k12 or "Result" in k12
+
+
+def _header_cells_for_sheet(ws) -> dict[str, tuple[int, int]]:
+    return _REPORT_HEADER_CELLS_V3 if _is_v3_sheet(ws) else _REPORT_HEADER_CELLS_V2
+
 
 def read_report_header(report_path: Path) -> ReportHeaderMeta:
     """从已有报告读取头部字段（供编辑弹窗预填）。"""
@@ -406,7 +441,7 @@ def read_report_header(report_path: Path) -> ReportHeaderMeta:
     meta = ReportHeaderMeta()
     try:
         ws = next(_iter_report_sheets(wb))
-        for name, (row, col) in _REPORT_HEADER_CELLS.items():
+        for name, (row, col) in _header_cells_for_sheet(ws).items():
             val = ws.cell(row, col).value
             if val is not None and str(val).strip():
                 setattr(meta, name, str(val).strip())
@@ -533,7 +568,7 @@ def write_report_header(
             english = "Import" in (ws.title or "") or "(EN)" in (ws.title or "")
             project = meta.import_project.strip() or flow_no.strip() or "SEIxxxxx"
             _safe_set_cell(ws, 1, 1, report_title_for_sheet(project, english=english))
-            for name, (row, col) in _REPORT_HEADER_CELLS.items():
+            for name, (row, col) in _header_cells_for_sheet(ws).items():
                 value = getattr(meta, name, "")
                 if value:
                     _safe_set_cell(ws, row, col, value)
@@ -572,7 +607,7 @@ def _safe_set_cell(ws, row: int, col: int, value) -> None:
 def _stamp_test_time(wb) -> str:
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for ws in _iter_report_sheets(wb):
-        _safe_set_cell(ws, 8, 5, now)
+        _safe_set_cell(ws, 8, 8 if _is_v3_sheet(ws) else 5, now)
     return now
 
 
@@ -592,7 +627,7 @@ def touch_report_test_time(
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         for ws in _iter_report_sheets(wb):
-            _safe_set_cell(ws, 8, 5, now)
+            _safe_set_cell(ws, 8, 8 if _is_v3_sheet(ws) else 5, now)
         try:
             wb.save(report_path)
         except PermissionError:
@@ -660,15 +695,17 @@ def write_stress_result(
     return saved
 
 
-_IOZONE_SCREENSHOT_COL = 11  # K 列「测试结果截图」
+_IOZONE_LOG_COL = 10  # J 列「Izone 的 日志文件」（v3.0 新增）
+_IOZONE_RESULT_COL = 11  # K 列「测试结果（Pass/Fail)」（v3.0）
+_IOZONE_SCREENSHOT_COL = 12  # L 列「测试结果截图」（v3.0）
 
-# RPMB 写入区域（模版 v2.0 第 35 行）
+# RPMB 写入区域（第 35 行）
 _RPMB_ROW = 35
 _RPMB_DURATION_COL = 1  # A 列「测试总时长（小时）」
 _RPMB_SCREENSHOT_COL = 4  # D 列「测试结果截图」
 _RPMB_RESULT_COL = 8  # H 列 Pass/Fail
 
-# reboot 测试写入区域（模版 v2.0 第 32 行）
+# reboot 测试写入区域（第 32 行）
 _REBOOT_ROW = 32
 _REBOOT_SUCCESS_COL = 1  # A 列成功次数
 _REBOOT_FAIL_COL = 2  # B 列失败次数
@@ -676,7 +713,7 @@ _REBOOT_DURATION_COL = 3  # C 列测试时长（小时）
 _REBOOT_SCREENSHOT_COL = 4  # D 列测试图片
 _REBOOT_RESULT_COL = 8  # H 列 Pass/Fail
 
-# OTA / 升级压力测试写入区域（模版 v2.0 第 38 行）
+# OTA / 升级压力测试写入区域（第 38 行）
 _OTA_ROW = 38
 _OTA_SUCCESS_COL = 1  # A 列成功次数
 _OTA_FAIL_COL = 2  # B 列升级失败次数
@@ -684,18 +721,27 @@ _OTA_DURATION_COL = 3  # C 列测试时长（分钟）
 _OTA_SCREENSHOT_COL = 4  # D 列测试结果截图
 _OTA_RESULT_COL = 8  # H 列 Pass/Fail
 
-# 各测试项 Pass/Fail 结果单元格（用于自动汇总「测试初判结果」R9C2）
-# (row, col, name, ab_only, required_for_pass)
-# ab_only=True：仅 A/B 升级时纳入；required=True：该项有 Pass 才允许初判 Pass
-_REPORT_RESULT_SECTIONS: tuple[tuple[int, int, str, bool, bool], ...] = (
-    (16, 10, "iozone_1g", False, False),
-    (20, 10, "iozone_100m", False, True),
-    (24, 10, "iozone_50m", False, False),
-    (28, 8, "stress", False, True),
-    (32, 8, "reboot", False, True),
-    (35, 8, "rpmb", False, True),
-    (38, 8, "ota", True, True),
-)
+
+def _iozone_cols_for_sheet(ws) -> tuple[int | None, int, int]:
+    """返回 (log_col, result_col, screenshot_col)。"""
+    if _is_v3_sheet(ws):
+        return _IOZONE_LOG_COL, _IOZONE_RESULT_COL, _IOZONE_SCREENSHOT_COL
+    return None, 10, 11
+
+
+def _result_sections_for_sheet(ws) -> tuple[tuple[int, int, str, bool, bool], ...]:
+    ioz_col = _IOZONE_RESULT_COL if _is_v3_sheet(ws) else 10
+    return (
+        (16, ioz_col, "iozone_1g", False, False),
+        (20, ioz_col, "iozone_100m", False, True),
+        (24, ioz_col, "iozone_50m", False, False),
+        (28, 8, "stress", False, True),
+        (32, 8, "reboot", False, True),
+        (35, 8, "rpmb", False, True),
+        (38, 8, "ota", True, True),
+    )
+
+
 _REPORT_INITIAL_RESULT_CELL = (9, 2)
 _OTA_NA_LABEL = "N/A"
 
@@ -712,12 +758,13 @@ def flow_no_from_report_path(report_path: Path) -> str:
     m = re.match(r"eMMC_测试报告_(.+)\.xlsx$", report_path.name)
     if m:
         return m.group(1)
-    m = re.match(
-        rf"eMMC For .+?{re.escape(_REPORT_FILENAME_MIDDLE)}(.+?)\.xlsx$",
-        report_path.name,
-    )
-    if m:
-        return m.group(1).strip()
+    for middle in (_REPORT_FILENAME_MIDDLE, _LEGACY_REPORT_FILENAME_MIDDLE):
+        m = re.match(
+            rf"eMMC For .+?{re.escape(middle)}(.+?)\.xlsx$",
+            report_path.name,
+        )
+        if m:
+            return m.group(1).strip()
     # 旧版命名：…导入测试报告模版v2.0 OA.xlsx
     m = re.match(r"eMMC For .+? 导入测试报告模版v2\.0 OA\.xlsx$", report_path.name)
     if m:
@@ -801,7 +848,7 @@ def _parse_pass_fail_cell(ws, row: int, col: int) -> str | None:
 def _collect_pass_fail_results(ws, *, include_ota: bool = True) -> list[str]:
     """收集已写入 Pass/Fail 的测试项（未测项无值则忽略）。"""
     results: list[str] = []
-    for row, col, _name, ab_only, _required in _REPORT_RESULT_SECTIONS:
+    for row, col, _name, ab_only, _required in _result_sections_for_sheet(ws):
         if ab_only and not include_ota:
             continue
         parsed = _parse_pass_fail_cell(ws, row, col)
@@ -823,14 +870,15 @@ def _evaluate_initial_result(ws, *, include_ota: bool = True) -> str:
     必测项未齐或仅有部分结果时留空（不显示 Pass）。
     任一项 Fail → Fail。
     """
-    for row, col, _name, ab_only, _required in _REPORT_RESULT_SECTIONS:
+    sections = _result_sections_for_sheet(ws)
+    for row, col, _name, ab_only, _required in sections:
         if ab_only and not include_ota:
             continue
         parsed = _parse_pass_fail_cell(ws, row, col)
         if parsed == "Fail":
             return "Fail"
 
-    for row, col, _name, ab_only, required in _REPORT_RESULT_SECTIONS:
+    for row, col, _name, ab_only, required in sections:
         if ab_only and not include_ota:
             continue
         if not required:
@@ -994,6 +1042,8 @@ def write_iozone_result(
     write_min_mbs: float = 100.0,
     read_min_mbs: float = 100.0,
     screenshot_path: Path | None = None,
+    log_paths: list[Path] | None = None,
+    run_logs: list[str] | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -1016,15 +1066,28 @@ def write_iozone_result(
     )
 
     for ws in _iter_report_sheets(wb):
+        log_col, result_col, shot_col = _iozone_cols_for_sheet(ws)
         _safe_set_cell(ws, r1, 1, size_label)
         _safe_set_cell(ws, r1, 2, round(duration_minutes, 1))
         for idx, row in enumerate((r1, r2, r3)):
             if idx < len(runs):
                 _fill_row(ws, row, runs[idx])
+            if log_col is not None:
+                if log_paths and idx < len(log_paths) and log_paths[idx] is not None:
+                    lp = Path(log_paths[idx])
+                    _safe_set_cell(ws, row, log_col, lp.name)
+                    try:
+                        ws.cell(row, log_col).hyperlink = f"../logs/{lp.name}"
+                    except Exception:
+                        pass
+                elif run_logs and idx < len(run_logs) and run_logs[idx].strip():
+                    _safe_set_cell(ws, row, log_col, run_logs[idx].strip()[-1000:])
         _fill_row(ws, r_avg, average)
-        _safe_set_cell(ws, r_avg, 10, passed)
+        if log_col is not None:
+            _safe_set_cell(ws, r_avg, log_col, "N/A")
+        _safe_set_cell(ws, r_avg, result_col, passed)
         if screenshot_path is not None and screenshot_path.is_file():
-            _embed_sheet_image(ws, r1, _IOZONE_SCREENSHOT_COL, screenshot_path)
+            _embed_sheet_image(ws, r1, shot_col, screenshot_path)
     _finalize_report_workbook(wb, out)
     saved = _save_workbook(wb, out)
     wb.close()

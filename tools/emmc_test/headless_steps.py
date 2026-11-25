@@ -758,6 +758,7 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
             "根据配置不同大概需要10-30min"
         )
         average_lst: list[dict[str, str]] = []
+        run_log_paths: list[Path] = []
         for i in range(3):
             if env.stop.is_set():
                 break
@@ -837,6 +838,21 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                     writer.close()
                     average_lst.append(rate)
                     runs.append(rate)
+                    try:
+                        logs_dir = (
+                            (env.base_dir or Path(__file__).resolve().parents[2])
+                            / "output"
+                            / "emmc"
+                            / "logs"
+                        )
+                        logs_dir.mkdir(parents=True, exist_ok=True)
+                        lp = logs_dir / (
+                            f"iozone_{file_size_mb}M_run{i + 1}_{time.strftime('%Y%m%d_%H%M%S')}.log"
+                        )
+                        lp.write_text(ioz_out or "", encoding="utf-8", errors="replace")
+                        run_log_paths.append(lp)
+                    except Exception:
+                        pass
                     round_done = True
                     break
                 finally:
@@ -898,6 +914,7 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                     base_dir=env.base_dir,
                     flow_no=env.flow_no,
                     screenshot_path=screenshot_path,
+                    log_paths=run_log_paths,
                 )
                 _log_report_saved(env, log, path)
             except Exception as exc:
