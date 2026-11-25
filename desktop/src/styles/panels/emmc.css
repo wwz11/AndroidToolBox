@@ -107,6 +107,43 @@
   font-size: 13px;
 }
 
+.emmc-login-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-3, var(--surface));
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.emmc-login-pill.is-logged {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+}
+
+.emmc-login-pill.is-unlogged {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+}
+
+.emmc-login-pill:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.emmc-login-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .emmc-status-line {
   line-height: 1.35;
   word-break: break-word;

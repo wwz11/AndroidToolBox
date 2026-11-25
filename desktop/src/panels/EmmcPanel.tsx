@@ -273,6 +273,25 @@ export default function EmmcPanel({
   }, [active, flowNo]);
 
   useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void api
+      .emmcFeishuConfig(flowNo.trim() || "1")
+      .then((cfg) => {
+        if (cancelled) return;
+        setFeishuUserName(cfg.user_name || "");
+        setFeishuUserOpenId(cfg.user_open_id || "");
+        if (cfg.flow_report_url) setFeishuReportUrl(cfg.flow_report_url);
+      })
+      .catch(() => {
+        /* 飞书配置查询失败时保持未登录展示 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  useEffect(() => {
     if (!jobId || !running) return;
     let inflight = false;
     const t = window.setInterval(() => {
@@ -905,16 +924,27 @@ export default function EmmcPanel({
                 className={`shell-live-dot${running ? "" : " off"}`}
                 title={running ? "运行中" : "未运行"}
               />
-              <label className="emmc-field emmc-flow-field">
-                <span>流程号</span>
-                <input
-                  className="field emmc-flow"
-                  value={flowNo}
-                  disabled={running}
-                  onChange={(e) => setFlowNo(e.target.value)}
-                  title="同流程号写入同一份测试报告"
-                />
-              </label>
+              {feishuUserOpenId ? (
+                <button
+                  type="button"
+                  className="emmc-login-pill is-logged"
+                  disabled={feishuBusy || running}
+                  onClick={() => void openFeishuModal()}
+                  title="已登录飞书，点击查看或管理飞书设置"
+                >
+                  飞书已登录：{feishuUserName || feishuUserOpenId}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="emmc-login-pill is-unlogged"
+                  disabled={feishuBusy || running}
+                  onClick={() => void loginFeishuQr()}
+                  title="点击扫码登录飞书"
+                >
+                  {feishuBusy ? "飞书登录中…" : "飞书未登录 · 点击登录"}
+                </button>
+              )}
               <div className="emmc-run-actions">
                 <Button
                   variant="primary"
