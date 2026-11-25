@@ -24,16 +24,30 @@ class TestFeishuSheets(unittest.TestCase):
             ("wiki", "Ychmw1Guvid8wPkmV6wcs00Gnzh"),
         )
 
-    def test_synced_template_overrides_builtin_when_present(self) -> None:
+    def test_template_lookup_local_dir_then_feishu_download(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
-            default_tpl = rt.default_template_path(base)
-            self.assertIn("v3.0", default_tpl.name)
+            expected = rt.emmc_templates_dir(base) / rt._TEMPLATE_NAME
 
-            synced = rt.synced_template_path(base)
-            synced.parent.mkdir(parents=True, exist_ok=True)
-            synced.write_bytes(b"placeholder")
-            self.assertEqual(rt.default_template_path(base), synced)
+            def fake_export(*, app_id: str, app_secret: str, url_or_token: str, dest_path: Path):
+                self.assertEqual(
+                    url_or_token,
+                    "https://seirobotics.feishu.cn/sheets/CJrhsiNbMhKhlytIqfncp7bCnTd",
+                )
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                dest_path.write_bytes(b"downloaded-template")
+                return {"path": str(dest_path)}
+
+            with patch.object(fs, "export_feishu_spreadsheet_xlsx", side_effect=fake_export) as m_exp:
+                got = rt.default_template_path(base)
+                self.assertEqual(got, expected)
+                self.assertEqual(m_exp.call_count, 1)
+
+            # 第二次直接命中本地模板目录，不再下载
+            with patch.object(fs, "export_feishu_spreadsheet_xlsx", side_effect=fake_export) as m_exp2:
+                got2 = rt.default_template_path(base)
+                self.assertEqual(got2, expected)
+                self.assertEqual(m_exp2.call_count, 0)
 
     def test_resolve_wiki_to_sheet_token(self) -> None:
         with patch.object(

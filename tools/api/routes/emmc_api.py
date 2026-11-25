@@ -631,7 +631,6 @@ def _feishu_status_payload(flow_no: str = "") -> dict:
     cfg = load_feishu_config()
     custom_app_id = str(_get_setting("feishu.app_id", "") or "").strip()
     custom_secret = str(_get_setting("feishu.app_secret", "") or "").strip()
-    custom_tpl = str(_get_setting("feishu.template_url", "") or "").strip()
     synced = synced_template_path(app_base_dir())
     exists = synced.is_file()
     mtime = ""
@@ -641,7 +640,7 @@ def _feishu_status_payload(flow_no: str = "") -> dict:
         "app_id": custom_app_id,
         "has_secret": bool(custom_secret) or cfg["has_secret"],
         "has_custom_secret": bool(custom_secret),
-        "template_url": custom_tpl,
+        "template_url": cfg["template_url"],
         "notify_enabled": cfg["notify_enabled"],
         "user_open_id": cfg["user_open_id"],
         "user_name": cfg["user_name"],
@@ -723,7 +722,7 @@ def test_feishu(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
     app_id = (body.app_id or "").strip() or cfg["app_id"]
     app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
-    url = (body.template_url or "").strip() or cfg["template_url"]
+    url = cfg["template_url"]
     try:
         return test_feishu_connection(
             app_id=app_id,
@@ -739,12 +738,11 @@ def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
     app_id = (body.app_id or "").strip() or cfg["app_id"]
     app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
-    url = (body.template_url or "").strip() or cfg["template_url"]
-    if (body.app_id or "").strip() or (body.app_secret or "").strip() or (body.template_url or "").strip():
+    url = cfg["template_url"]
+    if (body.app_id or "").strip() or (body.app_secret or "").strip():
         save_feishu_config(
             app_id=app_id,
             app_secret=(body.app_secret or "").strip() or None,
-            template_url=url,
         )
     flow = body.flow_no.strip() or "1"
     name = body.report_name.strip()
@@ -846,12 +844,11 @@ def sync_feishu_template(body: FeishuConfigBody) -> dict:
     cfg = load_feishu_config()
     app_id = (body.app_id or "").strip() or cfg["app_id"]
     app_secret = (body.app_secret or "").strip() or cfg["app_secret"]
-    url = (body.template_url or "").strip() or cfg["template_url"]
-    if (body.app_id or "").strip() or (body.app_secret or "").strip() or (body.template_url or "").strip():
+    url = cfg["template_url"]
+    if (body.app_id or "").strip() or (body.app_secret or "").strip():
         save_feishu_config(
             app_id=app_id,
             app_secret=(body.app_secret or "").strip() or None,
-            template_url=url,
         )
     try:
         res = export_feishu_spreadsheet_xlsx(

@@ -69,23 +69,53 @@ def _dev_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def emmc_templates_dir(base_dir: Path | None = None) -> Path:
+    """本地模板目录（output/emmc/templates）。"""
+    d = _report_base_dir(base_dir) / "output" / "emmc" / "templates"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
 def synced_template_path(base_dir: Path | None = None) -> Path:
-    """从飞书在线表格同步到本地缓存的 .xlsx 模板路径。"""
-    return _report_base_dir(base_dir) / "output" / "emmc" / "feishu_template_cache.xlsx"
+    """飞书在线表格模板下载到本地模板目录的 .xlsx 路径。"""
+    return emmc_templates_dir(base_dir) / _TEMPLATE_NAME
+
+
+def _find_local_template(templates_dir: Path) -> Path | None:
+    exact = templates_dir / _TEMPLATE_NAME
+    if exact.is_file():
+        return exact
+    candidates = [
+        p
+        for p in templates_dir.glob("*.xlsx")
+        if p.is_file() and not p.name.startswith("~$")
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
 
 
 def default_template_path(base_dir: Path | None = None) -> Path:
-    from tools.bundled_paths import resolve_vendor, repo_root
-
-    synced = synced_template_path(base_dir)
-    if synced.is_file():
-        return synced
-    found = resolve_vendor("emmc", _TEMPLATE_NAME)
-    if found is not None and found.is_file():
+    """获取本地模板：先从模板目录查找，没有则从固定飞书模板链接下载。"""
+    tdir = emmc_templates_dir(base_dir)
+    found = _find_local_template(tdir)
+    if found is not None:
         return found
-    if base_dir is not None:
-        return base_dir / "vendor" / "emmc" / _TEMPLATE_NAME
-    return repo_root() / "vendor" / "emmc" / _TEMPLATE_NAME
+
+    from tools.feishu_sheets import export_feishu_spreadsheet_xlsx, load_feishu_config
+
+    cfg = load_feishu_config()
+    dest = tdir / _TEMPLATE_NAME
+    export_feishu_spreadsheet_xlsx(
+        app_id=cfg["app_id"],
+        app_secret=cfg["app_secret"],
+        url_or_token=cfg["template_url"],
+        dest_path=dest,
+    )
+    if not dest.is_file():
+        raise FileNotFoundError(f"从飞书下载模板失败: {dest}")
+    return dest
 
 
 def _safe_flow_for_filename(flow_no: str) -> str:

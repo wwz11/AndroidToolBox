@@ -46,7 +46,8 @@ def load_feishu_config() -> dict[str, Any]:
 
     app_id = str(get(_KEY_APP_ID, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_ID_ENC)
     app_secret = str(get(_KEY_APP_SECRET, "") or "").strip() or _decode_default_cred(_DEFAULT_APP_SECRET_ENC)
-    template_url = str(get(_KEY_TEMPLATE_URL, "") or "").strip() or _DEFAULT_TEMPLATE_URL
+    # 飞书模板链接固定不可指定
+    template_url = _DEFAULT_TEMPLATE_URL
     # 默认通知到飞书，不可关闭
     notify_enabled = True
     user_open_id = str(get(_KEY_USER_OPEN_ID, "") or "").strip()
@@ -78,8 +79,6 @@ def save_feishu_config(
         put(_KEY_APP_SECRET, app_secret.strip())
         with _TOKEN_LOCK:
             _TOKEN_CACHE.clear()
-    if template_url is not None:
-        put(_KEY_TEMPLATE_URL, template_url.strip())
     if notify_enabled is not None:
         put(_KEY_NOTIFY_ENABLED, True)
     return load_feishu_config()

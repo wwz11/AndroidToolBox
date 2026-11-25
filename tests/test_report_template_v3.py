@@ -1,20 +1,30 @@
 from __future__ import annotations
 
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from tools.emmc_test import report_template as rt
 
+_FIXTURE_TPL = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "eMMC_For_SEIxxxxx_导入测试报告模版v3.0.xlsx"
+)
+
 
 class TestReportTemplateV3(unittest.TestCase):
     def test_v3_template_header_and_iozone_columns(self) -> None:
-        tpl = rt.default_template_path()
-        self.assertTrue(tpl.is_file(), f"Missing template: {tpl}")
-        self.assertIn("v3.0", tpl.name)
+        self.assertTrue(_FIXTURE_TPL.is_file(), f"Missing fixture template: {_FIXTURE_TPL}")
 
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
+            tpl_dest = rt.emmc_templates_dir(base) / _FIXTURE_TPL.name
+            shutil.copy2(_FIXTURE_TPL, tpl_dest)
+            tpl = rt.default_template_path(base)
+            self.assertEqual(tpl, tpl_dest)
+            self.assertIn("v3.0", tpl.name)
             meta = rt.ReportHeaderMeta(
                 import_project="PROJ_X",
                 internal_model="MODEL_X",
