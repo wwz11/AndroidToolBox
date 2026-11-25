@@ -127,6 +127,8 @@ export default function EmmcPanel({
   const [feishuUserName, setFeishuUserName] = useState("");
   const [feishuUserOpenId, setFeishuUserOpenId] = useState("");
   const [feishuMsg, setFeishuMsg] = useState("");
+  const feishuLoginCancelRef = useRef(false);
+  const feishuPopupRef = useRef<Window | null>(null);
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
     Record<string, { current: number; total: number; text: string }>
@@ -600,7 +602,21 @@ export default function EmmcPanel({
     }
   }
 
+  function cancelFeishuLogin() {
+    feishuLoginCancelRef.current = true;
+    try {
+      if (feishuPopupRef.current && !feishuPopupRef.current.closed) {
+        feishuPopupRef.current.close();
+      }
+    } catch {
+      /* ignore */
+    }
+    feishuPopupRef.current = null;
+    setFeishuBusy(false);
+  }
+
   async function loginFeishuQr(): Promise<string | null> {
+    feishuLoginCancelRef.current = false;
     setFeishuBusy(true);
     setFeishuMsg("");
     try {
@@ -610,26 +626,39 @@ export default function EmmcPanel({
         notify_enabled: feishuNotifyEnabled,
       });
       const r = await api.emmcFeishuOAuthUrl();
+      if (feishuLoginCancelRef.current) return null;
       setFeishuMsg(`请在弹出的飞书页面扫码确认（回调地址：${r.redirect_uri}）`);
-      window.open(r.url, "_blank", "width=520,height=700");
-      for (let i = 0; i < 40; i += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
-        if (cfg.user_logged_in) {
-          const name = cfg.user_name || cfg.user_open_id || "";
-          setFeishuUserName(cfg.user_name || "");
-          setFeishuUserOpenId(cfg.user_open_id || "");
-          const okMsg = `飞书已登录：${name}`;
-          setFeishuMsg(okMsg);
-          setStatus(okMsg);
-          return name;
+      const popup = window.open(r.url, "_blank", "width=520,height=700");
+      feishuPopupRef.current = popup;
+      for (let i = 0; i < 120; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (feishuLoginCancelRef.current) return null;
+        const popupClosed = Boolean(popup && popup.closed);
+        if (i % 3 === 2 || popupClosed) {
+          const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
+          if (feishuLoginCancelRef.current) return null;
+          if (cfg.user_logged_in) {
+            const name = cfg.user_name || cfg.user_open_id || "";
+            setFeishuUserName(cfg.user_name || "");
+            setFeishuUserOpenId(cfg.user_open_id || "");
+            const okMsg = `飞书已登录：${name}`;
+            setFeishuMsg(okMsg);
+            setStatus(okMsg);
+            return name;
+          }
+          if (popupClosed) {
+            setFeishuMsg("已取消飞书扫码登录");
+            return null;
+          }
         }
       }
+      setFeishuMsg("飞书登录等待超时，请重试");
       return null;
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
       return null;
     } finally {
+      feishuPopupRef.current = null;
       setFeishuBusy(false);
     }
   }
@@ -1667,7 +1696,10 @@ export default function EmmcPanel({
       <Modal
         open={feishuOpen}
         title="飞书在线报告"
-        onClose={() => setFeishuOpen(false)}
+        onClose={() => {
+          cancelFeishuLogin();
+          setFeishuOpen(false);
+        }}
         footer={
           <>
             <Button disabled={feishuBusy} onClick={() => void saveFeishuOnly()}>
@@ -1753,15 +1785,23 @@ export default function EmmcPanel({
       <Modal
         open={startLoginOpen}
         title="飞书账号登录提示"
-        onClose={() => setStartLoginOpen(false)}
+        onClose={() => {
+          cancelFeishuLogin();
+          setStartLoginOpen(false);
+        }}
         footer={
           <>
-            <Button disabled={feishuBusy} onClick={() => setStartLoginOpen(false)}>
+            <Button
+              onClick={() => {
+                cancelFeishuLogin();
+                setStartLoginOpen(false);
+              }}
+            >
               取消
             </Button>
             <Button
-              disabled={feishuBusy}
               onClick={() => {
+                cancelFeishuLogin();
                 setStartLoginOpen(false);
                 void openHeaderEditor(true);
               }}
