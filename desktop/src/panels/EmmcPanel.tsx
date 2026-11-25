@@ -96,6 +96,7 @@ export default function EmmcPanel({
   const [jobId, setJobId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [reportPath, setReportPath] = useState("");
   const setStatus = useStatusNotify();
   const toast = useToast();
@@ -328,6 +329,9 @@ export default function EmmcPanel({
             );
           }
           setRunning(r.running);
+          if (!r.running) {
+            setStopping(false);
+          }
           if (r.report_path) {
             setReportPath((prev) => (prev === r.report_path ? prev : r.report_path));
           }
@@ -815,6 +819,7 @@ export default function EmmcPanel({
         stopOnFail,
       );
       setJobId(r.job_id);
+      setStopping(false);
       setRunning(true);
       logCursorRef.current = 0;
       setLogs([]);
@@ -846,11 +851,14 @@ export default function EmmcPanel({
   }
 
   async function stop() {
-    if (!jobId) return;
+    if (!jobId || stopping) return;
+    setStopping(true);
+    setStatus("正在停止 eMMC 测试...");
     try {
       await api.emmcStop(jobId);
-      setStatus("已请求停止 eMMC 测试");
+      setStatus("已请求停止 eMMC 测试，等待当前步骤退出...");
     } catch (e) {
+      setStopping(false);
       setStatus(`停止 eMMC 测试失败：${toErrorMessage(e)}`);
     }
   }
@@ -908,8 +916,12 @@ export default function EmmcPanel({
                 >
                   开始
                 </Button>
-                <Button disabled={!running} onClick={() => void stop()}>
-                  停止
+                <Button
+                  disabled={!running || stopping}
+                  loading={stopping}
+                  onClick={() => void stop()}
+                >
+                  {stopping ? "停止中" : "停止"}
                 </Button>
               </div>
             </div>
