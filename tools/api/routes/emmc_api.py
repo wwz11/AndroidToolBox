@@ -38,6 +38,7 @@ from tools.feishu_sheets import (
     export_feishu_spreadsheet_xlsx,
     load_feishu_config,
     save_feishu_config,
+    send_feishu_report_notification,
     sync_report_xlsx_to_feishu,
     test_feishu_connection,
 )
@@ -503,6 +504,8 @@ class FeishuConfigBody(BaseModel):
     flow_no: str = ""
     report_url: str = ""
     report_name: str = ""
+    notify_enabled: bool | None = None
+    notify_tester: str | None = None
 
 
 def _feishu_status_payload(flow_no: str = "") -> dict:
@@ -516,6 +519,8 @@ def _feishu_status_payload(flow_no: str = "") -> dict:
         "app_id": cfg["app_id"],
         "has_secret": cfg["has_secret"],
         "template_url": cfg["template_url"],
+        "notify_enabled": cfg["notify_enabled"],
+        "notify_tester": cfg["notify_tester"],
         "flow_report_url": get_feishu_report_for_flow(flow_no) if flow_no.strip() else "",
         "synced_exists": exists,
         "synced_path": str(synced) if exists else "",
@@ -534,6 +539,8 @@ def put_feishu_config(body: FeishuConfigBody) -> dict:
         app_id=body.app_id,
         app_secret=body.app_secret or None,
         template_url=body.template_url,
+        notify_enabled=body.notify_enabled,
+        notify_tester=body.notify_tester,
     )
     if body.flow_no.strip() and body.report_url.strip():
         set_feishu_report_for_flow(body.flow_no, body.report_url)
@@ -615,7 +622,59 @@ def sync_report_to_feishu(body: FeishuConfigBody) -> dict:
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {**_feishu_status_payload(flow), **res}
+    notified = ""
+    notify_err = ""
+    notify_on = cfg["notify_enabled"] if body.notify_enabled is None else body.notify_enabled
+    if notify_on:
+        meta = read_report_header(local_path)
+        tester = (body.notify_tester or cfg["notify_tester"] or meta.tester or "").strip()
+        if tester:
+            try:
+                send_feishu_report_notification(
+                    app_id=app_id,
+                    app_secret=app_secret,
+                    tester=tester,
+                    project=meta.import_project or flow,
+                    flow_no=flow,
+                    report_url=target_url,
+                    initial_result=meta.initial_result,
+                )
+                notified = tester
+            except Exception as exc:
+                notify_err = str(exc)
+    return {
+        **_feishu_status_payload(flow),
+        **res,
+        "notified": notified,
+        "notify_error": notify_err,
+    }
+
+
+@router.post("/feishu/test-notify")
+def test_feishu_notify(body: FeishuConfigBody) -> dict:
+    cfg = load_feishu_config()
+    app_id = body.app_id.strip() or cfg["app_id"]
+    app_secret = body.app_secret.strip() or cfg["app_secret"]
+    flow = body.flow_no.strip() or "1"
+    report_url = body.report_url.strip() or get_feishu_report_for_flow(flow)
+    tester = (body.notify_tester or cfg["notify_tester"] or "").strip()
+    if not tester:
+        local_path = report_path_for_flow(flow, base_dir=app_base_dir())
+        if local_path.is_file():
+            tester = read_report_header(local_path).tester.strip()
+    try:
+        res = send_feishu_report_notification(
+            app_id=app_id,
+            app_secret=app_secret,
+            tester=tester,
+            project=flow,
+            flow_no=flow,
+            report_url=report_url,
+            summary="这是一条来自 eMMC 测试工具的通知测试消息",
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "tester": tester, **res}
 
 
 @router.post("/feishu/sync-template")

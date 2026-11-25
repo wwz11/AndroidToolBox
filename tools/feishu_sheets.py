@@ -19,9 +19,12 @@ _BASE_URL = "https://open.feishu.cn/open-apis"
 _KEY_APP_ID = "feishu.app_id"
 _KEY_APP_SECRET = "feishu.app_secret"
 _KEY_TEMPLATE_URL = "feishu.template_url"
+_KEY_NOTIFY_ENABLED = "feishu.notify_enabled"
+_KEY_NOTIFY_TESTER = "feishu.notify_tester"
 
 _TOKEN_LOCK = threading.Lock()
 _TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
+_USER_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
 
 
 def load_feishu_config() -> dict[str, Any]:
@@ -30,11 +33,20 @@ def load_feishu_config() -> dict[str, Any]:
     app_id = str(get(_KEY_APP_ID, "") or "").strip()
     app_secret = str(get(_KEY_APP_SECRET, "") or "").strip()
     template_url = str(get(_KEY_TEMPLATE_URL, "") or "").strip()
+    raw_notify = get(_KEY_NOTIFY_ENABLED, True)
+    notify_enabled = (
+        raw_notify
+        if isinstance(raw_notify, bool)
+        else str(raw_notify).strip().lower() in ("1", "true", "yes", "on")
+    )
+    notify_tester = str(get(_KEY_NOTIFY_TESTER, "") or "").strip()
     return {
         "app_id": app_id,
         "app_secret": app_secret,
         "has_secret": bool(app_secret),
         "template_url": template_url,
+        "notify_enabled": notify_enabled,
+        "notify_tester": notify_tester,
     }
 
 
@@ -43,6 +55,8 @@ def save_feishu_config(
     app_id: str | None = None,
     app_secret: str | None = None,
     template_url: str | None = None,
+    notify_enabled: bool | None = None,
+    notify_tester: str | None = None,
 ) -> dict[str, Any]:
     from tools.settings_store import put
 
@@ -54,6 +68,10 @@ def save_feishu_config(
             _TOKEN_CACHE.clear()
     if template_url is not None:
         put(_KEY_TEMPLATE_URL, template_url.strip())
+    if notify_enabled is not None:
+        put(_KEY_NOTIFY_ENABLED, bool(notify_enabled))
+    if notify_tester is not None:
+        put(_KEY_NOTIFY_TESTER, notify_tester.strip())
     return load_feishu_config()
 
 
@@ -438,3 +456,147 @@ def sync_report_xlsx_to_feishu(
         "updated_cells": len(value_ranges),
         "url": f"https://feishu.cn/sheets/{sheet_token}",
     }
+
+
+def _find_user_open_id_by_name(tenant_token: str, name: str) -> str:
+    target = name.strip().lower()
+    if not target:
+        return ""
+    queue = ["0"]
+    visited: set[str] = set()
+    while queue and len(visited) < 40:
+        dept_id = queue.pop(0)
+        if dept_id in visited:
+            continue
+        visited.add(dept_id)
+        page_token = ""
+        while True:
+            params: dict[str, str] = {
+                "department_id": dept_id,
+                "user_id_type": "open_id",
+                "page_size": "50",
+            }
+            if page_token:
+                params["page_token"] = page_token
+            q = urllib.parse.urlencode(params)
+            res = _request_json("GET", f"/contact/v3/users/find_by_department?{q}", token=tenant_token)
+            data = res.get("data") or {}
+            for u in data.get("items") or []:
+                uname = str(u.get("name") or "").strip().lower()
+                en_name = str(u.get("en_name") or "").strip().lower()
+                if target in (uname, en_name):
+                    oid = str(u.get("open_id") or "").strip()
+                    if oid:
+                        return oid
+            if not data.get("has_more"):
+                break
+            page_token = str(data.get("page_token") or "").strip()
+            if not page_token:
+                break
+        try:
+            dq = urllib.parse.urlencode({"page_size": "50"})
+            dres = _request_json(
+                "GET", f"/contact/v3/departments/{dept_id}/children?{dq}", token=tenant_token
+            )
+            for d in (dres.get("data") or {}).get("items") or []:
+                cid = str(d.get("open_department_id") or d.get("department_id") or "").strip()
+                if cid and cid not in visited:
+                    queue.append(cid)
+        except Exception:
+            pass
+    return ""
+
+
+def resolve_feishu_user_open_id(tenant_token: str, identifier: str) -> str:
+    """按 OpenID / 邮箱 / 手机号 / 姓名 解析飞书用户 open_id。"""
+    raw = (identifier or "").strip()
+    if not raw:
+        raise ValueError("未指定测试人员（请在表头「测试人员」或飞书配置中填写姓名/邮箱/手机号）")
+    if raw.startswith("ou_"):
+        return raw
+
+    now = time.monotonic()
+    with _TOKEN_LOCK:
+        cached = _USER_CACHE.get((tenant_token[:16], raw.lower()))
+        if cached and cached[1] > now:
+            return cached[0]
+
+    open_id = ""
+    if "@" in raw:
+        res = _request_json(
+            "POST",
+            "/contact/v3/users/batch_get_id?user_id_type=open_id",
+            token=tenant_token,
+            body={"emails": [raw]},
+        )
+        items = (res.get("data") or {}).get("user_list") or []
+        if items:
+            open_id = str(items[0].get("user_id") or "").strip()
+    elif re.fullmatch(r"\+?\d{7,15}", raw.replace("-", "").replace(" ", "")):
+        mobile = raw.replace("-", "").replace(" ", "")
+        res = _request_json(
+            "POST",
+            "/contact/v3/users/batch_get_id?user_id_type=open_id",
+            token=tenant_token,
+            body={"mobiles": [mobile]},
+        )
+        items = (res.get("data") or {}).get("user_list") or []
+        if items:
+            open_id = str(items[0].get("user_id") or "").strip()
+    else:
+        open_id = _find_user_open_id_by_name(tenant_token, raw)
+
+    if not open_id:
+        raise RuntimeError(f"未在飞书通讯录找到用户「{raw}」（建议填公司邮箱、手机号或确认应用有通讯录读取权限）")
+
+    with _TOKEN_LOCK:
+        _USER_CACHE[(tenant_token[:16], raw.lower())] = (open_id, now + 1800)
+    return open_id
+
+
+def send_feishu_report_notification(
+    *,
+    app_id: str,
+    app_secret: str,
+    tester: str,
+    project: str = "",
+    flow_no: str = "",
+    report_url: str = "",
+    initial_result: str = "",
+    summary: str = "",
+) -> dict[str, Any]:
+    """通过飞书应用机器人私聊通知测试人员。"""
+    token = get_tenant_access_token(app_id, app_secret)
+    open_id = resolve_feishu_user_open_id(token, tester)
+
+    lines: list[list[dict[str, Any]]] = []
+    if project or flow_no:
+        lines.append([{"tag": "text", "text": f"项目：{project or '-'}  |  流程号：{flow_no or '-'}"}])
+    if initial_result:
+        lines.append([{"tag": "text", "text": f"当前初判：{initial_result}"}])
+    if summary:
+        lines.append([{"tag": "text", "text": summary}])
+    if report_url:
+        lines.append([
+            {"tag": "text", "text": "在线报告："},
+            {"tag": "a", "text": "点击打开飞书表格", "href": report_url},
+        ])
+
+    post_body = {
+        "zh_cn": {
+            "title": "eMMC 测试报告已更新",
+            "content": lines or [[{"tag": "text", "text": "eMMC 测试结果已写入在线报告"}]],
+        }
+    }
+    res = _request_json(
+        "POST",
+        "/im/v1/messages?receive_id_type=open_id",
+        token=token,
+        body={
+            "receive_id": open_id,
+            "msg_type": "post",
+            "content": json.dumps(post_body, ensure_ascii=False),
+        },
+    )
+    msg_id = str((res.get("data") or {}).get("message_id") or "").strip()
+    return {"ok": True, "open_id": open_id, "message_id": msg_id}

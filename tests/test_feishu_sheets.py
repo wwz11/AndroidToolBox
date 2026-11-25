@@ -84,6 +84,34 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["url"], "https://feishu.cn/sheets/shtNEW999")
             self.assertTrue(any(p.endswith("/copy") for _, p in calls))
 
+    def test_send_feishu_report_notification_by_email(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_req(method: str, path: str, **kwargs: object) -> dict:
+            calls.append((method, path))
+            if "batch_get_id" in path:
+                return {"code": 0, "data": {"user_list": [{"user_id": "ou_tester_1"}]}}
+            if "/im/v1/messages" in path:
+                return {"code": 0, "data": {"message_id": "om_msg_1"}}
+            return {"code": 0, "data": {}}
+
+        with (
+            patch.object(fs, "get_tenant_access_token", return_value="t-tok"),
+            patch.object(fs, "_request_json", side_effect=fake_req),
+        ):
+            res = fs.send_feishu_report_notification(
+                app_id="aid",
+                app_secret="sec",
+                tester="tester@example.com",
+                project="PROJ_X",
+                flow_no="FLOW1",
+                report_url="https://feishu.cn/sheets/shtNEW999",
+                initial_result="Pass",
+            )
+            self.assertEqual(res["open_id"], "ou_tester_1")
+            self.assertEqual(res["message_id"], "om_msg_1")
+            self.assertTrue(any("/im/v1/messages" in p for _, p in calls))
+
 
 if __name__ == "__main__":
     unittest.main()

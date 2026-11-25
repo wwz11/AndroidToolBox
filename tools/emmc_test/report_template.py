@@ -1233,7 +1233,7 @@ def write_ota_result(
 
 
 def _try_sync_online_report(report_path: Path) -> None:
-    """若当前流程已绑定在线飞书报告，后台静默同步最新数据（失败不影响本地报告）。"""
+    """若当前流程已绑定在线飞书报告，后台静默同步最新数据并私聊通知测试人员。"""
     flow = flow_no_from_report_path(report_path)
     if not flow:
         return
@@ -1241,7 +1241,11 @@ def _try_sync_online_report(report_path: Path) -> None:
     if not url:
         return
     try:
-        from tools.feishu_sheets import load_feishu_config, sync_report_xlsx_to_feishu
+        from tools.feishu_sheets import (
+            load_feishu_config,
+            send_feishu_report_notification,
+            sync_report_xlsx_to_feishu,
+        )
 
         cfg = load_feishu_config()
         if not cfg["app_id"] or not cfg["app_secret"]:
@@ -1252,5 +1256,18 @@ def _try_sync_online_report(report_path: Path) -> None:
             report_path=report_path,
             url_or_token=url,
         )
+        if cfg.get("notify_enabled"):
+            meta = read_report_header(report_path)
+            tester = str(cfg.get("notify_tester") or meta.tester or "").strip()
+            if tester:
+                send_feishu_report_notification(
+                    app_id=cfg["app_id"],
+                    app_secret=cfg["app_secret"],
+                    tester=tester,
+                    project=meta.import_project or flow,
+                    flow_no=flow,
+                    report_url=url,
+                    initial_result=meta.initial_result,
+                )
     except Exception:
         pass

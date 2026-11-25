@@ -1332,6 +1332,8 @@ export const api = {
       app_id: string;
       has_secret: boolean;
       template_url: string;
+      notify_enabled: boolean;
+      notify_tester: string;
       flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
@@ -1343,11 +1345,15 @@ export const api = {
     template_url: string;
     flow_no?: string;
     report_url?: string;
+    notify_enabled?: boolean;
+    notify_tester?: string;
   }) =>
     request<{
       app_id: string;
       has_secret: boolean;
       template_url: string;
+      notify_enabled: boolean;
+      notify_tester: string;
       flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
@@ -1390,6 +1396,8 @@ export const api = {
     app_secret?: string;
     flow_no?: string;
     report_url?: string;
+    notify_enabled?: boolean;
+    notify_tester?: string;
   }) =>
     request<{
       ok: boolean;
@@ -1397,10 +1405,26 @@ export const api = {
       spreadsheet_token: string;
       updated_cells: number;
       flow_report_url: string;
+      notified?: string;
+      notify_error?: string;
     }>("/emmc/feishu/sync-report", {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  emmcTestFeishuNotify: (body: {
+    app_id?: string;
+    app_secret?: string;
+    flow_no?: string;
+    report_url?: string;
+    notify_tester?: string;
+  }) =>
+    request<{ ok: boolean; tester: string; message_id: string }>(
+      "/emmc/feishu/test-notify",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    ),
   emmcSyncFeishuTemplate: (body: {
     app_id?: string;
     app_secret?: string;

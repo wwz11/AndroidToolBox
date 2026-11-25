@@ -121,6 +121,8 @@ export default function EmmcPanel({
   const [feishuHasSecret, setFeishuHasSecret] = useState(false);
   const [feishuUrl, setFeishuUrl] = useState("");
   const [feishuReportUrl, setFeishuReportUrl] = useState("");
+  const [feishuNotifyEnabled, setFeishuNotifyEnabled] = useState(true);
+  const [feishuNotifyTester, setFeishuNotifyTester] = useState("");
   const [feishuMsg, setFeishuMsg] = useState("");
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
@@ -504,6 +506,8 @@ export default function EmmcPanel({
       setFeishuSecret("");
       setFeishuUrl(r.template_url || "");
       setFeishuReportUrl(r.flow_report_url || "");
+      setFeishuNotifyEnabled(r.notify_enabled ?? true);
+      setFeishuNotifyTester(r.notify_tester || "");
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -521,6 +525,8 @@ export default function EmmcPanel({
         template_url: feishuUrl.trim(),
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim() || undefined,
+        notify_enabled: feishuNotifyEnabled,
+        notify_tester: feishuNotifyTester.trim(),
       });
       setFeishuHasSecret(Boolean(r.has_secret));
       setFeishuSecret("");
@@ -581,11 +587,37 @@ export default function EmmcPanel({
         app_secret: feishuSecret.trim() || undefined,
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim(),
+        notify_enabled: feishuNotifyEnabled,
+        notify_tester: feishuNotifyTester.trim() || undefined,
       });
       setFeishuReportUrl(r.url || feishuReportUrl);
-      const okMsg = `已同步 ${r.updated_cells} 个单元格到飞书在线报告`;
+      const notifyPart = r.notified
+        ? `（已私聊通知 ${r.notified}）`
+        : r.notify_error
+          ? `（通知失败：${r.notify_error}）`
+          : "";
+      const okMsg = `已同步 ${r.updated_cells} 个单元格到飞书在线报告${notifyPart}`;
       setFeishuMsg(okMsg);
       setStatus(okMsg);
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function testFeishuNotify() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      const r = await api.emmcTestFeishuNotify({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        flow_no: flowNo.trim() || "1",
+        report_url: feishuReportUrl.trim(),
+        notify_tester: feishuNotifyTester.trim() || undefined,
+      });
+      setFeishuMsg(`已发送测试通知给 ${r.tester}`);
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -1536,6 +1568,9 @@ export default function EmmcPanel({
             <Button disabled={feishuBusy} onClick={() => void testFeishu()}>
               测试连接
             </Button>
+            <Button disabled={feishuBusy} onClick={() => void testFeishuNotify()}>
+              测试通知
+            </Button>
             <Button
               disabled={feishuBusy}
               onClick={() => void copyFeishuReport()}
@@ -1596,6 +1631,25 @@ export default function EmmcPanel({
               placeholder="点「复制生成在线报告」自动创建，或粘贴已有报告链接"
               onChange={(e) => setFeishuReportUrl(e.target.value)}
             />
+          </label>
+          <label className="emmc-param emmc-param-wide">
+            <span>通知测试人员（姓名 / 公司邮箱 / 手机号，留空则取表头「测试人员」）</span>
+            <input
+              className="field"
+              value={feishuNotifyTester}
+              disabled={feishuBusy}
+              placeholder="例如：张三 或 zhangsan@company.com"
+              onChange={(e) => setFeishuNotifyTester(e.target.value)}
+            />
+          </label>
+          <label className="emmc-check">
+            <input
+              type="checkbox"
+              checked={feishuNotifyEnabled}
+              disabled={feishuBusy}
+              onChange={(e) => setFeishuNotifyEnabled(e.target.checked)}
+            />
+            写入在线报告时飞书私聊通知该测试人员
           </label>
           <div className="emmc-param emmc-param-wide">
             {feishuReportUrl.trim() ? (
