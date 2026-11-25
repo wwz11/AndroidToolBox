@@ -12,7 +12,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from tools.api.deps import evict_finished_jobs
@@ -34,9 +35,11 @@ from tools.emmc_test.report_template import (
     update_report_header,
 )
 from tools.feishu_sheets import (
+    build_feishu_oauth_url,
     copy_feishu_spreadsheet,
-    export_feishu_spreadsheet_xlsx,
+    exchange_feishu_oauth_code,
     load_feishu_config,
+    logout_feishu_user,
     save_feishu_config,
     send_feishu_report_notification,
     sync_report_xlsx_to_feishu,
@@ -505,7 +508,6 @@ class FeishuConfigBody(BaseModel):
     report_url: str = ""
     report_name: str = ""
     notify_enabled: bool | None = None
-    notify_tester: str | None = None
 
 
 def _feishu_status_payload(flow_no: str = "") -> dict:
@@ -520,7 +522,9 @@ def _feishu_status_payload(flow_no: str = "") -> dict:
         "has_secret": cfg["has_secret"],
         "template_url": cfg["template_url"],
         "notify_enabled": cfg["notify_enabled"],
-        "notify_tester": cfg["notify_tester"],
+        "user_open_id": cfg["user_open_id"],
+        "user_name": cfg["user_name"],
+        "user_logged_in": cfg["user_logged_in"],
         "flow_report_url": get_feishu_report_for_flow(flow_no) if flow_no.strip() else "",
         "synced_exists": exists,
         "synced_path": str(synced) if exists else "",
@@ -540,11 +544,57 @@ def put_feishu_config(body: FeishuConfigBody) -> dict:
         app_secret=body.app_secret or None,
         template_url=body.template_url,
         notify_enabled=body.notify_enabled,
-        notify_tester=body.notify_tester,
     )
     if body.flow_no.strip() and body.report_url.strip():
         set_feishu_report_for_flow(body.flow_no, body.report_url)
     return _feishu_status_payload(body.flow_no)
+
+
+@router.get("/feishu/oauth/url")
+def get_feishu_oauth_url(request: Request, app_id: str = "") -> dict:
+    cfg = load_feishu_config()
+    aid = app_id.strip() or cfg["app_id"]
+    base = str(request.base_url).rstrip("/")
+    redirect_uri = f"{base}/emmc/feishu/oauth/callback"
+    try:
+        url = build_feishu_oauth_url(aid, redirect_uri)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"url": url, "redirect_uri": redirect_uri}
+
+
+@router.get("/feishu/oauth/callback", response_class=HTMLResponse)
+def feishu_oauth_callback(code: str = "", state: str = "") -> HTMLResponse:
+    cfg = load_feishu_config()
+    try:
+        info = exchange_feishu_oauth_code(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            code=code,
+        )
+        msg = f"飞书登录成功：{info['name'] or info['open_id']}，可以关闭此窗口返回工具。"
+        payload = {"type": "feishu-oauth-ok", "name": info["name"], "open_id": info["open_id"]}
+    except Exception as exc:
+        msg = f"飞书登录失败：{exc}"
+        payload = {"type": "feishu-oauth-err", "error": str(exc)}
+    import json as _json
+
+    html = (
+        "<!doctype html><meta charset='utf-8'><title>飞书授权</title>"
+        "<body style='font-family:sans-serif;padding:32px;text-align:center'>"
+        f"<h3>{msg}</h3>"
+        "<script>"
+        f"try{{window.opener&&window.opener.postMessage({_json.dumps(payload)},'*');}}catch(e){{}}"
+        "setTimeout(function(){window.close();},1200);"
+        "</script></body>"
+    )
+    return HTMLResponse(html)
+
+
+@router.post("/feishu/logout")
+def feishu_logout(flow_no: str = "") -> dict:
+    logout_feishu_user()
+    return _feishu_status_payload(flow_no)
 
 
 @router.post("/feishu/test")
@@ -625,23 +675,21 @@ def sync_report_to_feishu(body: FeishuConfigBody) -> dict:
     notified = ""
     notify_err = ""
     notify_on = cfg["notify_enabled"] if body.notify_enabled is None else body.notify_enabled
-    if notify_on:
+    if notify_on and cfg["user_open_id"]:
         meta = read_report_header(local_path)
-        tester = (body.notify_tester or cfg["notify_tester"] or meta.tester or "").strip()
-        if tester:
-            try:
-                send_feishu_report_notification(
-                    app_id=app_id,
-                    app_secret=app_secret,
-                    tester=tester,
-                    project=meta.import_project or flow,
-                    flow_no=flow,
-                    report_url=target_url,
-                    initial_result=meta.initial_result,
-                )
-                notified = tester
-            except Exception as exc:
-                notify_err = str(exc)
+        try:
+            send_feishu_report_notification(
+                app_id=app_id,
+                app_secret=app_secret,
+                open_id=cfg["user_open_id"],
+                project=meta.import_project or flow,
+                flow_no=flow,
+                report_url=target_url,
+                initial_result=meta.initial_result,
+            )
+            notified = cfg["user_name"] or cfg["user_open_id"]
+        except Exception as exc:
+            notify_err = str(exc)
     return {
         **_feishu_status_payload(flow),
         **res,
@@ -657,16 +705,11 @@ def test_feishu_notify(body: FeishuConfigBody) -> dict:
     app_secret = body.app_secret.strip() or cfg["app_secret"]
     flow = body.flow_no.strip() or "1"
     report_url = body.report_url.strip() or get_feishu_report_for_flow(flow)
-    tester = (body.notify_tester or cfg["notify_tester"] or "").strip()
-    if not tester:
-        local_path = report_path_for_flow(flow, base_dir=app_base_dir())
-        if local_path.is_file():
-            tester = read_report_header(local_path).tester.strip()
     try:
         res = send_feishu_report_notification(
             app_id=app_id,
             app_secret=app_secret,
-            tester=tester,
+            open_id=cfg["user_open_id"],
             project=flow,
             flow_no=flow,
             report_url=report_url,
@@ -674,7 +717,7 @@ def test_feishu_notify(body: FeishuConfigBody) -> dict:
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"ok": True, "tester": tester, **res}
+    return {"ok": True, "tester": cfg["user_name"] or cfg["user_open_id"], **res}
 
 
 @router.post("/feishu/sync-template")

@@ -1256,18 +1256,16 @@ def _try_sync_online_report(report_path: Path) -> None:
             report_path=report_path,
             url_or_token=url,
         )
-        if cfg.get("notify_enabled"):
+        if cfg.get("notify_enabled") and cfg.get("user_open_id"):
             meta = read_report_header(report_path)
-            tester = str(cfg.get("notify_tester") or meta.tester or "").strip()
-            if tester:
-                send_feishu_report_notification(
-                    app_id=cfg["app_id"],
-                    app_secret=cfg["app_secret"],
-                    tester=tester,
-                    project=meta.import_project or flow,
-                    flow_no=flow,
-                    report_url=url,
-                    initial_result=meta.initial_result,
-                )
+            send_feishu_report_notification(
+                app_id=cfg["app_id"],
+                app_secret=cfg["app_secret"],
+                open_id=cfg["user_open_id"],
+                project=meta.import_project or flow,
+                flow_no=flow,
+                report_url=url,
+                initial_result=meta.initial_result,
+            )
     except Exception:
         pass

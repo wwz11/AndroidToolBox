@@ -84,13 +84,11 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["url"], "https://feishu.cn/sheets/shtNEW999")
             self.assertTrue(any(p.endswith("/copy") for _, p in calls))
 
-    def test_send_feishu_report_notification_by_email(self) -> None:
+    def test_send_feishu_report_notification_by_open_id(self) -> None:
         calls: list[tuple[str, str]] = []
 
         def fake_req(method: str, path: str, **kwargs: object) -> dict:
             calls.append((method, path))
-            if "batch_get_id" in path:
-                return {"code": 0, "data": {"user_list": [{"user_id": "ou_tester_1"}]}}
             if "/im/v1/messages" in path:
                 return {"code": 0, "data": {"message_id": "om_msg_1"}}
             return {"code": 0, "data": {}}
@@ -102,7 +100,7 @@ class TestFeishuSheets(unittest.TestCase):
             res = fs.send_feishu_report_notification(
                 app_id="aid",
                 app_secret="sec",
-                tester="tester@example.com",
+                open_id="ou_tester_1",
                 project="PROJ_X",
                 flow_no="FLOW1",
                 report_url="https://feishu.cn/sheets/shtNEW999",
@@ -112,25 +110,30 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["message_id"], "om_msg_1")
             self.assertTrue(any("/im/v1/messages" in p for _, p in calls))
 
-    def test_resolve_user_by_name_via_scopes(self) -> None:
+    def test_oauth_url_and_code_exchange(self) -> None:
+        url = fs.build_feishu_oauth_url("cli_123", "http://127.0.0.1:8000/emmc/feishu/oauth/callback")
+        self.assertIn("app_id=cli_123", url)
+        self.assertIn("authen/v1/authorize", url)
+
         def fake_req(method: str, path: str, **kwargs: object) -> dict:
-            if path.startswith("/contact/v3/scopes"):
-                return {"code": 0, "data": {"department_ids": ["od_dept_1"], "user_ids": []}}
-            if path.startswith("/contact/v3/users/find_by_department"):
+            if "/authen/v1/oidc/access_token" in path:
                 return {
                     "code": 0,
-                    "data": {
-                        "has_more": False,
-                        "items": [{"name": "张三", "open_id": "ou_zhangsan"}],
-                    },
+                    "data": {"access_token": "u-tok", "refresh_token": "r-tok", "expires_in": 7200},
                 }
+            if "/authen/v1/user_info" in path:
+                return {"code": 0, "data": {"open_id": "ou_qr_1", "name": "李四"}}
             return {"code": 0, "data": {}}
 
-        with patch.object(fs, "_request_json", side_effect=fake_req):
-            self.assertEqual(
-                fs.resolve_feishu_user_open_id("tok", "张三"),
-                "ou_zhangsan",
-            )
+        with (
+            patch.object(fs, "get_app_access_token", return_value="a-tok"),
+            patch.object(fs, "_request_json", side_effect=fake_req),
+            patch("tools.settings_store.put") as m_put,
+        ):
+            res = fs.exchange_feishu_oauth_code(app_id="aid", app_secret="sec", code="code_1")
+            self.assertEqual(res["open_id"], "ou_qr_1")
+            self.assertEqual(res["name"], "李四")
+            self.assertTrue(m_put.called)
 
 
 if __name__ == "__main__":

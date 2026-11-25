@@ -1333,7 +1333,9 @@ export const api = {
       has_secret: boolean;
       template_url: string;
       notify_enabled: boolean;
-      notify_tester: string;
+      user_open_id: string;
+      user_name: string;
+      user_logged_in: boolean;
       flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
@@ -1346,14 +1348,15 @@ export const api = {
     flow_no?: string;
     report_url?: string;
     notify_enabled?: boolean;
-    notify_tester?: string;
   }) =>
     request<{
       app_id: string;
       has_secret: boolean;
       template_url: string;
       notify_enabled: boolean;
-      notify_tester: string;
+      user_open_id: string;
+      user_name: string;
+      user_logged_in: boolean;
       flow_report_url: string;
       synced_exists: boolean;
       synced_path: string;
@@ -1362,6 +1365,16 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  emmcFeishuOAuthUrl: (appId = "") =>
+    request<{ url: string; redirect_uri: string }>(
+      `/emmc/feishu/oauth/url${q({ app_id: appId })}`,
+    ),
+  emmcFeishuLogout: (flowNo = "") =>
+    request<{
+      user_open_id: string;
+      user_name: string;
+      user_logged_in: boolean;
+    }>(`/emmc/feishu/logout${q({ flow_no: flowNo })}`, { method: "POST" }),
   emmcTestFeishu: (body: {
     app_id?: string;
     app_secret?: string;
@@ -1397,7 +1410,6 @@ export const api = {
     flow_no?: string;
     report_url?: string;
     notify_enabled?: boolean;
-    notify_tester?: string;
   }) =>
     request<{
       ok: boolean;
@@ -1416,7 +1428,6 @@ export const api = {
     app_secret?: string;
     flow_no?: string;
     report_url?: string;
-    notify_tester?: string;
   }) =>
     request<{ ok: boolean; tester: string; message_id: string }>(
       "/emmc/feishu/test-notify",

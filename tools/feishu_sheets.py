@@ -20,11 +20,14 @@ _KEY_APP_ID = "feishu.app_id"
 _KEY_APP_SECRET = "feishu.app_secret"
 _KEY_TEMPLATE_URL = "feishu.template_url"
 _KEY_NOTIFY_ENABLED = "feishu.notify_enabled"
-_KEY_NOTIFY_TESTER = "feishu.notify_tester"
+_KEY_USER_OPEN_ID = "feishu.user_open_id"
+_KEY_USER_NAME = "feishu.user_name"
+_KEY_USER_ACCESS_TOKEN = "feishu.user_access_token"
+_KEY_USER_REFRESH_TOKEN = "feishu.user_refresh_token"
+_KEY_USER_EXPIRES_AT = "feishu.user_expires_at"
 
 _TOKEN_LOCK = threading.Lock()
 _TOKEN_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
-_USER_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
 
 
 def load_feishu_config() -> dict[str, Any]:
@@ -39,14 +42,17 @@ def load_feishu_config() -> dict[str, Any]:
         if isinstance(raw_notify, bool)
         else str(raw_notify).strip().lower() in ("1", "true", "yes", "on")
     )
-    notify_tester = str(get(_KEY_NOTIFY_TESTER, "") or "").strip()
+    user_open_id = str(get(_KEY_USER_OPEN_ID, "") or "").strip()
+    user_name = str(get(_KEY_USER_NAME, "") or "").strip()
     return {
         "app_id": app_id,
         "app_secret": app_secret,
         "has_secret": bool(app_secret),
         "template_url": template_url,
         "notify_enabled": notify_enabled,
-        "notify_tester": notify_tester,
+        "user_open_id": user_open_id,
+        "user_name": user_name,
+        "user_logged_in": bool(user_open_id),
     }
 
 
@@ -56,7 +62,6 @@ def save_feishu_config(
     app_secret: str | None = None,
     template_url: str | None = None,
     notify_enabled: bool | None = None,
-    notify_tester: str | None = None,
 ) -> dict[str, Any]:
     from tools.settings_store import put
 
@@ -70,8 +75,20 @@ def save_feishu_config(
         put(_KEY_TEMPLATE_URL, template_url.strip())
     if notify_enabled is not None:
         put(_KEY_NOTIFY_ENABLED, bool(notify_enabled))
-    if notify_tester is not None:
-        put(_KEY_NOTIFY_TESTER, notify_tester.strip())
+    return load_feishu_config()
+
+
+def logout_feishu_user() -> dict[str, Any]:
+    from tools.settings_store import put
+
+    for k in (
+        _KEY_USER_OPEN_ID,
+        _KEY_USER_NAME,
+        _KEY_USER_ACCESS_TOKEN,
+        _KEY_USER_REFRESH_TOKEN,
+        _KEY_USER_EXPIRES_AT,
+    ):
+        put(k, "")
     return load_feishu_config()
 
 
@@ -458,159 +475,92 @@ def sync_report_xlsx_to_feishu(
     }
 
 
-def _find_user_open_id_by_name(tenant_token: str, name: str) -> str:
-    target = name.strip().lower()
-    if not target:
-        return ""
-
-    queue: list[str] = []
-    direct_user_ids: list[str] = []
-    try:
-        sq = urllib.parse.urlencode(
-            {
-                "page_size": "50",
-                "user_id_type": "open_id",
-                "department_id_type": "open_department_id",
-            }
-        )
-        sres = _request_json("GET", f"/contact/v3/scopes?{sq}", token=tenant_token)
-        sdata = sres.get("data") or {}
-        queue.extend(str(d) for d in (sdata.get("department_ids") or []) if d)
-        direct_user_ids.extend(str(u) for u in (sdata.get("user_ids") or []) if u)
-    except Exception:
-        pass
-
-    for uid in direct_user_ids:
-        try:
-            ures = _request_json(
-                "GET",
-                f"/contact/v3/users/{uid}?user_id_type=open_id",
-                token=tenant_token,
-            )
-            u = (ures.get("data") or {}).get("user") or {}
-            uname = str(u.get("name") or "").strip().lower()
-            en_name = str(u.get("en_name") or "").strip().lower()
-            if target in (uname, en_name):
-                return uid
-        except Exception:
-            continue
-
-    if not queue:
-        queue.append("0")
-
-    visited: set[str] = set()
-    while queue and len(visited) < 40:
-        dept_id = queue.pop(0)
-        if dept_id in visited:
-            continue
-        visited.add(dept_id)
-        page_token = ""
-        while True:
-            params: dict[str, str] = {
-                "department_id": dept_id,
-                "user_id_type": "open_id",
-                "department_id_type": "open_department_id",
-                "page_size": "50",
-            }
-            if page_token:
-                params["page_token"] = page_token
-            q = urllib.parse.urlencode(params)
-            try:
-                res = _request_json(
-                    "GET", f"/contact/v3/users/find_by_department?{q}", token=tenant_token
-                )
-            except Exception:
-                break
-            data = res.get("data") or {}
-            for u in data.get("items") or []:
-                uname = str(u.get("name") or "").strip().lower()
-                en_name = str(u.get("en_name") or "").strip().lower()
-                if target in (uname, en_name):
-                    oid = str(u.get("open_id") or "").strip()
-                    if oid:
-                        return oid
-            if not data.get("has_more"):
-                break
-            page_token = str(data.get("page_token") or "").strip()
-            if not page_token:
-                break
-        try:
-            dq = urllib.parse.urlencode(
-                {"page_size": "50", "department_id_type": "open_department_id"}
-            )
-            dres = _request_json(
-                "GET", f"/contact/v3/departments/{dept_id}/children?{dq}", token=tenant_token
-            )
-            for d in (dres.get("data") or {}).get("items") or []:
-                cid = str(d.get("open_department_id") or d.get("department_id") or "").strip()
-                if cid and cid not in visited:
-                    queue.append(cid)
-        except Exception:
-            pass
-    return ""
+def get_app_access_token(app_id: str, app_secret: str) -> str:
+    aid = app_id.strip()
+    sec = app_secret.strip()
+    if not aid or not sec:
+        raise ValueError("请先填写飞书应用的 App ID 和 App Secret")
+    payload = _request_json(
+        "POST",
+        "/auth/v3/app_access_token/internal",
+        body={"app_id": aid, "app_secret": sec},
+    )
+    token = str(payload.get("app_access_token") or "").strip()
+    if not token:
+        raise RuntimeError("飞书未返回 app_access_token")
+    return token
 
 
-def resolve_feishu_user_open_id(tenant_token: str, identifier: str) -> str:
-    """按 OpenID / 邮箱 / 手机号 / 姓名 解析飞书用户 open_id。"""
-    raw = (identifier or "").strip()
-    if not raw:
-        raise ValueError("未指定测试人员（请在表头「测试人员」或飞书配置中填写姓名/邮箱/手机号）")
-    if raw.startswith("ou_"):
-        return raw
+def build_feishu_oauth_url(app_id: str, redirect_uri: str, state: str = "toolbox") -> str:
+    aid = app_id.strip()
+    if not aid:
+        raise ValueError("请先填写飞书应用的 App ID")
+    q = urllib.parse.urlencode(
+        {
+            "app_id": aid,
+            "redirect_uri": redirect_uri,
+            "state": state,
+        }
+    )
+    return f"{_BASE_URL}/authen/v1/authorize?{q}"
 
-    now = time.monotonic()
-    with _TOKEN_LOCK:
-        cached = _USER_CACHE.get((tenant_token[:16], raw.lower()))
-        if cached and cached[1] > now:
-            return cached[0]
 
-    open_id = ""
-    if "@" in raw:
-        res = _request_json(
-            "POST",
-            "/contact/v3/users/batch_get_id?user_id_type=open_id",
-            token=tenant_token,
-            body={"emails": [raw]},
-        )
-        items = (res.get("data") or {}).get("user_list") or []
-        if items:
-            open_id = str(items[0].get("user_id") or "").strip()
-    elif re.fullmatch(r"\+?\d{7,15}", raw.replace("-", "").replace(" ", "")):
-        mobile = raw.replace("-", "").replace(" ", "")
-        res = _request_json(
-            "POST",
-            "/contact/v3/users/batch_get_id?user_id_type=open_id",
-            token=tenant_token,
-            body={"mobiles": [mobile]},
-        )
-        items = (res.get("data") or {}).get("user_list") or []
-        if items:
-            open_id = str(items[0].get("user_id") or "").strip()
-    else:
-        open_id = _find_user_open_id_by_name(tenant_token, raw)
+def exchange_feishu_oauth_code(*, app_id: str, app_secret: str, code: str) -> dict[str, Any]:
+    """用飞书 OAuth code 换取当前登录用户的姓名与 open_id 并持久化保存。"""
+    from tools.settings_store import put
 
+    auth_code = (code or "").strip()
+    if not auth_code:
+        raise ValueError("缺少授权 code")
+
+    app_token = get_app_access_token(app_id, app_secret)
+    tok_res = _request_json(
+        "POST",
+        "/authen/v1/oidc/access_token",
+        token=app_token,
+        body={"grant_type": "authorization_code", "code": auth_code},
+    )
+    tok_data = tok_res.get("data") or {}
+    user_token = str(tok_data.get("access_token") or "").strip()
+    refresh_token = str(tok_data.get("refresh_token") or "").strip()
+    expires_in = int(tok_data.get("expires_in") or 7200)
+    if not user_token:
+        raise RuntimeError("飞书登录未返回 user_access_token")
+
+    info_res = _request_json("GET", "/authen/v1/user_info", token=user_token)
+    u = info_res.get("data") or {}
+    open_id = str(u.get("open_id") or "").strip()
+    name = str(u.get("name") or u.get("en_name") or "").strip()
     if not open_id:
-        raise RuntimeError(f"未在飞书通讯录找到用户「{raw}」（建议填公司邮箱、手机号或确认应用有通讯录读取权限）")
+        raise RuntimeError("未获取到飞书用户 open_id")
 
-    with _TOKEN_LOCK:
-        _USER_CACHE[(tenant_token[:16], raw.lower())] = (open_id, now + 1800)
-    return open_id
+    put(_KEY_USER_OPEN_ID, open_id)
+    put(_KEY_USER_NAME, name)
+    put(_KEY_USER_ACCESS_TOKEN, user_token)
+    if refresh_token:
+        put(_KEY_USER_REFRESH_TOKEN, refresh_token)
+    put(_KEY_USER_EXPIRES_AT, str(int(time.time()) + expires_in))
+
+    return {"ok": True, "open_id": open_id, "name": name}
 
 
 def send_feishu_report_notification(
     *,
     app_id: str,
     app_secret: str,
-    tester: str,
+    open_id: str = "",
     project: str = "",
     flow_no: str = "",
     report_url: str = "",
     initial_result: str = "",
     summary: str = "",
 ) -> dict[str, Any]:
-    """通过飞书应用机器人私聊通知测试人员。"""
+    """通过飞书应用机器人私聊通知已扫码登录的测试人员（使用永久 open_id + 应用凭证，长测不失效）。"""
+    target_open_id = (open_id or load_feishu_config().get("user_open_id") or "").strip()
+    if not target_open_id:
+        raise ValueError("尚未扫码登录飞书，请先点击「扫码登录飞书」获取本人信息")
+
     token = get_tenant_access_token(app_id, app_secret)
-    open_id = resolve_feishu_user_open_id(token, tester)
 
     lines: list[list[dict[str, Any]]] = []
     if project or flow_no:
@@ -636,10 +586,10 @@ def send_feishu_report_notification(
         "/im/v1/messages?receive_id_type=open_id",
         token=token,
         body={
-            "receive_id": open_id,
+            "receive_id": target_open_id,
             "msg_type": "post",
             "content": json.dumps(post_body, ensure_ascii=False),
         },
     )
     msg_id = str((res.get("data") or {}).get("message_id") or "").strip()
-    return {"ok": True, "open_id": open_id, "message_id": msg_id}
+    return {"ok": True, "open_id": target_open_id, "message_id": msg_id}

@@ -122,7 +122,8 @@ export default function EmmcPanel({
   const [feishuUrl, setFeishuUrl] = useState("");
   const [feishuReportUrl, setFeishuReportUrl] = useState("");
   const [feishuNotifyEnabled, setFeishuNotifyEnabled] = useState(true);
-  const [feishuNotifyTester, setFeishuNotifyTester] = useState("");
+  const [feishuUserName, setFeishuUserName] = useState("");
+  const [feishuUserOpenId, setFeishuUserOpenId] = useState("");
   const [feishuMsg, setFeishuMsg] = useState("");
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
   const [stepProgress, setStepProgress] = useState<
@@ -507,7 +508,8 @@ export default function EmmcPanel({
       setFeishuUrl(r.template_url || "");
       setFeishuReportUrl(r.flow_report_url || "");
       setFeishuNotifyEnabled(r.notify_enabled ?? true);
-      setFeishuNotifyTester(r.notify_tester || "");
+      setFeishuUserName(r.user_name || "");
+      setFeishuUserOpenId(r.user_open_id || "");
     } catch (e) {
       setFeishuMsg(toErrorMessage(e));
     } finally {
@@ -526,7 +528,6 @@ export default function EmmcPanel({
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim() || undefined,
         notify_enabled: feishuNotifyEnabled,
-        notify_tester: feishuNotifyTester.trim(),
       });
       setFeishuHasSecret(Boolean(r.has_secret));
       setFeishuSecret("");
@@ -588,7 +589,6 @@ export default function EmmcPanel({
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim(),
         notify_enabled: feishuNotifyEnabled,
-        notify_tester: feishuNotifyTester.trim() || undefined,
       });
       setFeishuReportUrl(r.url || feishuReportUrl);
       const notifyPart = r.notified
@@ -606,6 +606,54 @@ export default function EmmcPanel({
     }
   }
 
+  async function loginFeishuQr() {
+    setFeishuBusy(true);
+    setFeishuMsg("");
+    try {
+      await api.emmcSaveFeishuConfig({
+        app_id: feishuAppId.trim(),
+        app_secret: feishuSecret.trim() || undefined,
+        template_url: feishuUrl.trim(),
+        flow_no: flowNo.trim() || "1",
+        report_url: feishuReportUrl.trim() || undefined,
+        notify_enabled: feishuNotifyEnabled,
+      });
+      const r = await api.emmcFeishuOAuthUrl(feishuAppId.trim());
+      setFeishuMsg(`请在弹出的飞书页面扫码确认（回调地址：${r.redirect_uri}）`);
+      window.open(r.url, "_blank", "width=520,height=700");
+      for (let i = 0; i < 40; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
+        if (cfg.user_logged_in) {
+          setFeishuUserName(cfg.user_name || "");
+          setFeishuUserOpenId(cfg.user_open_id || "");
+          const okMsg = `飞书已登录：${cfg.user_name || cfg.user_open_id}`;
+          setFeishuMsg(okMsg);
+          setStatus(okMsg);
+          break;
+        }
+      }
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
+  async function logoutFeishu() {
+    setFeishuBusy(true);
+    try {
+      await api.emmcFeishuLogout(flowNo.trim() || "1");
+      setFeishuUserName("");
+      setFeishuUserOpenId("");
+      setFeishuMsg("已退出当前飞书账号");
+    } catch (e) {
+      setFeishuMsg(toErrorMessage(e));
+    } finally {
+      setFeishuBusy(false);
+    }
+  }
+
   async function testFeishuNotify() {
     setFeishuBusy(true);
     setFeishuMsg("");
@@ -615,7 +663,6 @@ export default function EmmcPanel({
         app_secret: feishuSecret.trim() || undefined,
         flow_no: flowNo.trim() || "1",
         report_url: feishuReportUrl.trim(),
-        notify_tester: feishuNotifyTester.trim() || undefined,
       });
       setFeishuMsg(`已发送测试通知给 ${r.tester}`);
     } catch (e) {
@@ -1632,16 +1679,25 @@ export default function EmmcPanel({
               onChange={(e) => setFeishuReportUrl(e.target.value)}
             />
           </label>
-          <label className="emmc-param emmc-param-wide">
-            <span>通知测试人员（姓名 / 公司邮箱 / 手机号，留空则取表头「测试人员」）</span>
-            <input
-              className="field"
-              value={feishuNotifyTester}
-              disabled={feishuBusy}
-              placeholder="例如：张三 或 zhangsan@company.com"
-              onChange={(e) => setFeishuNotifyTester(e.target.value)}
-            />
-          </label>
+          <div className="emmc-param emmc-param-wide">
+            <span>当前飞书测试人员（扫码登录自动获取，长测不失效）</span>
+            <div className="emmc-btn-row">
+              {feishuUserOpenId ? (
+                <>
+                  <span className="emmc-hint">
+                    已登录：{feishuUserName || feishuUserOpenId}（{feishuUserOpenId}）
+                  </span>
+                  <Button disabled={feishuBusy} onClick={() => void logoutFeishu()}>
+                    退出登录
+                  </Button>
+                </>
+              ) : (
+                <Button disabled={feishuBusy} onClick={() => void loginFeishuQr()}>
+                  扫码登录飞书
+                </Button>
+              )}
+            </div>
+          </div>
           <label className="emmc-check">
             <input
               type="checkbox"
@@ -1649,7 +1705,7 @@ export default function EmmcPanel({
               disabled={feishuBusy}
               onChange={(e) => setFeishuNotifyEnabled(e.target.checked)}
             />
-            写入在线报告时飞书私聊通知该测试人员
+            写入在线报告时飞书私聊通知当前登录测试人员
           </label>
           <div className="emmc-param emmc-param-wide">
             {feishuReportUrl.trim() ? (
