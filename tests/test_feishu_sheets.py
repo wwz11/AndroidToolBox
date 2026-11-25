@@ -112,6 +112,26 @@ class TestFeishuSheets(unittest.TestCase):
             self.assertEqual(res["message_id"], "om_msg_1")
             self.assertTrue(any("/im/v1/messages" in p for _, p in calls))
 
+    def test_resolve_user_by_name_via_scopes(self) -> None:
+        def fake_req(method: str, path: str, **kwargs: object) -> dict:
+            if path.startswith("/contact/v3/scopes"):
+                return {"code": 0, "data": {"department_ids": ["od_dept_1"], "user_ids": []}}
+            if path.startswith("/contact/v3/users/find_by_department"):
+                return {
+                    "code": 0,
+                    "data": {
+                        "has_more": False,
+                        "items": [{"name": "张三", "open_id": "ou_zhangsan"}],
+                    },
+                }
+            return {"code": 0, "data": {}}
+
+        with patch.object(fs, "_request_json", side_effect=fake_req):
+            self.assertEqual(
+                fs.resolve_feishu_user_open_id("tok", "张三"),
+                "ou_zhangsan",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -462,7 +462,42 @@ def _find_user_open_id_by_name(tenant_token: str, name: str) -> str:
     target = name.strip().lower()
     if not target:
         return ""
-    queue = ["0"]
+
+    queue: list[str] = []
+    direct_user_ids: list[str] = []
+    try:
+        sq = urllib.parse.urlencode(
+            {
+                "page_size": "50",
+                "user_id_type": "open_id",
+                "department_id_type": "open_department_id",
+            }
+        )
+        sres = _request_json("GET", f"/contact/v3/scopes?{sq}", token=tenant_token)
+        sdata = sres.get("data") or {}
+        queue.extend(str(d) for d in (sdata.get("department_ids") or []) if d)
+        direct_user_ids.extend(str(u) for u in (sdata.get("user_ids") or []) if u)
+    except Exception:
+        pass
+
+    for uid in direct_user_ids:
+        try:
+            ures = _request_json(
+                "GET",
+                f"/contact/v3/users/{uid}?user_id_type=open_id",
+                token=tenant_token,
+            )
+            u = (ures.get("data") or {}).get("user") or {}
+            uname = str(u.get("name") or "").strip().lower()
+            en_name = str(u.get("en_name") or "").strip().lower()
+            if target in (uname, en_name):
+                return uid
+        except Exception:
+            continue
+
+    if not queue:
+        queue.append("0")
+
     visited: set[str] = set()
     while queue and len(visited) < 40:
         dept_id = queue.pop(0)
@@ -474,12 +509,18 @@ def _find_user_open_id_by_name(tenant_token: str, name: str) -> str:
             params: dict[str, str] = {
                 "department_id": dept_id,
                 "user_id_type": "open_id",
+                "department_id_type": "open_department_id",
                 "page_size": "50",
             }
             if page_token:
                 params["page_token"] = page_token
             q = urllib.parse.urlencode(params)
-            res = _request_json("GET", f"/contact/v3/users/find_by_department?{q}", token=tenant_token)
+            try:
+                res = _request_json(
+                    "GET", f"/contact/v3/users/find_by_department?{q}", token=tenant_token
+                )
+            except Exception:
+                break
             data = res.get("data") or {}
             for u in data.get("items") or []:
                 uname = str(u.get("name") or "").strip().lower()
@@ -494,7 +535,9 @@ def _find_user_open_id_by_name(tenant_token: str, name: str) -> str:
             if not page_token:
                 break
         try:
-            dq = urllib.parse.urlencode({"page_size": "50"})
+            dq = urllib.parse.urlencode(
+                {"page_size": "50", "department_id_type": "open_department_id"}
+            )
             dres = _request_json(
                 "GET", f"/contact/v3/departments/{dept_id}/children?{dq}", token=tenant_token
             )
