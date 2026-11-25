@@ -227,12 +227,34 @@ def save_report_header(body: ReportHeaderBody) -> dict:
     }
 
 
+def _notify_feishu_start(
+    cfg: dict, flow: str, local_report: Path, url: str
+) -> None:
+    if not cfg.get("notify_enabled") or not cfg.get("user_open_id"):
+        return
+    try:
+        meta = read_report_header(local_report) if local_report.is_file() else ReportHeaderMeta()
+        send_feishu_report_notification(
+            app_id=cfg["app_id"],
+            app_secret=cfg["app_secret"],
+            open_id=cfg["user_open_id"],
+            project=meta.import_project or flow,
+            flow_no=flow,
+            report_url=url,
+            initial_result=meta.initial_result,
+            summary="eMMC 测试已开始，后续每项结果会自动写入此在线报告",
+        )
+    except Exception:
+        pass
+
+
 def _ensure_feishu_report_for_flow(flow: str, local_report: Path) -> tuple[str, str]:
-    """开始测试前确保当前流程已从飞书模板复制生成独立在线报告。"""
+    """开始测试前确保当前流程已从飞书模板复制生成独立在线报告，并通知测试人员。"""
+    cfg = load_feishu_config()
     existing = get_feishu_report_for_flow(flow)
     if existing:
+        _notify_feishu_start(cfg, flow, local_report, existing)
         return existing, ""
-    cfg = load_feishu_config()
     if not cfg["app_id"] or not cfg["app_secret"] or not cfg["template_url"]:
         return "", ""
     try:
@@ -252,6 +274,7 @@ def _ensure_feishu_report_for_flow(flow: str, local_report: Path) -> tuple[str, 
                     report_path=local_report,
                     url_or_token=url,
                 )
+            _notify_feishu_start(cfg, flow, local_report, url)
         return url, ""
     except Exception as exc:
         return "", str(exc)
