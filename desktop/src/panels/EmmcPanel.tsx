@@ -593,6 +593,9 @@ export default function EmmcPanel({
       const ab = headerAbOn(h);
       if (ab != null) setAbUpgrade(ab);
       setHeaderOpen(true);
+      if (oaLoggedIn && flow && !String(h.import_project || "").trim()) {
+        void pullHeaderFromOa(flow);
+      }
     } catch (e) {
       setStatus(`读取报告表头失败：${toErrorMessage(e)}`);
     } finally {
