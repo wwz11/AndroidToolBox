@@ -1,7 +1,7 @@
 {
   "name": "toolbox-desktop",
   "private": true,
-  "version": "2026.11.12",
+  "version": "2026.11.14",
   "description": "AndroidTVTestToolBox Electron shell",
   "author": "AndroidTVTestToolBox",
   "main": "electron/main.cjs",
@@ -14,6 +14,7 @@
     "dev:ui": "concurrently -k -n vite,electron -c green,magenta \"npm:dev:vite\" \"npm:dev:electron\"",
     "build": "vite build",
     "pack": "vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
+    "dist:nsis": "vite build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --publish never",
     "preview": "vite preview"
   },
   "build": {
