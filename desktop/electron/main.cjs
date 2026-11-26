@@ -2347,8 +2347,15 @@ if (gotSingleLock) app.whenReady().then(async () => {
     return await new Promise((resolve) => {
       let settled = false;
       let captured = null;
+      const chromeUa =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+      try {
+        oaSes.setUserAgent(chromeUa);
+      } catch {
+        /* ignore */
+      }
       const loginWin = new BrowserWindow({
-        width: 580,
+        width: 1024,
         height: 760,
         parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
         modal: false,
@@ -2426,7 +2433,9 @@ if (gotSingleLock) app.whenReady().then(async () => {
         }
       });
 
-      loginWin.loadURL("https://cloud.seirobotics.net/passport/login");
+      loginWin.loadURL("https://cloud.seirobotics.net/passport/login", {
+        userAgent: chromeUa,
+      });
     });
   });
 
