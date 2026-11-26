@@ -649,6 +649,7 @@ export default function EmmcPanel({
     } catch {
       /* ignore */
     }
+    void window.toolbox?.closeOAuthWindow?.();
     feishuPopupRef.current = null;
     setFeishuBusy(false);
   }
@@ -666,12 +667,26 @@ export default function EmmcPanel({
       const r = await api.emmcFeishuOAuthUrl();
       if (feishuLoginCancelRef.current) return null;
       setFeishuMsg(`请在弹出的飞书页面扫码确认（回调地址：${r.redirect_uri}）`);
-      const popup = window.open(r.url, "_blank", "width=520,height=700");
-      feishuPopupRef.current = popup;
+      let electronWinClosed = false;
+      let popup: Window | null = null;
+      if (window.toolbox?.openOAuthWindow) {
+        void window.toolbox
+          .openOAuthWindow({
+            url: r.url,
+            title: "飞书扫码登录",
+            callbackPrefix: r.redirect_uri,
+          })
+          .then(() => {
+            electronWinClosed = true;
+          });
+      } else {
+        popup = window.open(r.url, "_blank", "width=520,height=700");
+        feishuPopupRef.current = popup;
+      }
       for (let i = 0; i < 120; i += 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         if (feishuLoginCancelRef.current) return null;
-        const popupClosed = Boolean(popup && popup.closed);
+        const popupClosed = electronWinClosed || Boolean(popup && popup.closed);
         if (i % 3 === 2 || popupClosed) {
           const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
           if (feishuLoginCancelRef.current) return null;
@@ -686,6 +701,7 @@ export default function EmmcPanel({
           }
           if (popupClosed) {
             setFeishuMsg("已取消飞书扫码登录");
+            setStatus("已取消飞书扫码登录");
             return null;
           }
         }

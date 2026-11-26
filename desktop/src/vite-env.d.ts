@@ -103,6 +103,17 @@ interface ToolboxBridge {
     cancelled?: boolean;
     message?: string;
   }>;
+  /** 打开内嵌 OAuth 扫码窗口并在关闭时返回 */
+  openOAuthWindow?: (opts: {
+    url: string;
+    title?: string;
+    callbackPrefix?: string;
+  }) => Promise<{
+    ok: boolean;
+    closed?: boolean;
+    message?: string;
+  }>;
+  closeOAuthWindow?: () => Promise<boolean>;
   /** 汇报后台任务状态（托盘提示） */
   reportActivity?: (payload: {
     id: string;

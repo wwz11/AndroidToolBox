@@ -2446,6 +2446,92 @@ if (gotSingleLock) app.whenReady().then(async () => {
     });
   });
 
+  let activeOAuthWin = null;
+  ipcMain.handle("toolbox:open-oauth-window", async (_event, payload) => {
+    const rawUrl = String(payload?.url || "").trim();
+    if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+      return { ok: false, closed: true, message: "无效的登录地址" };
+    }
+    const title = String(payload?.title || "扫码登录");
+    const callbackPrefix = String(payload?.callbackPrefix || "").trim();
+    try {
+      if (activeOAuthWin && !activeOAuthWin.isDestroyed()) {
+        activeOAuthWin.close();
+      }
+    } catch {
+      /* ignore */
+    }
+    return await new Promise((resolve) => {
+      let settled = false;
+      const authWin = new BrowserWindow({
+        width: 540,
+        height: 720,
+        parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+        modal: false,
+        title,
+        autoHideMenuBar: true,
+        icon: path.join(__dirname, "icon.ico"),
+        webPreferences: {
+          partition: "persist:feishu-oauth",
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      });
+      activeOAuthWin = authWin;
+
+      const finish = (res) => {
+        if (settled) return;
+        settled = true;
+        if (activeOAuthWin === authWin) activeOAuthWin = null;
+        resolve(res);
+      };
+
+      authWin.webContents.setWindowOpenHandler(({ url }) => {
+        if (url && /^https?:\/\//i.test(url)) {
+          authWin.loadURL(url);
+        }
+        return { action: "deny" };
+      });
+
+      if (callbackPrefix) {
+        authWin.webContents.on("did-finish-load", () => {
+          try {
+            const cur = authWin.webContents.getURL() || "";
+            if (cur.startsWith(callbackPrefix)) {
+              setTimeout(() => {
+                try {
+                  if (!authWin.isDestroyed()) authWin.close();
+                } catch {
+                  /* ignore */
+                }
+              }, 400);
+            }
+          } catch {
+            /* ignore */
+          }
+        });
+      }
+
+      authWin.on("closed", () => {
+        finish({ ok: true, closed: true });
+      });
+
+      authWin.loadURL(rawUrl);
+    });
+  });
+
+  ipcMain.handle("toolbox:close-oauth-window", () => {
+    try {
+      if (activeOAuthWin && !activeOAuthWin.isDestroyed()) {
+        activeOAuthWin.close();
+      }
+    } catch {
+      /* ignore */
+    }
+    activeOAuthWin = null;
+    return true;
+  });
+
   createTray();
   createWindow();
   void apiBoot;

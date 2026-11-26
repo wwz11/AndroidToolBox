@@ -306,6 +306,27 @@ contextBridge.exposeInMainWorld("toolbox", {
       };
     }
   },
+  openOAuthWindow: async (opts) => {
+    try {
+      const r = await ipcRenderer.invoke("toolbox:open-oauth-window", opts || {});
+      return r && typeof r === "object"
+        ? r
+        : { ok: false, closed: true, message: "打开登录窗口失败" };
+    } catch (err) {
+      return {
+        ok: false,
+        closed: true,
+        message: String(err?.message || err || "打开登录窗口失败"),
+      };
+    }
+  },
+  closeOAuthWindow: async () => {
+    try {
+      return Boolean(await ipcRenderer.invoke("toolbox:close-oauth-window"));
+    } catch {
+      return false;
+    }
+  },
   reportActivity: (payload) => {
     try {
       ipcRenderer.send("toolbox:activity", {
