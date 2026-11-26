@@ -419,8 +419,9 @@ def start_job(body: StartBody) -> dict:
         job.log_seq += 1
 
     def _log(line: str) -> None:
+        text = line if len(line) <= 2000 else f"{line[:2000]}... [truncated]"
         with _LOCK:
-            job.logs.append(line)
+            job.logs.append(text)
             job.log_seq += 1
 
     def _on_step(step_id: str, status: str) -> None:

@@ -35,7 +35,10 @@ function q(params: Record<string, string | boolean | number | undefined>): strin
   return s ? `?${s}` : "";
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit & { timeoutMs?: number },
+): Promise<T> {
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
   };
@@ -47,15 +50,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (token && !headers["X-Toolbox-Token"]) {
     headers["X-Toolbox-Token"] = token;
   }
+  const timeoutMs = init?.timeoutMs ?? (isForm ? 120_000 : 30_000);
+  const controller = !init?.signal && timeoutMs > 0 ? new AbortController() : null;
+  const timer =
+    controller != null
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
   let res: Response;
   try {
-    res = await fetch(`${apiBase()}${path}`, { ...init, headers });
+    res = await fetch(`${apiBase()}${path}`, {
+      ...init,
+      headers,
+      signal: init?.signal ?? controller?.signal,
+    });
   } catch (e) {
     const raw = toErrorMessage(e, "网络错误");
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError("请求超时，请检查本机服务或网络连接", 0, path);
+    }
     if (/failed to fetch|networkerror|load failed|fetch failed/i.test(raw)) {
       throw new ApiError("无法连接本机服务，请稍后重试或重启应用", 0, path);
     }
     throw new ApiError(raw, 0, path);
+  } finally {
+    if (timer != null) window.clearTimeout(timer);
   }
   if (!res.ok) {
     let detail = res.statusText || "请求失败";
@@ -197,7 +215,7 @@ export const api = {
       data_dir?: string;
       install_dir?: string;
     }>("/version"),
-  devices: () => request<DevicesResponse>("/adb/devices"),
+  devices: () => request<DevicesResponse>("/adb/devices", { timeoutMs: 6000 }),
   refresh: () => request<DevicesResponse>("/adb/refresh", { method: "POST" }),
   deviceKeyIds: (device: string, signal?: AbortSignal) =>
     request<KeyIdsResponse>(`/adb/device/key-ids${q({ device })}`, { signal }),
@@ -1331,7 +1349,9 @@ export const api = {
       progress_text?: string;
       steps_done?: number;
       steps_total?: number;
-    }>(`/emmc/jobs/${encodeURIComponent(jobId)}${q({ since })}`),
+    }>(`/emmc/jobs/${encodeURIComponent(jobId)}${q({ since })}`, {
+      timeoutMs: 6000,
+    }),
   emmcStop: (jobId: string) =>
     request<{ ok: boolean }>(`/emmc/jobs/${jobId}/stop`, { method: "POST" }),
   emmcFeishuConfig: (flowNo = "") =>
