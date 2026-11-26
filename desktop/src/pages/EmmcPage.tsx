@@ -15,6 +15,7 @@ type Props = {
 export default function EmmcPage({ pageActive = true }: Props) {
   const roster = useDeviceRoster(pageActive);
   const [runningBySn, markRunning] = useKeyedFlag();
+  const [testedBySn, markTested] = useKeyedFlag();
   const sessions = useDeviceSessions({
     idPrefix: "emmc",
     setError: roster.setError,
@@ -28,6 +29,8 @@ export default function EmmcPage({ pageActive = true }: Props) {
     active && !active.placeholder && !roster.onlineSet.has(active.sn),
   );
   const activeRunning = Boolean(active && runningBySn[active.sn]);
+  const activeTested = Boolean(active && testedBySn[active.sn]);
+  const blockWithOfflineOverlay = activeOffline && !activeRunning && !activeTested;
 
   return (
     <div className="panel device-page">
@@ -68,6 +71,11 @@ export default function EmmcPage({ pageActive = true }: Props) {
       />
 
       {roster.error ? <StatusBanner tone="error">{roster.error}</StatusBanner> : null}
+      {activeOffline && !blockWithOfflineOverlay ? (
+        <StatusBanner tone="warn">
+          {active?.sn || "当前设备"} 已断连，重连后会自动恢复，测试与日志查看不受影响。
+        </StatusBanner>
+      ) : null}
 
       <DeviceSessionChips
         sessions={sessions.sessions}
@@ -83,11 +91,9 @@ export default function EmmcPage({ pageActive = true }: Props) {
       />
 
       <div
-        className={`session-body${
-          activeOffline && !activeRunning ? " is-offline" : ""
-        }`}
+        className={`session-body${blockWithOfflineOverlay ? " is-offline" : ""}`}
       >
-        {activeOffline && !activeRunning ? (
+        {blockWithOfflineOverlay ? (
           <div className="session-offline-overlay" role="alert">
             <EmptyState
               title="设备已断开"
@@ -157,6 +163,7 @@ export default function EmmcPage({ pageActive = true }: Props) {
                     deviceOnline={roster.onlineSet.has(s.sn)}
                     active={pageActive && s.id === sessions.activeId}
                     onRunningChange={(running) => markRunning(s.sn, running)}
+                    onTestedChange={(tested) => markTested(s.sn, tested)}
                   />
                 </div>
               ))}

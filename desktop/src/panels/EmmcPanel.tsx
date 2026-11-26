@@ -17,6 +17,8 @@ type Props = {
   active?: boolean;
   /** 测试运行状态变化（供父级拦截关闭标签等） */
   onRunningChange?: (running: boolean) => void;
+  /** 已有测试记录（启动过任务或已有日志）时通知外层，避免断连遮挡结果 */
+  onTestedChange?: (tested: boolean) => void;
 };
 
 type Step = { id: string; label: string };
@@ -82,6 +84,7 @@ export default function EmmcPanel({
   deviceOnline = true,
   active = true,
   onRunningChange,
+  onTestedChange,
 }: Props) {
   const [steps, setSteps] = useState<Step[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -96,6 +99,7 @@ export default function EmmcPanel({
   const [jobId, setJobId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [reportPath, setReportPath] = useState("");
   const setStatus = useStatusNotify();
@@ -394,9 +398,18 @@ export default function EmmcPanel({
   onRunningChangeRef.current = onRunningChange;
 
   useEffect(() => {
-    onRunningChangeRef.current?.(running);
+    onRunningChangeRef.current?.(running || starting);
     return () => onRunningChangeRef.current?.(false);
-  }, [running]);
+  }, [running, starting]);
+
+  const onTestedChangeRef = useRef(onTestedChange);
+  onTestedChangeRef.current = onTestedChange;
+  const hasTested = Boolean(jobId) || logs.length > 0;
+
+  useEffect(() => {
+    onTestedChangeRef.current?.(hasTested);
+    return () => onTestedChangeRef.current?.(false);
+  }, [hasTested]);
 
   useEffect(() => {
     const id = `emmc:${deviceSn || "none"}`;
@@ -728,6 +741,7 @@ export default function EmmcPanel({
         return;
       }
     }
+    setStarting(true);
     setStatus("启动中…");
     try {
       const params: {
@@ -844,6 +858,8 @@ export default function EmmcPanel({
       const msg = toErrorMessage(e);
       setStatus(msg.startsWith("无法") ? msg : `无法启动：${msg}`);
       await dialog.alert({ title: "无法开始", message: msg });
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -908,10 +924,10 @@ export default function EmmcPanel({
               <div className="emmc-run-actions">
                 <Button
                   variant="primary"
-                  disabled={!snOk || running || !pickedCount}
+                  disabled={!snOk || running || starting || !pickedCount}
                   onClick={() => void start()}
                 >
-                  开始
+                  {starting ? "启动中" : "开始"}
                 </Button>
                 <Button
                   disabled={!running || stopping}
