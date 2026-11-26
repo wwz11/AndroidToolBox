@@ -26,6 +26,7 @@ if not defined APP_VER (
 )
 if not defined APP_VER set "APP_VER=0.0.0"
 set "ZIP_NAME=%ROOT%\dist\AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip"
+set "UPGRADE_ZIP_NAME=%ROOT%\dist\AndroidTVTestToolBox-Desktop_upgrade_!APP_VER!.zip"
 
 echo [0/6] Fetch / verify vendor resources
 call "%ROOT%\build\fetch_platform_tools.bat"
@@ -115,7 +116,8 @@ if errorlevel 1 exit /b 1
 "%PY%" "%ROOT%\scripts\verify_frozen_scrcpy.py" "%OUT%\resources\toolbox-api"
 if errorlevel 1 exit /b 1
 
-echo [6/6] Mirror + zip
+echo [6/6] Mirror + portable zip + upgrade zip
+if exist "%OUT%\升级.bat" del /f /q "%OUT%\升级.bat" >nul 2>&1
 robocopy "%OUT%" "%ROOT%\dist\AndroidTVTestToolBox-Desktop" /MIR /NFL /NDL /NJH /NJS /nc /ns /np
 if errorlevel 8 (
   echo WARN: copy to dist\AndroidTVTestToolBox-Desktop failed
@@ -123,38 +125,48 @@ if errorlevel 8 (
   echo [OK] also mirrored to: %ROOT%\dist\AndroidTVTestToolBox-Desktop
 )
 
-copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%OUT%\升级.bat" >nul
-if exist "%ROOT%\dist\AndroidTVTestToolBox-Desktop" copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%ROOT%\dist\AndroidTVTestToolBox-Desktop\升级.bat" >nul
-
 echo [*] Creating portable zip ...
-if exist "!ZIP_NAME!" del /f /q "!ZIP_NAME!" >nul 2>&1
-set "ZIP_OK=0"
-where tar >nul 2>&1
-if not errorlevel 1 (
-  pushd "%ROOT%\dist"
-  tar -a -cf "AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" "AndroidTVTestToolBox-Desktop"
-  if not errorlevel 1 if exist "AndroidTVTestToolBox-Desktop_portable_!APP_VER!.zip" set "ZIP_OK=1"
-  popd
-)
-if "!ZIP_OK!"=="0" (
-  powershell -NoProfile -Command "Compress-Archive -LiteralPath '%ROOT%\dist\AndroidTVTestToolBox-Desktop' -DestinationPath '!ZIP_NAME!' -Force -CompressionLevel Optimal"
-  if exist "!ZIP_NAME!" set "ZIP_OK=1"
-)
+call :make_zip "!ZIP_NAME!" ZIP_OK
+
+echo [*] Creating upgrade zip ...
+copy /Y "%ROOT%\scripts\upgrade_desktop.bat" "%ROOT%\dist\AndroidTVTestToolBox-Desktop\升级.bat" >nul
+call :make_zip "!UPGRADE_ZIP_NAME!" UPGRADE_ZIP_OK
+del /f /q "%ROOT%\dist\AndroidTVTestToolBox-Desktop\升级.bat" >nul 2>&1
 
 echo.
 echo ========================================
-echo  Portable pack ready.
-echo  Folder: %OUT%\AndroidTVTestToolBox.exe
-echo  Folder: %ROOT%\dist\AndroidTVTestToolBox-Desktop\AndroidTVTestToolBox.exe
+echo  Portable + Upgrade packs ready.
+echo  Folder:      %OUT%\AndroidTVTestToolBox.exe
+echo  Folder:      %ROOT%\dist\AndroidTVTestToolBox-Desktop\AndroidTVTestToolBox.exe
 if "!ZIP_OK!"=="1" (
-  echo  Zip:    !ZIP_NAME!
+  echo  Portable:    !ZIP_NAME!
 ) else (
-  echo  Zip:    FAILED - close Explorer under dist and retry zip step
+  echo  Portable:    FAILED - close Explorer under dist and retry zip step
 )
-echo  Upgrade: run 升级.bat inside the NEW pack.
+if "!UPGRADE_ZIP_OK!"=="1" (
+  echo  Upgrade:     !UPGRADE_ZIP_NAME!
+) else (
+  echo  Upgrade:     FAILED - close Explorer under dist and retry zip step
+)
+echo  Upgrade usage: unzip Upgrade zip and run 升级.bat.
 echo  Data: %%LOCALAPPDATA%%\AndroidTVTestToolBox
-echo  Tip: for NSIS installer + NAS auto-update, run scripts\build_desktop_nsis.bat
-echo       then put AndroidTVTestToolBox-Setup-*.exe + latest.yml into
-echo       \\nas.we\Department_files\Testing\public\测试工具\ToolBox
 echo ========================================
 endlocal
+goto :eof
+
+:make_zip
+set "%~2=0"
+set "_TARGET_ZIP=%~1"
+if exist "!_TARGET_ZIP!" del /f /q "!_TARGET_ZIP!" >nul 2>&1
+where tar >nul 2>&1
+if not errorlevel 1 (
+  pushd "%ROOT%\dist"
+  tar -a -cf "!_TARGET_ZIP!" "AndroidTVTestToolBox-Desktop"
+  if not errorlevel 1 if exist "!_TARGET_ZIP!" set "%~2=1"
+  popd
+)
+if "!%~2!"=="0" (
+  powershell -NoProfile -Command "Compress-Archive -LiteralPath '%ROOT%\dist\AndroidTVTestToolBox-Desktop' -DestinationPath '!_TARGET_ZIP!' -Force -CompressionLevel Optimal"
+  if exist "!_TARGET_ZIP!" set "%~2=1"
+)
+exit /b 0
