@@ -207,6 +207,21 @@
   font-size: 12px;
 }
 
+.emmc-report-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.emmc-report-actions .btn {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .emmc-path-btn {
   border: 0;
   background: transparent;

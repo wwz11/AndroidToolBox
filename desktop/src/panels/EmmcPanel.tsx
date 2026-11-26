@@ -1097,7 +1097,7 @@ export default function EmmcPanel({
                   项目：<strong>{importProject.trim() || "—"}</strong>
                 </span>
               </div>
-              <div className="emmc-btn-row">
+              <div className="emmc-report-actions">
                 <Button
                   disabled={!flowNo.trim() || !reportPath || feishuBusy || running}
                   title={
@@ -1109,7 +1109,6 @@ export default function EmmcPanel({
                 >
                   复制本地报告到飞书
                 </Button>
-                <Button onClick={() => void openReportsDir()}>本地报告目录</Button>
                 <Button
                   disabled={!feishuReportUrl.trim() || feishuBusy}
                   title={
@@ -1121,6 +1120,7 @@ export default function EmmcPanel({
                 >
                   在线报告
                 </Button>
+                <Button onClick={() => void openReportsDir()}>本地报告目录</Button>
                 <Button onClick={() => void openLogsDir()}>日志目录</Button>
               </div>
               {reportPath ? (
