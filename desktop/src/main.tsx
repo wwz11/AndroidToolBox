@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { DialogProvider } from "./components/dialog";
 import { ToastProvider } from "./components/toast";
 import { initTheme } from "./theme";
@@ -28,7 +29,9 @@ createRoot(root).render(
   <StrictMode>
     <DialogProvider>
       <ToastProvider>
-        <App />
+        <ErrorBoundary title="页面渲染异常">
+          <App />
+        </ErrorBoundary>
       </ToastProvider>
     </DialogProvider>
   </StrictMode>,

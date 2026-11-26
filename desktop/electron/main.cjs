@@ -1956,11 +1956,38 @@ function createWindow() {
       });
   });
 
-  if (DEV_SERVER) {
-    mainWindow.loadURL(DEV_SERVER);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
-  }
+  const loadMainContent = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (DEV_SERVER) {
+      mainWindow.loadURL(DEV_SERVER);
+    } else {
+      mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    }
+  };
+
+  let crashTimes = [];
+  mainWindow.webContents.on("render-process-gone", (_e, details) => {
+    appendLauncherLog(
+      `[renderer] render-process-gone reason=${details?.reason || "unknown"} exitCode=${details?.exitCode ?? "?"}`,
+    );
+    const now = Date.now();
+    crashTimes = crashTimes.filter((t) => now - t < 30_000);
+    crashTimes.push(now);
+    if (crashTimes.length <= 3) {
+      setTimeout(loadMainContent, 300);
+    }
+  });
+
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_e, errorCode, errorDesc, _validatedURL, isMainFrame) => {
+      if (!isMainFrame || errorCode === -3) return;
+      appendLauncherLog(`[renderer] did-fail-load (${errorCode}): ${errorDesc}`);
+      setTimeout(loadMainContent, 800);
+    },
+  );
+
+  loadMainContent();
 }
 
 if (gotSingleLock) app.whenReady().then(async () => {
