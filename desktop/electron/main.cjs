@@ -2162,6 +2162,25 @@ if (gotSingleLock) app.whenReady().then(async () => {
       const st = fs.statSync(target);
       if (st.isFile()) {
         shell.showItemInFolder(target);
+      } else if (process.platform === "win32") {
+        let openedByExplorer = false;
+        try {
+          const child = spawn("explorer.exe", [target], {
+            detached: true,
+            stdio: "ignore",
+            windowsHide: false,
+          });
+          child.unref();
+          openedByExplorer = true;
+        } catch {
+          openedByExplorer = false;
+        }
+        if (!openedByExplorer) {
+          const errMsg = await shell.openPath(target);
+          if (errMsg) {
+            return { ok: false, path: target, message: errMsg };
+          }
+        }
       } else {
         const errMsg = await shell.openPath(target);
         if (errMsg) {

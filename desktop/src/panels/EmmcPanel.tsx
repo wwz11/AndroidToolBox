@@ -488,11 +488,17 @@ export default function EmmcPanel({
           setStatus(res.message || `已打开 ${shortPath(trimmed)}`);
           return;
         }
+        const msg = res.message || "打开目录失败";
+        setStatus(`打开路径失败：${msg}`);
+        toast.push(`打开路径失败：${msg}`, "err");
+        return;
       }
       const r = await api.openPath(trimmed);
       setStatus(r.message || `已打开 ${shortPath(trimmed)}`);
     } catch (e) {
-      setStatus(`打开路径失败：${toErrorMessage(e)}`);
+      const msg = `打开路径失败：${toErrorMessage(e)}`;
+      setStatus(msg);
+      toast.push(msg, "err");
     }
   }
 
@@ -501,7 +507,9 @@ export default function EmmcPanel({
       const r = await api.emmcDirs();
       await openAny(r.reports_dir);
     } catch (e) {
-      setStatus(`打开本地报告目录失败：${toErrorMessage(e)}`);
+      const msg = `打开本地报告目录失败：${toErrorMessage(e)}`;
+      setStatus(msg);
+      toast.push(msg, "err");
     }
   }
 
@@ -541,7 +549,9 @@ export default function EmmcPanel({
       const r = await api.emmcDirs();
       await openAny(r.logs_dir);
     } catch (e) {
-      setStatus(`打开日志目录失败：${toErrorMessage(e)}`);
+      const msg = `打开日志目录失败：${toErrorMessage(e)}`;
+      setStatus(msg);
+      toast.push(msg, "err");
     }
   }
 
