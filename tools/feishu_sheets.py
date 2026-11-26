@@ -417,11 +417,67 @@ def find_feishu_spreadsheet_in_folder(
     name: str,
     flow_no: str = "",
 ) -> dict[str, Any] | None:
-    """在飞书在线报告目录中查找同名或同流程号的已有在线表格，避免重复生成。"""
+    """在飞书云文档（含已转交所有权到个人空间的文档）及目录中查找同名或同流程号的已有在线表格，避免重复生成。"""
     from urllib.parse import quote, urlparse
 
     try:
         token = get_tenant_access_token(app_id, app_secret)
+        parsed = urlparse(template_url.strip())
+        scheme = parsed.scheme or "https"
+        netloc = parsed.netloc or "seirobotics.feishu.cn"
+
+        target_name = name.strip()
+        flow_clean = re.sub(r'[<>:"/\\|?*]', "_", flow_no.strip()) if flow_no.strip() else ""
+
+        def _hit(tok: str, title: str, url: str = "") -> dict[str, Any]:
+            return {
+                "spreadsheet_token": tok,
+                "name": title,
+                "url": url or f"{scheme}://{netloc}/sheets/{tok}",
+            }
+
+        # 1) 全租户文档搜索：文件转交所有权给测试人员后会移入其个人空间，目录列表查不到，必须用 search/object
+        search_keys: list[str] = []
+        if target_name:
+            search_keys.append(target_name)
+        if flow_clean:
+            suffix_key = f"导入测试报告模版v3.0_{flow_clean}"
+            if suffix_key not in search_keys:
+                search_keys.append(suffix_key)
+        for key in search_keys:
+            try:
+                sres = _request_json(
+                    "POST",
+                    "/suite/docs-api/search/object",
+                    token=token,
+                    body={
+                        "search_key": key,
+                        "count": 20,
+                        "offset": 0,
+                        "docs_types": ["sheet"],
+                    },
+                    timeout=10.0,
+                )
+                entities = (sres.get("data") or {}).get("docs_entities") or []
+                for ent in entities:
+                    tok = str(ent.get("docs_token") or "").strip()
+                    title = str(ent.get("title") or "").strip()
+                    if tok and target_name and title == target_name:
+                        return _hit(tok, title)
+                if flow_clean:
+                    for ent in entities:
+                        tok = str(ent.get("docs_token") or "").strip()
+                        title = str(ent.get("title") or "").strip()
+                        if (
+                            tok
+                            and "导入测试报告" in title
+                            and (title.endswith(f"_{flow_clean}") or title.endswith(f" {flow_clean}"))
+                        ):
+                            return _hit(tok, title)
+            except Exception:
+                pass
+
+        # 2) 兜底查模板所在目录
         kind, _ = parse_feishu_doc_url(template_url)
         src_token = resolve_spreadsheet_token(token, template_url)
         folder_token = _get_parent_folder_token(
@@ -429,12 +485,7 @@ def find_feishu_spreadsheet_in_folder(
         )
         if not folder_token:
             return None
-        parsed = urlparse(template_url.strip())
-        scheme = parsed.scheme or "https"
-        netloc = parsed.netloc or "seirobotics.feishu.cn"
 
-        target_name = name.strip()
-        flow_clean = re.sub(r'[<>:"/\\|?*]', "_", flow_no.strip()) if flow_no.strip() else ""
         files: list[dict[str, Any]] = []
         page_token = ""
         for _ in range(5):
@@ -450,26 +501,25 @@ def find_feishu_spreadsheet_in_folder(
             if not page_token:
                 break
 
-        def _hit(item: dict[str, Any]) -> dict[str, Any]:
-            tok = str(item.get("token") or "").strip()
-            url = str(item.get("url") or "").strip() or f"{scheme}://{netloc}/sheets/{tok}"
-            return {
-                "spreadsheet_token": tok,
-                "name": str(item.get("name") or "").strip(),
-                "url": url,
-            }
-
         sheets = [f for f in files if str(f.get("type") or "").lower() == "sheet" and f.get("token")]
         for item in sheets:
             if target_name and str(item.get("name") or "").strip() == target_name:
-                return _hit(item)
+                return _hit(
+                    str(item.get("token") or "").strip(),
+                    str(item.get("name") or "").strip(),
+                    str(item.get("url") or "").strip(),
+                )
         if flow_clean:
             for item in sheets:
                 fname = str(item.get("name") or "").strip()
                 if "导入测试报告" in fname and (
                     fname.endswith(f"_{flow_clean}") or fname.endswith(f" {flow_clean}")
                 ):
-                    return _hit(item)
+                    return _hit(
+                        str(item.get("token") or "").strip(),
+                        fname,
+                        str(item.get("url") or "").strip(),
+                    )
     except Exception:
         return None
     return None
