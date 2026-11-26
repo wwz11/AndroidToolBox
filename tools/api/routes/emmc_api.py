@@ -573,13 +573,17 @@ def job_status(
         job = _JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="任务不存在")
-        all_lines = list(job.logs)
         cursor = job.log_seq
         if since is not None:
-            base_seq = max(0, cursor - len(all_lines))
-            start_idx = max(0, since - base_seq)
-            lines = all_lines[start_idx:]
+            if since >= cursor:
+                lines = []
+            else:
+                all_lines = list(job.logs)
+                base_seq = max(0, cursor - len(all_lines))
+                start_idx = max(0, since - base_seq)
+                lines = all_lines[start_idx:]
         else:
+            all_lines = list(job.logs)
             lines = all_lines[-tail:] if tail > 0 else all_lines
         done = sum(
             1

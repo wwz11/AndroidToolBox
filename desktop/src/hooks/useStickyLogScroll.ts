@@ -15,13 +15,16 @@ export function useStickyLogScroll(contentKey: unknown) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (followRef.current) {
-      el.scrollTop = el.scrollHeight;
-      savedTopRef.current = el.scrollTop;
-    } else {
-      // React 替换文本后浏览器常重置 scrollTop，写回上翻位置
-      el.scrollTop = savedTopRef.current;
-    }
+    const rafId = window.requestAnimationFrame(() => {
+      if (followRef.current) {
+        el.scrollTop = el.scrollHeight;
+        savedTopRef.current = el.scrollTop;
+      } else {
+        // React 替换文本后浏览器常重置 scrollTop，写回上翻位置
+        el.scrollTop = savedTopRef.current;
+      }
+    });
+    return () => window.cancelAnimationFrame(rafId);
   }, [contentKey]);
 
   const onScroll = useCallback(() => {

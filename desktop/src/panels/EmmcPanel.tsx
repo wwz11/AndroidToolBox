@@ -307,92 +307,101 @@ export default function EmmcPanel({
 
   useEffect(() => {
     if (!jobId || !running) return;
-    let inflight = false;
-    const t = window.setInterval(() => {
-      if (inflight) return;
-      inflight = true;
-      void api
-        .emmcStatus(jobId, logCursorRef.current)
-        .then((r) => {
-          const incoming = r.logs || [];
-          if (typeof r.log_cursor === "number") {
-            logCursorRef.current = r.log_cursor;
-            if (incoming.length > 0) {
-              setLogs((prev) => {
-                const merged = prev.concat(incoming);
-                return merged.length > 400 ? merged.slice(-400) : merged;
-              });
+    let cancelled = false;
+    let timer: number | null = null;
+    const schedule = () => {
+      if (cancelled) return;
+      const delay = !active || document.hidden ? 4000 : 1000;
+      timer = window.setTimeout(() => {
+        void pollOnce();
+      }, delay);
+    };
+    const pollOnce = async () => {
+      if (cancelled) return;
+      try {
+        const r = await api.emmcStatus(jobId, logCursorRef.current);
+        if (cancelled) return;
+        const incoming = r.logs || [];
+        if (typeof r.log_cursor === "number") {
+          logCursorRef.current = r.log_cursor;
+          if (incoming.length > 0) {
+            setLogs((prev) => {
+              const merged = prev.concat(incoming);
+              return merged.length > 400 ? merged.slice(-400) : merged;
+            });
+          }
+        } else {
+          setLogs((prev) =>
+            prev.length === incoming.length &&
+            prev[0] === incoming[0] &&
+            prev[prev.length - 1] === incoming[incoming.length - 1]
+              ? prev
+              : incoming,
+          );
+        }
+        setRunning(r.running);
+        if (!r.running) {
+          setStopping(false);
+        }
+        if (r.report_path) {
+          setReportPath((prev) => (prev === r.report_path ? prev : r.report_path));
+        }
+        if (r.step_results) {
+          const next = r.step_results;
+          setStepResults((prev) => {
+            const keys = Object.keys(next);
+            if (
+              keys.length === Object.keys(prev).length &&
+              keys.every((k) => prev[k] === next[k])
+            ) {
+              return prev;
             }
-          } else {
-            setLogs((prev) =>
-              prev.length === incoming.length &&
-              prev[0] === incoming[0] &&
-              prev[prev.length - 1] === incoming[incoming.length - 1]
-                ? prev
-                : incoming,
-            );
-          }
-          setRunning(r.running);
-          if (!r.running) {
-            setStopping(false);
-          }
-          if (r.report_path) {
-            setReportPath((prev) => (prev === r.report_path ? prev : r.report_path));
-          }
-          if (r.step_results) {
-            const next = r.step_results;
-            setStepResults((prev) => {
-              const keys = Object.keys(next);
-              if (
-                keys.length === Object.keys(prev).length &&
-                keys.every((k) => prev[k] === next[k])
-              ) {
-                return prev;
-              }
-              return { ...next };
-            });
-          }
-          if (r.step_progress) {
-            const next = r.step_progress;
-            setStepProgress((prev) => {
-              const keys = Object.keys(next);
-              if (
-                keys.length === Object.keys(prev).length &&
-                keys.every(
-                  (k) =>
-                    prev[k]?.current === next[k]?.current &&
-                    prev[k]?.total === next[k]?.total &&
-                    prev[k]?.text === next[k]?.text,
-                )
-              ) {
-                return prev;
-              }
-              return { ...next };
-            });
-          }
-          setCurrentStep(r.current_step || "");
-          setStepsDone(Number(r.steps_done) || 0);
-          setStepsTotal(Number(r.steps_total) || 0);
-          if (!r.running) {
-            const rp = r.report_path || "";
-            setStatus(
-              r.error
-                ? r.error
-                : r.ok
-                  ? `完成 Pass · ${shortPath(rp, 40)}`
-                  : `完成 Fail · ${shortPath(rp, 40)}`,
-            );
-          }
-        })
-        .catch(() => {
-          /* ignore poll */
-        })
-        .finally(() => {
-          inflight = false;
-        });
-    }, 1000);
-    return () => window.clearInterval(t);
-  }, [jobId, running]);
+            return { ...next };
+          });
+        }
+        if (r.step_progress) {
+          const next = r.step_progress;
+          setStepProgress((prev) => {
+            const keys = Object.keys(next);
+            if (
+              keys.length === Object.keys(prev).length &&
+              keys.every(
+                (k) =>
+                  prev[k]?.current === next[k]?.current &&
+                  prev[k]?.total === next[k]?.total &&
+                  prev[k]?.text === next[k]?.text,
+              )
+            ) {
+              return prev;
+            }
+            return { ...next };
+          });
+        }
+        setCurrentStep(r.current_step || "");
+        setStepsDone(Number(r.steps_done) || 0);
+        setStepsTotal(Number(r.steps_total) || 0);
+        if (!r.running) {
+          const rp = r.report_path || "";
+          setStatus(
+            r.error
+              ? r.error
+              : r.ok
+                ? `完成 Pass · ${shortPath(rp, 40)}`
+                : `完成 Fail · ${shortPath(rp, 40)}`,
+          );
+        }
+      } catch {
+        /* ignore poll */
+      } finally {
+        schedule();
+      }
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [jobId, running, active]);
 
   const onRunningChangeRef = useRef(onRunningChange);
   onRunningChangeRef.current = onRunningChange;

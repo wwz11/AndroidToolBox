@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import threading
+from collections import deque
 from pathlib import Path
 
 from tools.bundled_paths import app_base_dir as _app_base_dir
@@ -28,8 +29,9 @@ class HeadlessLogSession:
         self._lock = threading.Lock()
         self._file = None
         self.path: Path | None = None
-        self._lines: list[str] = []
+        self._lines: deque[str] = deque(maxlen=500)
         self._started_at: dt.datetime | None = None
+        self._last_ts: dt.datetime | None = None
 
     @property
     def active(self) -> bool:
@@ -51,8 +53,10 @@ class HeadlessLogSession:
         )
         self._file.write(header)
         self._file.flush()
-        self._lines = header.rstrip("\n").split("\n")
-        self._started_at = dt.datetime.now()
+        self._lines = deque(header.rstrip("\n").split("\n"), maxlen=500)
+        now = dt.datetime.now()
+        self._started_at = now
+        self._last_ts = now
         return path
 
     def append(self, line: str) -> None:
@@ -62,6 +66,7 @@ class HeadlessLogSession:
             self._file.write(line + "\n")
             self._file.flush()
             self._lines.append(line)
+            self._last_ts = dt.datetime.now()
 
     def read_all(self) -> str:
         with self._lock:
@@ -76,27 +81,12 @@ class HeadlessLogSession:
 
     def elapsed_minutes(self) -> float:
         with self._lock:
-            lines = list(self._lines)
             started = self._started_at
-
-        times: list[dt.datetime] = []
-        if started is not None:
-            times.append(started)
-
-        header_ts = re.compile(r"时间:\s*(\d{4}-\d{2}-\d{2} %H:%M:%S)")
-        line_ts = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
-        for line in lines:
-            m = header_ts.search(line) or line_ts.match(line)
-            if m:
-                try:
-                    times.append(dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S"))
-                except ValueError:
-                    pass
-        if len(times) >= 2:
-            return max(0.0, (max(times) - min(times)).total_seconds() / 60.0)
-        if started is not None:
-            return max(0.0, (dt.datetime.now() - started).total_seconds() / 60.0)
-        return 0.0
+            last_ts = self._last_ts
+        if started is None:
+            return 0.0
+        end_ts = last_ts or dt.datetime.now()
+        return max(0.0, (end_ts - started).total_seconds() / 60.0)
 
     def close(self) -> Path | None:
         with self._lock:
