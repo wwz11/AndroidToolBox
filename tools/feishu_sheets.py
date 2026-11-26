@@ -925,9 +925,9 @@ def send_feishu_report_notification(
 
     title_tags: list[str] = []
     if proj:
-        title_tags.append(proj)
+        title_tags.append(f"项目：{proj}")
     if flow:
-        title_tags.append(f"流程{flow}")
+        title_tags.append(f"流程：{flow}")
     display_title = f"{title}（{' / '.join(title_tags)}）" if title_tags else title
 
     card = {
