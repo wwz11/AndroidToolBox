@@ -52,6 +52,7 @@ from tools.feishu_sheets import (
     test_feishu_connection,
 )
 from tools.tide_oa import (
+    fetch_emmc_flow_header,
     load_tide_oa_status,
     logout_tide_oa,
     validate_and_save_tide_token,
@@ -1046,3 +1047,13 @@ def save_tide_oa_token(body: TideOaTokenBody) -> dict:
 @router.post("/tide-oa/logout")
 def post_tide_oa_logout() -> dict:
     return logout_tide_oa()
+
+
+@router.get("/tide-oa/flow/{flow_no}")
+def get_tide_oa_flow(flow_no: str) -> dict:
+    try:
+        return fetch_emmc_flow_header(flow_no)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

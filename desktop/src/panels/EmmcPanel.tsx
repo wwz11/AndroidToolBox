@@ -751,6 +751,50 @@ export default function EmmcPanel({
     }
   }
 
+  async function pullHeaderFromOa(flowRaw?: string) {
+    const flow = (flowRaw ?? headerDraft.flow_no).trim();
+    if (!flow) {
+      toast.push("请先填写流程号", "warn");
+      return;
+    }
+    if (!oaLoggedIn) {
+      toast.push("请先登录 Tide OA", "warn");
+      void loginTideOa();
+      return;
+    }
+    setOaBusy(true);
+    setHeaderErr("");
+    try {
+      const r = await api.emmcTideOaFetchFlow(flow);
+      const h = r.header || {};
+      const filledCount = Object.values(h).filter((v) => String(v || "").trim()).length;
+      setHeaderDraft((prev) => ({
+        ...prev,
+        import_project: h.import_project || prev.import_project,
+        internal_model: h.internal_model || prev.internal_model,
+        emmc_brand: h.emmc_brand || prev.emmc_brand,
+        emmc_capacity_gb: h.emmc_capacity_gb || prev.emmc_capacity_gb,
+        read_speed_mbs: h.read_speed_mbs || prev.read_speed_mbs,
+        write_speed_mbs: h.write_speed_mbs || prev.write_speed_mbs,
+        emmc_model: h.emmc_model || prev.emmc_model,
+        sw_test_userdebug: h.sw_test_userdebug || prev.sw_test_userdebug,
+        emmc_spec: h.emmc_spec || prev.emmc_spec,
+        gota_version: h.gota_version || prev.gota_version,
+      }));
+      if (filledCount > 0) {
+        toast.push(`已从 Tide OA 自动填充 ${filledCount} 个字段`, "ok");
+      } else {
+        toast.push("已查到 Tide OA 流程，但未匹配到可填充字段", "warn");
+      }
+    } catch (e) {
+      const msg = `从 Tide OA 拉取失败：${toErrorMessage(e)}`;
+      setHeaderErr(msg);
+      toast.push(msg, "err");
+    } finally {
+      setOaBusy(false);
+    }
+  }
+
   async function start() {
     if (!snOk) return;
     const picked = steps.filter((s) => selected[s.id]).map((s) => s.id);
@@ -1732,6 +1776,13 @@ export default function EmmcPanel({
               取消
             </Button>
             <Button
+              disabled={headerBusy || oaBusy || !headerDraft.flow_no.trim()}
+              loading={oaBusy}
+              onClick={() => void pullHeaderFromOa()}
+            >
+              从 OA 拉取
+            </Button>
+            <Button
               variant="primary"
               disabled={headerBusy}
               loading={headerBusy}
@@ -1774,6 +1825,16 @@ export default function EmmcPanel({
                 className="field"
                 value={headerDraft[key]}
                 disabled={headerBusy}
+                onBlur={() => {
+                  if (
+                    key === "flow_no" &&
+                    oaLoggedIn &&
+                    headerDraft.flow_no.trim() &&
+                    !headerDraft.import_project.trim()
+                  ) {
+                    void pullHeaderFromOa(headerDraft.flow_no);
+                  }
+                }}
                 onChange={(e) =>
                   setHeaderDraft((prev) => ({
                     ...prev,

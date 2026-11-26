@@ -1527,6 +1527,13 @@ export const api = {
       email: string;
       logged_in: boolean;
     }>("/emmc/tide-oa/logout", { method: "POST" }),
+  emmcTideOaFetchFlow: (flowNo: string) =>
+    request<{
+      ok: boolean;
+      flow_no: string;
+      apply_id: string;
+      header: Record<string, string>;
+    }>(`/emmc/tide-oa/flow/${encodeURIComponent(flowNo)}`),
   emmcCopyLocalReportToFeishu: (file: File, flowNo = "") => {
     const fd = new FormData();
     fd.append("file", file);
