@@ -713,19 +713,38 @@ def sync_report_xlsx_to_feishu(
                         continue
                     a1 = f"{_col_letter(c)}{r}"
                     cell_val: Any = v
-                    # Iozone J 列（第 10 列）：若有对应本地日志文件则上传飞书并写入可点击附件链接
+                    # Iozone J 列（第 10 列）：若有对应本地日志文件则逐个上传飞书并写入可点击附件链接
                     if 13 <= r <= 24 and c == 10 and isinstance(v, str) and v.strip() and v.strip() != "N/A":
-                        fname = v.strip()
-                        if fname not in uploaded_logs and folder_token:
-                            cand = logs_dir / fname
-                            if cand.is_file():
-                                try:
-                                    up = _upload_file_to_feishu_drive(token, cand, folder_token)
-                                    uploaded_logs[fname] = up["url"]
-                                except Exception:
-                                    uploaded_logs[fname] = ""
-                        if uploaded_logs.get(fname):
-                            cell_val = [{"type": "url", "text": fname, "link": uploaded_logs[fname]}]
+                        from tools.emmc_test.headless_log import emmc_logs_dir
+
+                        lines = [
+                            ln.strip()
+                            for ln in v.splitlines()
+                            if ln.strip() and ln.strip() != "N/A"
+                        ]
+                        link_segments: list[dict[str, Any]] = []
+                        fallback_logs_dir = emmc_logs_dir()
+                        for idx_ln, fname in enumerate(lines):
+                            if fname not in uploaded_logs and folder_token:
+                                cand = logs_dir / fname
+                                if not cand.is_file():
+                                    cand = fallback_logs_dir / fname
+                                if cand.is_file():
+                                    try:
+                                        up = _upload_file_to_feishu_drive(token, cand, folder_token)
+                                        uploaded_logs[fname] = up["url"]
+                                    except Exception:
+                                        uploaded_logs[fname] = ""
+                            if idx_ln > 0:
+                                link_segments.append({"type": "text", "text": "\n"})
+                            if uploaded_logs.get(fname):
+                                link_segments.append(
+                                    {"type": "url", "text": fname, "link": uploaded_logs[fname]}
+                                )
+                            else:
+                                link_segments.append({"type": "text", "text": fname})
+                        if any(seg.get("type") == "url" for seg in link_segments):
+                            cell_val = link_segments
                     value_ranges.append({"range": f"{sid}!{a1}:{a1}", "values": [[cell_val]]})
 
             for idx, img in enumerate(getattr(ws, "_images", ()) or ()):
