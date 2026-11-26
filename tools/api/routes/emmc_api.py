@@ -444,15 +444,14 @@ def start_job(body: StartBody) -> dict:
                 prev_text = str(prev.get("text") or "").strip()
                 if prev_text in ("进行中", "执行中"):
                     prev_text = ""
-                fill_full = status == "Pass" or step_id == "iozone"
-                final_cur = tot if fill_full else cur
+                final_cur = tot
                 text = prev_text
-                # 完成时保留「次/分钟/小时」单位；Pass 或 iozone 完成时把分子补成目标值
+                # 完成时无论 Pass/Fail 均拉满进度，并保留「次/分钟/小时」单位
                 m = re.match(
                     r"^[\d.]+\s*/\s*([\d.]+)\s*(次|分钟|小时)\s*$",
                     prev_text,
                 )
-                if fill_full and m:
+                if m:
                     text = f"{m.group(1)}/{m.group(1)} {m.group(2)}"
                 elif not text and tot > 0:
                     text = f"{final_cur}/{tot} 次" if tot == 1 else f"{final_cur}/{tot}"
@@ -468,7 +467,7 @@ def start_job(body: StartBody) -> dict:
                     }
                 else:
                     job.step_progress[step_id] = {
-                        "current": 1 if fill_full else 0,
+                        "current": 1,
                         "total": 1,
                         "text": text or ("完成" if status == "Pass" else "失败"),
                     }
