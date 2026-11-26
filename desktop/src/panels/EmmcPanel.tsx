@@ -482,6 +482,13 @@ export default function EmmcPanel({
       return;
     }
     try {
+      if (window.toolbox?.openPath) {
+        const res = await window.toolbox.openPath(trimmed);
+        if (res.ok) {
+          setStatus(res.message || `已打开 ${shortPath(trimmed)}`);
+          return;
+        }
+      }
       const r = await api.openPath(trimmed);
       setStatus(r.message || `已打开 ${shortPath(trimmed)}`);
     } catch (e) {

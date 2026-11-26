@@ -173,6 +173,7 @@ def steps() -> dict:
 @router.get("/dirs")
 def dirs() -> dict:
     reports = emmc_reports_dir(base_dir=_base())
+    reports.mkdir(parents=True, exist_ok=True)
     logs = emmc_logs_dir()
     logs.mkdir(parents=True, exist_ok=True)
     return {
