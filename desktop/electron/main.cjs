@@ -2341,6 +2341,88 @@ if (gotSingleLock) app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.handle("toolbox:tide-oa-login", async () => {
+    const { session } = require("electron");
+    const oaSes = session.fromPartition("persist:tide-oa");
+    return await new Promise((resolve) => {
+      let settled = false;
+      let captured = null;
+      const loginWin = new BrowserWindow({
+        width: 580,
+        height: 760,
+        parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+        modal: false,
+        title: "登录 Tide OA（飞书扫码后自动完成）",
+        autoHideMenuBar: true,
+        icon: path.join(__dirname, "icon.ico"),
+        webPreferences: {
+          partition: "persist:tide-oa",
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+      });
+
+      const finish = (payload) => {
+        if (settled) return;
+        settled = true;
+        try {
+          oaSes.webRequest.onBeforeSendHeaders(null);
+        } catch {
+          /* ignore */
+        }
+        try {
+          if (!loginWin.isDestroyed()) loginWin.close();
+        } catch {
+          /* ignore */
+        }
+        resolve(payload);
+      };
+
+      oaSes.webRequest.onBeforeSendHeaders(
+        { urls: ["https://cloud.seirobotics.net/*"] },
+        (details, callback) => {
+          try {
+            const headers = details.requestHeaders || {};
+            let tok = "";
+            let wsid = "";
+            for (const [k, v] of Object.entries(headers)) {
+              const lk = k.toLowerCase();
+              if (lk === "token" && typeof v === "string") tok = v.trim();
+              if (lk === "wsid" && typeof v === "string") wsid = v.trim();
+            }
+            if (
+              tok &&
+              tok.length >= 16 &&
+              tok.toLowerCase() !== "null" &&
+              tok.toLowerCase() !== "undefined" &&
+              !captured
+            ) {
+              captured = { ok: true, token: tok, wsid: wsid || "2" };
+              setTimeout(() => finish(captured), 150);
+            }
+          } catch {
+            /* ignore */
+          }
+          callback({ requestHeaders: details.requestHeaders });
+        },
+      );
+
+      loginWin.on("closed", () => {
+        if (!settled) {
+          finish(
+            captured || {
+              ok: false,
+              cancelled: true,
+              message: "已取消 Tide OA 登录",
+            },
+          );
+        }
+      });
+
+      loginWin.loadURL("https://cloud.seirobotics.net");
+    });
+  });
+
   createTray();
   createWindow();
   void apiBoot;

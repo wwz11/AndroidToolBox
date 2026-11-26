@@ -95,6 +95,14 @@ interface ToolboxBridge {
   /** 系统剪贴板读写（终端复制粘贴，经主进程） */
   clipboardWriteText?: (text: string) => Promise<boolean> | boolean;
   clipboardReadText?: () => Promise<string> | string;
+  /** 打开内嵌窗口登录 Tide OA 并自动截获 Token */
+  tideOaLogin?: () => Promise<{
+    ok: boolean;
+    token?: string;
+    wsid?: string;
+    cancelled?: boolean;
+    message?: string;
+  }>;
   /** 汇报后台任务状态（托盘提示） */
   reportActivity?: (payload: {
     id: string;

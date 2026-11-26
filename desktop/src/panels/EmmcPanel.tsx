@@ -137,6 +137,9 @@ export default function EmmcPanel({
   const [feishuUserName, setFeishuUserName] = useState("");
   const [feishuUserOpenId, setFeishuUserOpenId] = useState("");
   const [feishuMsg, setFeishuMsg] = useState("");
+  const [oaLoggedIn, setOaLoggedIn] = useState(false);
+  const [oaUserName, setOaUserName] = useState("");
+  const [oaBusy, setOaBusy] = useState(false);
   const feishuLoginCancelRef = useRef(false);
   const feishuPopupRef = useRef<Window | null>(null);
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
@@ -299,6 +302,16 @@ export default function EmmcPanel({
       })
       .catch(() => {
         /* 飞书配置查询失败时保持未登录展示 */
+      });
+    void api
+      .emmcTideOaStatus()
+      .then((oa) => {
+        if (cancelled) return;
+        setOaLoggedIn(Boolean(oa.logged_in));
+        setOaUserName(oa.user_name || oa.email || "");
+      })
+      .catch(() => {
+        /* Tide OA 状态查询失败时保持未登录展示 */
       });
     return () => {
       cancelled = true;
@@ -695,6 +708,49 @@ export default function EmmcPanel({
     }
   }
 
+  async function loginTideOa() {
+    if (!window.toolbox?.tideOaLogin) {
+      toast.push("请在桌面端客户端中使用 Tide OA 自动扫码登录", "warn");
+      return;
+    }
+    setOaBusy(true);
+    setStatus("请在弹出的 Tide OA 窗口完成飞书扫码登录...");
+    try {
+      const res = await window.toolbox.tideOaLogin();
+      if (!res?.ok || !res.token) {
+        setStatus(res?.message || "已取消 Tide OA 登录");
+        return;
+      }
+      const saved = await api.emmcTideOaSaveToken(res.token, res.wsid || "2");
+      setOaLoggedIn(Boolean(saved.logged_in));
+      const name = saved.user_name || saved.email || "已登录";
+      setOaUserName(name);
+      const okMsg = `Tide OA 已登录：${name}`;
+      setStatus(okMsg);
+      toast.push(okMsg, "ok");
+    } catch (e) {
+      const msg = `Tide OA 登录失败：${toErrorMessage(e)}`;
+      setStatus(msg);
+      toast.push(msg, "err");
+    } finally {
+      setOaBusy(false);
+    }
+  }
+
+  async function logoutTideOa() {
+    setOaBusy(true);
+    try {
+      await api.emmcTideOaLogout();
+      setOaLoggedIn(false);
+      setOaUserName("");
+      setStatus("已退出 Tide OA 登录");
+    } catch (e) {
+      setStatus(`退出 Tide OA 失败：${toErrorMessage(e)}`);
+    } finally {
+      setOaBusy(false);
+    }
+  }
+
   async function start() {
     if (!snOk) return;
     const picked = steps.filter((s) => selected[s.id]).map((s) => s.id);
@@ -937,6 +993,31 @@ export default function EmmcPanel({
                   title="点击扫码登录飞书"
                 >
                   {feishuBusy ? "飞书登录中…" : "飞书未登录 · 点击登录"}
+                </button>
+              )}
+              {oaLoggedIn ? (
+                <button
+                  type="button"
+                  className="emmc-login-pill is-logged"
+                  disabled={oaBusy || running}
+                  onClick={() => {
+                    if (window.confirm("确定退出当前 Tide OA 登录吗？")) {
+                      void logoutTideOa();
+                    }
+                  }}
+                  title="已登录 Tide OA，点击退出"
+                >
+                  OA已登录：{oaUserName || "已就绪"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="emmc-login-pill is-unlogged"
+                  disabled={oaBusy || running}
+                  onClick={() => void loginTideOa()}
+                  title="点击打开 Tide OA 窗口，飞书扫码后自动保存凭证"
+                >
+                  {oaBusy ? "OA登录中…" : "OA未登录 · 点击登录"}
                 </button>
               )}
               <div className="emmc-run-actions">

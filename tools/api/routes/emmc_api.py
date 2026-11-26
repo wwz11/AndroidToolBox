@@ -51,6 +51,11 @@ from tools.feishu_sheets import (
     sync_report_xlsx_to_feishu,
     test_feishu_connection,
 )
+from tools.tide_oa import (
+    load_tide_oa_status,
+    logout_tide_oa,
+    validate_and_save_tide_token,
+)
 
 router = APIRouter()
 
@@ -1016,3 +1021,28 @@ async def copy_local_report_to_feishu(
             return _copy_and_sync_local_path_to_feishu(cfg, local_path, flow)
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class TideOaTokenBody(BaseModel):
+    token: str = Field(..., min_length=1)
+    ws_id: str = "2"
+
+
+@router.get("/tide-oa/status")
+def get_tide_oa_status() -> dict:
+    return load_tide_oa_status()
+
+
+@router.post("/tide-oa/token")
+def save_tide_oa_token(body: TideOaTokenBody) -> dict:
+    try:
+        return validate_and_save_tide_token(body.token, body.ws_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/tide-oa/logout")
+def post_tide_oa_logout() -> dict:
+    return logout_tide_oa()

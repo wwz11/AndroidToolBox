@@ -1500,6 +1500,33 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ flow_no: flowNo }),
     }),
+  emmcTideOaStatus: () =>
+    request<{
+      base_url: string;
+      ws_id: string;
+      user_name: string;
+      email: string;
+      logged_in: boolean;
+    }>("/emmc/tide-oa/status"),
+  emmcTideOaSaveToken: (token: string, wsId = "2") =>
+    request<{
+      base_url: string;
+      ws_id: string;
+      user_name: string;
+      email: string;
+      logged_in: boolean;
+    }>("/emmc/tide-oa/token", {
+      method: "POST",
+      body: JSON.stringify({ token, ws_id: wsId }),
+    }),
+  emmcTideOaLogout: () =>
+    request<{
+      base_url: string;
+      ws_id: string;
+      user_name: string;
+      email: string;
+      logged_in: boolean;
+    }>("/emmc/tide-oa/logout", { method: "POST" }),
   emmcCopyLocalReportToFeishu: (file: File, flowNo = "") => {
     const fd = new FormData();
     fd.append("file", file);

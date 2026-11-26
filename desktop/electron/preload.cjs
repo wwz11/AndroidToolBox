@@ -293,6 +293,19 @@ contextBridge.exposeInMainWorld("toolbox", {
       return "";
     }
   },
+  tideOaLogin: async () => {
+    try {
+      const r = await ipcRenderer.invoke("toolbox:tide-oa-login");
+      return r && typeof r === "object"
+        ? r
+        : { ok: false, message: "Tide OA 登录失败" };
+    } catch (err) {
+      return {
+        ok: false,
+        message: String(err?.message || err || "Tide OA 登录失败"),
+      };
+    }
+  },
   reportActivity: (payload) => {
     try {
       ipcRenderer.send("toolbox:activity", {
