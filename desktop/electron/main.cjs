@@ -2407,6 +2407,13 @@ if (gotSingleLock) app.whenReady().then(async () => {
         },
       );
 
+      loginWin.webContents.setWindowOpenHandler(({ url }) => {
+        if (url && /^https?:\/\//i.test(url)) {
+          loginWin.loadURL(url);
+        }
+        return { action: "deny" };
+      });
+
       loginWin.on("closed", () => {
         if (!settled) {
           finish(
