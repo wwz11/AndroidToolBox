@@ -46,7 +46,11 @@ class TokenAuthMiddleware:
         if scope_type == "http":
             path = scope.get("path", "")
             method = scope.get("method", "")
-            if method == "OPTIONS" or path in ("/health", "/docs", "/openapi.json", "/redoc"):
+            if (
+                method == "OPTIONS"
+                or path in ("/health", "/docs", "/openapi.json", "/redoc")
+                or (method == "GET" and path == "/emmc/feishu/oauth/callback")
+            ):
                 await self.app(scope, receive, send)
                 return
 

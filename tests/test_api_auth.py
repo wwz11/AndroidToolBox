@@ -31,6 +31,9 @@ class TestApiAuth(unittest.TestCase):
             r_health = client.get("/health")
             self.assertEqual(r_health.status_code, 200)
 
+            r_oauth_cb = client.get("/emmc/feishu/oauth/callback")
+            self.assertEqual(r_oauth_cb.status_code, 200)
+
             # Protected endpoint without token should return 401
             r_unauth = client.post("/local/md5/text", json={"text": "test"})
             self.assertEqual(r_unauth.status_code, 401)
