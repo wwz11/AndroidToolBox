@@ -4,11 +4,9 @@ chcp 65001 >nul
 cd /d "%~dp0.."
 set "PYTHONPATH=%CD%"
 set "ROOT=%CD%"
-set "NAS_PUBLISH=\\nas.we\Department_files\Testing\public\测试工具\ToolBox"
 
 echo ========================================
-echo  AndroidTVTestToolBox Desktop - NSIS Setup + auto-update
-echo  Update URL default: https://github.com/wwz11/AndroidToolBox/releases/latest/download
+echo  AndroidTVTestToolBox Desktop - NSIS Setup (local)
 echo  Data stays in: %%LOCALAPPDATA%%\AndroidTVTestToolBox
 echo ========================================
 echo.
@@ -122,52 +120,22 @@ if exist "%OUT%\AndroidTVTestToolBox.exe" (
   if errorlevel 1 exit /b 1
 )
 
-echo [5/5] Finalize release artifacts (GitHub Releases)
-set "PUBLISH_OK=0"
-
+echo [5/5] Finalize local release artifacts
 rem 本地 release：只保留当前 Setup + blockmap
 "%PY%" "%ROOT%\scripts\cleanup_old_setups.py" "%REL%" "!APP_VER!"
 
-if not "%TOOLBOX_PUBLISH_NAS%"=="1" (
-  echo [5/5] NAS publish disabled - upload Setup.exe + latest.yml to GitHub Releases
-) else if exist "%NAS_PUBLISH%\" (
-  copy /Y "!SETUP!" "%NAS_PUBLISH%\" >nul
-  if errorlevel 1 (
-    echo WARN: copy Setup.exe to NAS failed
-  ) else (
-    copy /Y "%REL%\latest.yml" "%NAS_PUBLISH%\" >nul
-    if errorlevel 1 (
-      echo WARN: copy latest.yml to NAS failed
-    ) else (
-      if exist "!SETUP!.blockmap" copy /Y "!SETUP!.blockmap" "%NAS_PUBLISH%\" >nul 2>&1
-      rem NAS：删掉旧版 Setup / blockmap，只留最新
-      "%PY%" "%ROOT%\scripts\cleanup_old_setups.py" "%NAS_PUBLISH%" "!APP_VER!"
-      set "PUBLISH_OK=1"
-      echo [OK] Published to %NAS_PUBLISH%
-    )
-  )
-) else (
-  echo WARN: NAS path not reachable from this machine:
-  echo       %NAS_PUBLISH%
-  echo       Manually copy these files there:
-  echo         !SETUP!
-  echo         %REL%\latest.yml
-)
+if not exist "%ROOT%\dist" mkdir "%ROOT%\dist" >nul 2>&1
+copy /Y "!SETUP!" "%ROOT%\dist\" >nul
+copy /Y "%REL%\latest.yml" "%ROOT%\dist\" >nul
+if exist "!SETUP!.blockmap" copy /Y "!SETUP!.blockmap" "%ROOT%\dist\" >nul 2>&1
+"%PY%" "%ROOT%\scripts\cleanup_old_setups.py" "%ROOT%\dist" "!APP_VER!"
 
 echo.
 echo ========================================
-echo  NSIS pack ready.
+echo  NSIS pack ready (local).
 echo  Setup:  !SETUP!
-echo  Feed:   %REL%\latest.yml
-if "!PUBLISH_OK!"=="1" (
-  echo  NAS:    %NAS_PUBLISH%
-) else (
-  echo  NAS:    copy Setup.exe + latest.yml to:
-  echo          %NAS_PUBLISH%
-)
-echo  GitHub: https://github.com/wwz11/AndroidToolBox/releases
-echo  Update URL default: https://github.com/wwz11/AndroidToolBox/releases/latest/download
-echo  Override: TOOLBOX_UPDATE_URL or %%LOCALAPPDATA%%\AndroidTVTestToolBox\update-url.txt
-echo  Data: %%LOCALAPPDATA%%\AndroidTVTestToolBox
+echo  Dist:   %ROOT%\dist\AndroidTVTestToolBox-Setup-!APP_VER!.exe
+echo  Feed:   %ROOT%\dist\latest.yml
+echo  Data:   %%LOCALAPPDATA%%\AndroidTVTestToolBox
 echo ========================================
 endlocal
