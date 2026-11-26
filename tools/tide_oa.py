@@ -136,10 +136,24 @@ def _extract_answer_text(val: Any) -> str:
     return ""
 
 
+_TIDE_EMMC_VIEW_ID = "e9r893ao2c02"
+
+_QUE_ID_MAP: dict[int, str] = {
+    24516886: "internal_model",     # 内部机型号
+    24516878: "emmc_brand",         # eMMC品牌
+    24516896: "emmc_capacity_gb",   # eMMC容量
+    24516883: "read_speed_mbs",     # eMMC理论读速度
+    24516884: "write_speed_mbs",    # eMMC理论写速度
+    24516880: "emmc_model",         # eMMC型号
+    24516889: "sw_test_userdebug",  # 上传小系统软件链接
+    24516894: "emmc_spec",          # 规格书
+}
+
+
 def _map_answers_to_header(answers: list[dict[str, Any]]) -> dict[str, str]:
     mapped: dict[str, str] = {}
     rules: list[tuple[str, tuple[str, ...]]] = [
-        ("import_project", ("导入项目", "项目名称", "项目")),
+        ("import_project", ("导入项目", "项目名称")),
         ("internal_model", ("内部机型号", "机型号", "机型")),
         ("emmc_brand", ("emmc品牌", "品牌", "厂商")),
         ("emmc_capacity_gb", ("容量",)),
@@ -153,13 +167,17 @@ def _map_answers_to_header(answers: list[dict[str, Any]]) -> dict[str, str]:
     for ans in answers:
         if not isinstance(ans, dict):
             continue
-        title = str(ans.get("queTitle") or ans.get("title") or ans.get("name") or "").strip()
-        if not title:
-            continue
         val = _extract_answer_text(
             ans.get("values") if "values" in ans else ans.get("value")
         )
         if not val:
+            continue
+        qid = ans.get("queId")
+        if isinstance(qid, int) and qid in _QUE_ID_MAP and _QUE_ID_MAP[qid] not in mapped:
+            mapped[_QUE_ID_MAP[qid]] = val
+            continue
+        title = str(ans.get("queTitle") or ans.get("title") or ans.get("name") or "").strip()
+        if not title:
             continue
         low = title.lower()
         for field_key, kws in rules:
@@ -171,35 +189,17 @@ def _map_answers_to_header(answers: list[dict[str, Any]]) -> dict[str, str]:
     return mapped
 
 
-def _discover_emmc_app_key(token: str, ws_id: str) -> str:
-    from tools.settings_store import get, put
-
-    cached = str(get("tide_oa.emmc_app_key", "") or "").strip()
-    if cached:
-        return cached
-    for ep in (f"/ws/{ws_id}/app", "/app", "/app/list"):
-        try:
-            res = request_tide_oa_api("GET", ep, token=token, ws_id=ws_id, timeout=10.0)
-        except Exception:
+def _answer_serial_no(item: dict[str, Any]) -> str:
+    for ans in item.get("answers") or []:
+        if not isinstance(ans, dict):
             continue
-        items = (
-            res.get("result")
-            if isinstance(res.get("result"), list)
-            else (res.get("data") if isinstance(res.get("data"), list) else [])
-        )
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            name = str(item.get("appName") or item.get("name") or "").strip()
-            key = str(item.get("appKey") or item.get("key") or "").strip()
-            if key and ("emmc" in name.lower() or "关键物料" in name):
-                put("tide_oa.emmc_app_key", key)
-                return key
+        if ans.get("queId") == 0 or str(ans.get("queTitle") or "").strip() == "编号":
+            return _extract_answer_text(ans.get("values"))
     return ""
 
 
 def fetch_emmc_flow_header(flow_no: str) -> dict[str, Any]:
-    """按流程号从 Tide OA 拉取「eMMC Agent 关键物料导入流程 V2026」并映射为报告头部字段。"""
+    """按流程号从 Tide OA 视图（eMMC Agent 关键物料导入流程 V2026）拉取并映射报告头部字段。"""
     flow = (flow_no or "").strip()
     if not flow:
         raise ValueError("请先填写流程号")
@@ -209,61 +209,39 @@ def fetch_emmc_flow_header(flow_no: str) -> dict[str, Any]:
     if not tok:
         raise ValueError("尚未登录 Tide OA，请先点击「OA未登录 · 点击登录」")
 
+    res = request_tide_oa_api(
+        "POST",
+        f"/view/{_TIDE_EMMC_VIEW_ID}/apply/filter",
+        token=tok,
+        ws_id=ws_id,
+        body={
+            "filter": {
+                "pageSize": 50,
+                "pageNum": 1,
+                "type": 8,
+                "sorts": [],
+                "queries": [],
+                "queryKey": flow,
+            }
+        },
+        timeout=20.0,
+    )
+    items = (res.get("data") or {}).get("list") or []
+    if not isinstance(items, list) or not items:
+        raise RuntimeError(f"在 Tide OA 中未查到编号为 {flow} 的流程记录")
+
     record: dict[str, Any] | None = None
-    # 1) 直接按 applyId 查询
-    try:
-        res = request_tide_oa_api("GET", f"/apply/{flow}", token=tok, ws_id=ws_id, timeout=10.0)
-        cand = res.get("result") if isinstance(res.get("result"), dict) else res.get("data")
-        if isinstance(cand, dict) and (cand.get("answers") or cand.get("applyId")):
-            record = cand
-    except Exception:
-        pass
-
-    # 2) 按应用列表筛选查询
+    for item in items:
+        if isinstance(item, dict) and _answer_serial_no(item) == flow:
+            record = item
+            break
     if record is None:
-        app_key = _discover_emmc_app_key(tok, ws_id)
-        if not app_key:
-            raise RuntimeError("未找到「eMMC Agent 关键物料导入流程 V2026」应用，请确认当前账号有该流程访问权限")
-        for payload in (
-            {"pageNum": 1, "pageSize": 20, "queryKey": flow},
-            {"pageNum": 1, "pageSize": 20, "serialNo": flow},
-        ):
-            try:
-                fres = request_tide_oa_api(
-                    "POST",
-                    f"/app/{app_key}/apply/filter",
-                    token=tok,
-                    ws_id=ws_id,
-                    body=payload,
-                    timeout=12.0,
-                )
-                fdata = fres.get("result") or fres.get("data") or {}
-                rows = (
-                    fdata.get("result")
-                    or fdata.get("list")
-                    or fdata.get("records")
-                    or (fdata if isinstance(fdata, list) else [])
-                )
-                if isinstance(rows, list) and rows:
-                    first = rows[0] if isinstance(rows[0], dict) else None
-                    if first:
-                        aid = str(first.get("applyId") or first.get("id") or "").strip()
-                        if aid and not first.get("answers"):
-                            dres = request_tide_oa_api(
-                                "GET", f"/apply/{aid}", token=tok, ws_id=ws_id, timeout=10.0
-                            )
-                            dcand = dres.get("result") or dres.get("data")
-                            if isinstance(dcand, dict):
-                                record = dcand
-                        else:
-                            record = first
-                        if record is not None:
-                            break
-            except Exception:
-                continue
-
+        for item in items:
+            if isinstance(item, dict) and str(item.get("applyId") or "") == flow:
+                record = item
+                break
     if record is None:
-        raise RuntimeError(f"在 Tide OA 中未查到流程 {flow} 的记录")
+        raise RuntimeError(f"在 Tide OA 中未查到编号为 {flow} 的流程记录")
 
     answers = record.get("answers") or []
     header = _map_answers_to_header(answers if isinstance(answers, list) else [])
