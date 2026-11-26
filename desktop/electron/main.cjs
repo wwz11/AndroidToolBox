@@ -2355,8 +2355,8 @@ if (gotSingleLock) app.whenReady().then(async () => {
         /* ignore */
       }
       const loginWin = new BrowserWindow({
-        width: 1024,
-        height: 760,
+        width: 1280,
+        height: 860,
         parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
         modal: false,
         title: "登录 Tide OA（飞书扫码后自动完成）",
@@ -2367,6 +2367,13 @@ if (gotSingleLock) app.whenReady().then(async () => {
           contextIsolation: true,
           nodeIntegration: false,
         },
+      });
+      loginWin.once("ready-to-show", () => {
+        try {
+          if (!loginWin.isDestroyed()) loginWin.maximize();
+        } catch {
+          /* ignore */
+        }
       });
 
       const finish = (payload) => {
