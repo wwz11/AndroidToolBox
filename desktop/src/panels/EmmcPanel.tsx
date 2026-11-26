@@ -1819,7 +1819,14 @@ export default function EmmcPanel({
               ["test_time", "测试时间"],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="emmc-param">
+            <label
+              key={key}
+              className={
+                key === "sw_test_userdebug" || key === "emmc_spec"
+                  ? "emmc-param emmc-param-wide"
+                  : "emmc-param"
+              }
+            >
               <span>{label}</span>
               <input
                 className="field"
