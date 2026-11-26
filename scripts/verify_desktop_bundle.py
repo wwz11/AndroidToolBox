@@ -19,14 +19,6 @@ REQUIRED_REL: tuple[tuple[str, ...], ...] = (
     ("resources", "toolbox-api", "_internal", "vendor", "rpmb", "rpmb_test_v7_dev.sh"),
     ("resources", "toolbox-api", "_internal", "vendor", "rpmb", "mmc_utils"),
     ("resources", "toolbox-api", "_internal", "vendor", "rpmb", "rpmbkey.bin"),
-    (
-        "resources",
-        "toolbox-api",
-        "_internal",
-        "vendor",
-        "emmc",
-        "eMMC For SEIxxxxx 导入测试报告模版v2.0.xlsx",
-    ),
     ("resources", "toolbox-api", "_internal", "vendor", "ota", "config.ini.example"),
     ("resources", "toolbox-api", "_internal", "toolbox_embed_scrcpy.marker"),
 )
