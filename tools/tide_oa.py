@@ -139,6 +139,7 @@ def _extract_answer_text(val: Any) -> str:
 _TIDE_EMMC_VIEW_ID = "e9r893ao2c02"
 
 _QUE_ID_MAP: dict[int, str] = {
+    24517002: "import_project",     # 产品名（导入项目）
     24516886: "internal_model",     # 内部机型号
     24516878: "emmc_brand",         # eMMC品牌
     24516896: "emmc_capacity_gb",   # eMMC容量
@@ -147,6 +148,7 @@ _QUE_ID_MAP: dict[int, str] = {
     24516880: "emmc_model",         # eMMC型号
     24516889: "sw_test_userdebug",  # 上传小系统软件链接
     24516894: "emmc_spec",          # 规格书
+    24516901: "gota_version",       # 上传 Userdebug 版本的正式软件升级包链接
 }
 
 
@@ -243,11 +245,26 @@ def fetch_emmc_flow_header(flow_no: str) -> dict[str, Any]:
     if record is None:
         raise RuntimeError(f"在 Tide OA 中未查到编号为 {flow} 的流程记录")
 
+    apply_id = str(record.get("applyId") or "").strip()
     answers = record.get("answers") or []
+    if apply_id:
+        try:
+            dres = request_tide_oa_api(
+                "GET",
+                f"/view/{_TIDE_EMMC_VIEW_ID}/apply/{apply_id}",
+                token=tok,
+                ws_id=ws_id,
+                timeout=15.0,
+            )
+            detail = dres.get("data") or dres.get("result") or {}
+            if isinstance(detail, dict) and detail.get("answers"):
+                answers = detail.get("answers") or answers
+        except Exception:
+            pass
     header = _map_answers_to_header(answers if isinstance(answers, list) else [])
     return {
         "ok": True,
         "flow_no": flow,
-        "apply_id": str(record.get("applyId") or flow),
+        "apply_id": apply_id or flow,
         "header": header,
     }

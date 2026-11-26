@@ -1822,7 +1822,9 @@ export default function EmmcPanel({
             <label
               key={key}
               className={
-                key === "sw_test_userdebug" || key === "emmc_spec"
+                key === "sw_test_userdebug" ||
+                key === "emmc_spec" ||
+                key === "gota_version"
                   ? "emmc-param emmc-param-wide"
                   : "emmc-param"
               }
