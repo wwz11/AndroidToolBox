@@ -1056,9 +1056,18 @@ export default function EmmcPanel({
                   className="emmc-login-pill is-logged"
                   disabled={feishuBusy || running}
                   onClick={() => {
-                    if (window.confirm("确定退出当前飞书账号吗？")) {
-                      void logoutFeishu();
-                    }
+                    void (async () => {
+                      const ok = await dialog.confirm({
+                        title: "退出飞书登录",
+                        message: "确定退出当前飞书账号吗？",
+                        detail: feishuUserName || feishuUserOpenId,
+                        note: "退出后将无法自动生成飞书在线报告与发送飞书通知。",
+                        confirmLabel: "退出登录",
+                        cancelLabel: "取消",
+                        danger: true,
+                      });
+                      if (ok) void logoutFeishu();
+                    })();
                   }}
                   title="已登录飞书，点击退出登录"
                 >
@@ -1081,9 +1090,18 @@ export default function EmmcPanel({
                   className="emmc-login-pill is-logged"
                   disabled={oaBusy || running}
                   onClick={() => {
-                    if (window.confirm("确定退出当前 Tide OA 登录吗？")) {
-                      void logoutTideOa();
-                    }
+                    void (async () => {
+                      const ok = await dialog.confirm({
+                        title: "退出 Tide OA 登录",
+                        message: "确定退出当前 Tide OA 登录吗？",
+                        detail: oaUserName || "已就绪",
+                        note: "退出后将无法从 Tide OA 自动拉取流程报告头部信息。",
+                        confirmLabel: "退出登录",
+                        cancelLabel: "取消",
+                        danger: true,
+                      });
+                      if (ok) void logoutTideOa();
+                    })();
                   }}
                   title="已登录 Tide OA，点击退出"
                 >
