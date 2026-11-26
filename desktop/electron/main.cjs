@@ -2426,7 +2426,7 @@ if (gotSingleLock) app.whenReady().then(async () => {
         }
       });
 
-      loginWin.loadURL("https://cloud.seirobotics.net");
+      loginWin.loadURL("https://cloud.seirobotics.net/passport/login");
     });
   });
 
