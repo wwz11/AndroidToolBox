@@ -693,7 +693,19 @@ export default function EmmcPanel({
       toast.push("请至少选择一项测试", "warn");
       return;
     }
-    await executeStart();
+    try {
+      const cfg = await api.emmcFeishuConfig(flowNo.trim() || "1");
+      if (cfg.user_logged_in) {
+        setFeishuUserName(cfg.user_name || "");
+        setFeishuUserOpenId(cfg.user_open_id || "");
+        await openHeaderEditor(true, cfg.user_name || "");
+        return;
+      }
+    } catch {
+      /* 飞书配置查询失败时照常弹登录提示 */
+    }
+    setFeishuMsg("");
+    setStartLoginOpen(true);
   }
 
   async function executeStart(flowOverride?: string, abOverride?: boolean) {
@@ -704,9 +716,6 @@ export default function EmmcPanel({
       return;
     }
     const flow = (flowOverride ?? flowNo).trim() || "1";
-    if (!flowNo.trim()) {
-      setFlowNo(flow);
-    }
     let abOn = abOverride ?? abUpgrade;
     if (abOverride === undefined) {
       try {
