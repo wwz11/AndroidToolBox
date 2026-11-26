@@ -679,7 +679,7 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
     session.start("iozone", env.sn, title="iozone读写速度")
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     silent_log = lambda _line: None
-    env.report_progress(0, 1, "进行中")
+    env.report_progress(0, 3, "0/3 次")
     if samsung_emmc:
         log(
             f"INFO Pass 判定：三星 eMMC，write_rate >= {write_min:g}MB/S"
@@ -868,6 +868,8 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                         )
             if not round_done and env.stop.is_set():
                 break
+            if round_done:
+                env.report_progress(i + 1, 3, f"{i + 1}/3 次")
         if average_lst:
             avg = average_rates(average_lst)
             log(f"INFO 测试结果: {avg}")
@@ -928,9 +930,11 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                     log(f"WARNING 写入测试报告失败: {exc}")
         elif not runs or avg is None:
             log("WARNING 未写入测试报告：iozone 未产生有效测试结果")
+        env.report_progress(3, 3, "3/3 次")
         return passed
     except Exception as exc:
         env.log(f"ERROR {exc}")
+        env.report_progress(3, 3, "3/3 次")
         return False
     finally:
         saved = session.close()
