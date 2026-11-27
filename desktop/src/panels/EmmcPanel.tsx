@@ -26,20 +26,27 @@ type TimeUnit = "minutes" | "hours";
 type LogLevelFilter = "all" | "warn" | "error";
 
 function classifyLogLine(line: string): string {
-  if (
-    /\bERROR\b/.test(line) ||
-    /异常重启|判定失败|fail\b|失败\s*(?:[:：]|\d+)/i.test(line)
-  ) {
+  if (/\bERROR\b/.test(line)) {
     return "is-error";
   }
-  if (/\bWARNING\b|收到停止请求|提前结束|跳过/.test(line)) {
+  if (/\bWARNING\b/.test(line)) {
     return "is-warn";
-  }
-  if (/──\s*(?:开始|结束)|测试完成|Pass\b|已达设定/.test(line)) {
-    return "is-highlight";
   }
   if (/\bDEBUG\b/.test(line)) {
     return "is-debug";
+  }
+  if (
+    /→\s*Fail\b|任务完成:\s*Fail\b|判定失败|异常重启|(?<!\d)失败\s*(?:[:：]\s*[1-9]\d*|[1-9]\d*)/i.test(
+      line,
+    )
+  ) {
+    return "is-error";
+  }
+  if (/收到停止请求|提前结束|跳过/.test(line)) {
+    return "is-warn";
+  }
+  if (/──\s*(?:开始|结束)|测试完成|开机正常|\bPass\b|已达设定/.test(line)) {
+    return "is-highlight";
   }
   return "";
 }
