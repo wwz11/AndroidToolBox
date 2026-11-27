@@ -189,6 +189,7 @@ public class AgentService extends Service {
 
     public void stopStressTest(String reason) {
         cancelPendingReboot();
+        AgentStore.clearRebootReq(this);
         JSONObject st = AgentStore.loadState(this);
         try {
             st.put("state", AgentStore.STATE_STOPPED);
@@ -202,6 +203,7 @@ public class AgentService extends Service {
 
     public void resetState() {
         cancelPendingReboot();
+        AgentStore.clearRebootReq(this);
         JSONObject st = AgentStore.defaultState();
         try {
             st.put("can_self_reboot", DeviceProbe.canSelfReboot(this));
@@ -214,6 +216,7 @@ public class AgentService extends Service {
     }
 
     private void handleBootEvent() {
+        AgentStore.clearRebootReq(this);
         DeviceProbe.enableTcpAdb(5555);
         JSONObject st = AgentStore.loadState(this);
         String bootId = DeviceProbe.getBootId();
@@ -294,13 +297,14 @@ public class AgentService extends Service {
         pendingRebootTask = () -> worker.execute(() -> {
             JSONObject st = AgentStore.loadState(this);
             if (!AgentStore.STATE_RUNNING.equals(st.optString("state"))) return;
-            AgentStore.appendLog(this, "等待稳定期结束，触发下一次重启...");
+            AgentStore.appendLog(this, "由 APK 发起第 " + (st.optInt("current_round", 0) + 1) + " 次重启...");
+            AgentStore.writeRebootReq(this, st.optInt("current_round", 0) + 1);
             boolean sent = DeviceProbe.triggerReboot(this);
             if (!sent) {
                 try {
                     st.put("waiting_pc_reboot", true);
                     AgentStore.saveState(this, st);
-                    AgentStore.appendLog(this, "当前进程无直接 reboot 权限，等待 PC 端 ADB 触发重启");
+                    AgentStore.appendLog(this, "已写入 reboot.req，等待设备守护/ADB 执行重启");
                 } catch (Exception ignored) {}
                 broadcastStateChanged();
             }

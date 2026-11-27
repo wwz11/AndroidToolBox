@@ -13,7 +13,15 @@ from pathlib import Path
 from typing import Callable
 
 from tools.adb_runtime import resolve_adb_exe
-from tools.emmc_test.agent_bridge import sync_agent_on_reboot_end, sync_agent_on_reboot_start
+from tools.emmc_test.agent_bridge import (
+    ensure_device_reboot_daemon,
+    find_agent_apk,
+    install_and_init_agent,
+    is_agent_installed,
+    read_agent_state_fast,
+    sync_agent_on_reboot_end,
+    sync_agent_on_reboot_start,
+)
 from tools.emmc_test.ota_v5 import _decode_output, _run_adb_argv, is_tcp_serial, reconnect_adb, wait_for_boot
 
 LogFn = Callable[[str], None]
@@ -21,6 +29,7 @@ LogFn = Callable[[str], None]
 _DEFAULT_RUN_HOURS = 1.0
 _DEFAULT_BOOT_TIMEOUT_SEC = 600
 _WAIT_FOR_DEVICE_TIMEOUT_SEC = 120
+_AGENT_COMM_TIMEOUT_SEC = 600
 _MAX_CONSECUTIVE_FAILS = 3
 
 # 预期原因（受控 adb reboot 后常见）
@@ -423,6 +432,13 @@ class RebootTestRunner:
             )
             return success, fail, stop_reason, duration_hours, self.anomaly_count
 
+        if not is_agent_installed(self.device_sn) and find_agent_apk() is not None:
+            try:
+                self.log("INFO 未检测到设备端 ToolboxAgent，正在自动安装并激活...")
+                install_and_init_agent(self.device_sn)
+            except Exception as exc:
+                self.log(f"WARNING 自动安装 ToolboxAgent 失败，将回退到纯 PC ADB 模式: {exc}")
+
         agent_linked = sync_agent_on_reboot_start(
             self.device_sn,
             mode="count" if count_mode else "hours",
@@ -430,7 +446,14 @@ class RebootTestRunner:
             run_hours=self.cfg.run_hours,
         )
         if agent_linked:
-            self.log("INFO 已联动设备端 ToolboxAgent（开机保活 + 电视端实时进度同步）")
+            ensure_device_reboot_daemon(self.device_sn)
+            self.log("INFO 已启用 APK 主导 Reboot 压测（每次重启由设备端 APK 发起，ADB 断连最长重试 10 分钟）")
+            return self._run_agent_driven_loop(
+                start=start,
+                count_mode=count_mode,
+                target_count=target_count,
+                duration_sec=duration_sec,
+            )
 
         # 基线：记录测试前原因（不计入异常）
         try:
@@ -547,6 +570,141 @@ class RebootTestRunner:
 
         if agent_linked:
             sync_agent_on_reboot_end(self.device_sn)
+        duration_hours = (time.monotonic() - start) / 3600.0
+        if not stop_reason:
+            stop_reason = "测试结束"
+        self.log(
+            f"INFO reboot 测试结束: 成功 {success} 次，失败 {fail} 次，"
+            f"异常 {self.anomaly_count} 次，时长 {duration_hours:.2f} 小时"
+        )
+        if self.anomaly_records:
+            self.log("ERROR 异常重启汇总:")
+            for rec in self.anomaly_records:
+                self.log(f"ERROR   · {rec}")
+        return success, fail, stop_reason, duration_hours, self.anomaly_count
+
+    def _run_agent_driven_loop(
+        self,
+        *,
+        start: float,
+        count_mode: bool,
+        target_count: int,
+        duration_sec: float,
+    ) -> tuple[int, int, str, float, int]:
+        """APK 主导每轮重启，PC 端实时同步进度；ADB 断连重试 10 分钟无反应再判 Fail。"""
+        success = 0
+        fail = 0
+        last_logged_round = 0
+        last_boot_id = ""
+        last_comm_ok = time.monotonic()
+        last_offline_warn = 0.0
+        last_reconnect_try = 0.0
+        waiting_reboot_since: float | None = None
+        stop_reason = ""
+
+        if count_mode:
+            self._emit_progress(0, target_count, f"0/{target_count} 次")
+        else:
+            self._emit_progress(0, max(1, int(duration_sec)), f"0.00/{self.cfg.run_hours:g} 小时")
+
+        while True:
+            if self._is_stop_requested():
+                stop_reason = "用户停止"
+                sync_agent_on_reboot_end(self.device_sn)
+                break
+
+            now = time.monotonic()
+            st = read_agent_state_fast(self.device_sn)
+            if st is None:
+                offline_sec = now - last_comm_ok
+                if now - last_reconnect_try >= 4.0:
+                    last_reconnect_try = now
+                    reconnect_adb(self.device_sn, self.adb_exe)
+                if now - last_offline_warn >= 30.0:
+                    last_offline_warn = now
+                    self.log(
+                        f"WARNING ADB 断连，正在重试与设备端 APK 通信"
+                        f"（已重试 {int(offline_sec)}/{_AGENT_COMM_TIMEOUT_SEC} 秒）..."
+                    )
+                if offline_sec >= _AGENT_COMM_TIMEOUT_SEC:
+                    fail += 1
+                    stop_reason = (
+                        f"ADB 断连重试 {int(_AGENT_COMM_TIMEOUT_SEC // 60)} 分钟仍无法与设备端 APK 通信，判定失败"
+                    )
+                    self.log(f"ERROR {stop_reason}")
+                    break
+                if not _sleep_with_stop(2.0, self.stop):
+                    stop_reason = "用户停止"
+                    break
+                continue
+
+            last_comm_ok = now
+            last_offline_warn = 0.0
+            boot_id = str(st.get("last_boot_id") or "")
+            if boot_id and boot_id != last_boot_id:
+                last_boot_id = boot_id
+                ensure_device_reboot_daemon(self.device_sn)
+                waiting_reboot_since = None
+
+            agent_state = str(st.get("state") or "")
+            cur_round = int(st.get("current_round") or 0)
+            success = int(st.get("success_rounds") or 0)
+            fail = int(st.get("fail_rounds") or 0)
+            self.anomaly_count = int(st.get("anomaly_count") or 0)
+            reason = str(st.get("last_boot_reason") or "")
+            anomaly_detail = str(st.get("last_anomaly_detail") or "")
+
+            if cur_round > last_logged_round:
+                last_logged_round = cur_round
+                if anomaly_detail:
+                    rec = f"第{cur_round}次: {anomaly_detail} (reason={reason or '-'})"
+                    self.anomaly_records.append(rec)
+                    self.log(f"ERROR 第 {cur_round} 次开机检测到异常 → {rec}")
+                else:
+                    self.log(
+                        f"INFO 第 {cur_round} 次开机正常 (reason={reason or '-'})"
+                        f"（累计 成功 {success} / 失败 {fail} / 异常 {self.anomaly_count}）"
+                    )
+
+            elapsed = now - start
+            if count_mode:
+                msg = (
+                    f"{success}/{target_count} 次"
+                    if fail == 0
+                    else f"{success}/{target_count} 次 (失败 {fail})"
+                )
+                self._emit_progress(success, target_count, msg)
+            else:
+                pct_den = max(1, int(duration_sec))
+                pct_num = min(pct_den, int(elapsed))
+                hrs = elapsed / 3600.0
+                msg = (
+                    f"{hrs:.2f}/{self.cfg.run_hours:g} 小时"
+                    if fail == 0
+                    else f"{hrs:.2f}/{self.cfg.run_hours:g} 小时 (失败 {fail})"
+                )
+                self._emit_progress(pct_num, pct_den, msg)
+
+            if agent_state in ("COMPLETED", "FAILED", "STOPPED"):
+                stop_reason = str(st.get("stop_reason") or agent_state)
+                break
+
+            # 若设备端已发起 reboot.req 但守护尚未消费（如刚开机或被系统限制），3秒后由 PC ADB 辅助触发
+            if st.get("waiting_pc_reboot"):
+                if waiting_reboot_since is None:
+                    waiting_reboot_since = now
+                elif now - waiting_reboot_since >= 3.0:
+                    waiting_reboot_since = now
+                    ensure_device_reboot_daemon(self.device_sn)
+                    self._reboot_cmd_sent()
+            else:
+                waiting_reboot_since = None
+
+            if not _sleep_with_stop(2.0, self.stop):
+                stop_reason = "用户停止"
+                sync_agent_on_reboot_end(self.device_sn)
+                break
+
         duration_hours = (time.monotonic() - start) / 3600.0
         if not stop_reason:
             stop_reason = "测试结束"

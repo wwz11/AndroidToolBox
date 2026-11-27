@@ -42,6 +42,27 @@ public final class AgentStore {
         return new File(getBaseDir(ctx), "agent.log");
     }
 
+    public static File getRebootReqFile(Context ctx) {
+        return new File(getBaseDir(ctx), "reboot.req");
+    }
+
+    public static void writeRebootReq(Context ctx, int round) {
+        try {
+            File f = getRebootReqFile(ctx);
+            try (FileOutputStream fos = new FileOutputStream(f, false)) {
+                fos.write((round + "\n").getBytes(StandardCharsets.UTF_8));
+                fos.getFD().sync();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    public static void clearRebootReq(Context ctx) {
+        try {
+            File f = getRebootReqFile(ctx);
+            if (f.exists()) f.delete();
+        } catch (Exception ignored) {}
+    }
+
     public static JSONObject defaultState() {
         JSONObject o = new JSONObject();
         try {

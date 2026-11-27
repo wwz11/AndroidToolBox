@@ -187,3 +187,44 @@ def sync_agent_on_reboot_end(sn: str) -> None:
             _run_adb(sn, ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER], timeout=8)
     except Exception:
         pass
+
+
+_REBOOT_REQ_PATH = f"/sdcard/Android/data/{AGENT_PACKAGE}/files/reboot.req"
+
+
+def ensure_device_reboot_daemon(sn: str) -> None:
+    """在 userdebug 设备端拉起轻量化 shell 守护，监听 APK 写入的 reboot.req 并以 shell/su 权限执行重启。"""
+    script = (
+        "pgrep -f toolbox_rebootd >/dev/null 2>&1 || "
+        f"nohup sh -c 'exec -a toolbox_rebootd sh -c \""
+        f"while true; do "
+        f"if [ -f {_REBOOT_REQ_PATH} ]; then "
+        f"rm -f {_REBOOT_REQ_PATH}; "
+        f"/system/xbin/su 0 reboot 2>/dev/null || reboot; "
+        f"exit 0; "
+        f"fi; "
+        f"sleep 1; "
+        f"done\"' </dev/null >/dev/null 2>&1 &"
+    )
+    try:
+        _run_adb(sn, ["shell", script], timeout=8)
+    except Exception:
+        pass
+
+
+def read_agent_state_fast(sn: str) -> dict[str, Any] | None:
+    """非阻塞读取设备端 APK 的 state.json；ADB 断连或读取失败时返回 None。"""
+    try:
+        proc = _run_adb(sn, ["shell", "cat", AGENT_STATE_PATH], timeout=6)
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    raw = _out_text(proc)
+    if not raw.startswith("{"):
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        return None
