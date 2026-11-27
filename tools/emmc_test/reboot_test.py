@@ -713,8 +713,12 @@ class RebootTestRunner:
                 self._emit_progress(pct_num, pct_den, msg)
                 if elapsed >= duration_sec:
                     stop_reason = f"已达到设定时长 {self.cfg.run_hours:g} 小时"
-                    self.log(f"INFO PC 端单调时钟已达到设定时长 ({self.cfg.run_hours:g} 小时)，通知设备端停止压测")
-                    sync_agent_on_reboot_end(self.device_sn)
+                    self.log(f"INFO PC 端单调时钟已达到设定时长 ({self.cfg.run_hours:g} 小时)，通知设备端完成压测")
+                    sync_agent_on_reboot_end(
+                        self.device_sn,
+                        completed=True,
+                        reason=stop_reason,
+                    )
                     break
 
             if agent_state in ("COMPLETED", "FAILED", "STOPPED"):

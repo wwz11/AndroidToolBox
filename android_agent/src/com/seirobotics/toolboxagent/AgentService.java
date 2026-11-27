@@ -65,7 +65,12 @@ public class AgentService extends Service {
             int stableSec = intent.getIntExtra("stable_sec", 30);
             startRebootTest(mode, targetCount, runHours, stableSec);
         } else if (ACTION_STOP.equals(action)) {
-            stopStressTest("用户停止");
+            boolean completed = intent.getBooleanExtra("completed", false);
+            String reason = intent.getStringExtra("reason");
+            if (reason == null || reason.trim().isEmpty()) {
+                reason = completed ? "压测已完成" : "用户停止";
+            }
+            stopStressTest(reason, completed);
         } else if (ACTION_RESET.equals(action)) {
             resetState();
         } else if (ACTION_BOOT_EVENT.equals(action)) {
@@ -204,17 +209,21 @@ public class AgentService extends Service {
     }
 
     public void stopStressTest(String reason) {
+        stopStressTest(reason, false);
+    }
+
+    public void stopStressTest(String reason, boolean completed) {
         cancelPendingReboot();
         AgentStore.clearRebootReq(this);
         stateWorker.execute(() -> {
             JSONObject st = AgentStore.loadState(this);
             try {
-                st.put("state", AgentStore.STATE_STOPPED);
+                st.put("state", completed ? AgentStore.STATE_COMPLETED : AgentStore.STATE_STOPPED);
                 st.put("waiting_pc_reboot", false);
                 st.put("next_reboot_uptime_ms", 0L);
                 st.put("stop_reason", reason);
                 AgentStore.saveState(this, st);
-                AgentStore.appendLog(this, "停止压测: " + reason);
+                AgentStore.appendLog(this, (completed ? "压测已完成: " : "停止压测: ") + reason);
             } catch (Exception ignored) {}
             broadcastStateChanged();
         });

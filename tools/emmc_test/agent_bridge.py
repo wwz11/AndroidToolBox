@@ -218,20 +218,28 @@ def sync_agent_on_reboot_start(
         return False
 
 
-def sync_agent_on_reboot_end(sn: str, *, wait_sec: float = 60.0) -> bool:
-    """PC 端 Reboot 测试结束/用户点击停止时，同步停止设备端 Agent 压测状态。
+def sync_agent_on_reboot_end(
+    sn: str,
+    *,
+    wait_sec: float = 60.0,
+    completed: bool = False,
+    reason: str = "",
+) -> bool:
+    """PC 端 Reboot 测试结束/用户点击停止时，同步结束设备端 Agent 压测状态。
 
-    若恰好在设备重启（ADB 离线）瞬间点击停止，会在 wait_sec 内等待 ADB 恢复并下发 ACTION_STOP，
+    completed=True 时通知设备端标记为 COMPLETED（压测已完成），否则标记为 STOPPED。
+    若恰好在设备重启（ADB 离线）瞬间触发，会在 wait_sec 内等待 ADB 恢复并下发指令，
     避免设备开机后继续自主重启。
     """
+    cmd = ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER]
+    if completed:
+        cmd.extend(["--ez", "completed", "true"])
+    if reason.strip():
+        cmd.extend(["--es", "reason", reason.strip()])
     deadline = time.monotonic() + max(0.0, wait_sec)
     while True:
         try:
-            proc = _run_adb(
-                sn,
-                ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER],
-                timeout=8,
-            )
+            proc = _run_adb(sn, cmd, timeout=8)
             if proc.returncode == 0:
                 return True
         except Exception:
