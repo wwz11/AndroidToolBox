@@ -1,7 +1,7 @@
 package com.seirobotics.toolboxagent;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -18,6 +18,7 @@ import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -163,8 +164,24 @@ public class MainActivity extends Activity {
         if (activeToast != null) {
             activeToast.cancel();
         }
-        activeToast = Toast.makeText(this, msg, Toast.LENGTH_SHORT);
-        activeToast.show();
+        TextView tv = new TextView(this);
+        tv.setText(msg);
+        tv.setTextColor(Color.parseColor("#EEF3F8"));
+        tv.setTextSize(15);
+        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        tv.setPadding(32, 16, 32, 16);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#E61A2330"));
+        bg.setCornerRadius(999f);
+        bg.setStroke(2, Color.parseColor("#58A6FF"));
+        tv.setBackground(bg);
+
+        Toast t = new Toast(this);
+        t.setDuration(Toast.LENGTH_SHORT);
+        t.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 56);
+        t.setView(tv);
+        activeToast = t;
+        t.show();
     }
 
     @Override
@@ -335,22 +352,84 @@ public class MainActivity extends Activity {
         return b;
     }
 
+    private StateListDrawable dangerBtnBg() {
+        StateListDrawable sld = new StateListDrawable();
+        GradientDrawable pressed = cardBg("#6E232A", "#FF8A8A");
+        pressed.setStroke(4, Color.parseColor("#FF8A8A"));
+        GradientDrawable focused = cardBg("#4D1E24", "#FF6B6B");
+        focused.setStroke(4, Color.parseColor("#FF6B6B"));
+        GradientDrawable normal = cardBg("#2C1619", "#6E2B32");
+        sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
+        sld.addState(new int[]{android.R.attr.state_focused}, focused);
+        sld.addState(new int[]{android.R.attr.state_selected}, focused);
+        sld.addState(new int[]{}, normal);
+        return sld;
+    }
+
     private void confirmStopTest() {
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("确认停止压测")
-                .setMessage("确定要停止当前正在进行的 Reboot 压测吗？")
-                .setNegativeButton("取消", (d, w) -> focusSafeDefault())
-                .setPositiveButton("确认停止", (d, w) -> {
-                    startAgentService(new Intent(AgentService.ACTION_STOP));
-                    focusSafeDefault();
-                })
-                .setOnCancelListener(d -> focusSafeDefault())
-                .create();
-        dialog.show();
-        Button cancelBtn = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
-        if (cancelBtn != null) {
-            cancelBtn.post(cancelBtn::requestFocus);
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(40, 32, 40, 28);
+        GradientDrawable boxBg = new GradientDrawable();
+        boxBg.setColor(Color.parseColor("#151C25"));
+        boxBg.setCornerRadius(18f);
+        boxBg.setStroke(3, Color.parseColor("#374960"));
+        box.setBackground(boxBg);
+
+        TextView title = new TextView(this);
+        title.setText("确认停止压测");
+        title.setTextColor(Color.parseColor("#EEF3F8"));
+        title.setTextSize(20);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        box.addView(title);
+
+        TextView msg = new TextView(this);
+        msg.setText("确定要停止当前正在进行的 Reboot 压测吗？\n停止后将中止后续重启循环并上报当前结果。");
+        msg.setTextColor(Color.parseColor("#A7B6C8"));
+        msg.setTextSize(15);
+        msg.setLineSpacing(6f, 1.0f);
+        msg.setPadding(0, 14, 0, 26);
+        box.addView(msg);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END);
+
+        Button cancelBtn = makeBtn("取消", () -> {
+            dialog.dismiss();
+            focusSafeDefault();
+        });
+        cancelBtn.setPadding(30, 12, 30, 12);
+
+        Button confirmBtn = makeBtn("确认停止", () -> {
+            dialog.dismiss();
+            startAgentService(new Intent(AgentService.ACTION_STOP));
+            focusSafeDefault();
+        });
+        confirmBtn.setBackground(dangerBtnBg());
+        confirmBtn.setTextColor(Color.parseColor("#FFD6D6"));
+        confirmBtn.setPadding(30, 12, 30, 12);
+        LinearLayout.LayoutParams cLp = (LinearLayout.LayoutParams) confirmBtn.getLayoutParams();
+        cLp.setMargins(0, 0, 0, 0);
+        confirmBtn.setLayoutParams(cLp);
+
+        actions.addView(cancelBtn);
+        actions.addView(confirmBtn);
+        box.addView(actions);
+
+        dialog.setContentView(box);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(
+                    Math.round(520 * getResources().getDisplayMetrics().density),
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
         }
+        dialog.setOnCancelListener(d -> focusSafeDefault());
+        dialog.show();
+        cancelBtn.post(cancelBtn::requestFocus);
     }
 
     private void startAgentService(Intent extraIntent) {
