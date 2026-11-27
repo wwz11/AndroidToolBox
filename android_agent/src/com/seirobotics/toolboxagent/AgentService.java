@@ -233,6 +233,7 @@ public class AgentService extends Service {
                 broadcastStateChanged();
                 return;
             }
+            launchMainUi();
             if (bootId.equals(st.optString("last_boot_id"))) {
                 AgentStore.saveState(this, st);
                 broadcastStateChanged();
@@ -317,6 +318,16 @@ public class AgentService extends Service {
             }
         });
         mainHandler.postDelayed(pendingRebootTask, delaySec * 1000L);
+    }
+
+    private void launchMainUi() {
+        try {
+            Intent ui = new Intent(this, MainActivity.class);
+            ui.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(ui);
+        } catch (Exception ignored) {}
     }
 
     private void broadcastStateChanged() {
