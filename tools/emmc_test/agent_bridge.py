@@ -187,13 +187,31 @@ def sync_agent_on_reboot_start(
         return False
 
 
-def sync_agent_on_reboot_end(sn: str) -> None:
-    """PC 端 Reboot 测试结束时同步停止设备端 Agent 压测状态。"""
-    try:
-        if is_agent_installed(sn):
-            _run_adb(sn, ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER], timeout=8)
-    except Exception:
-        pass
+def sync_agent_on_reboot_end(sn: str, *, wait_sec: float = 60.0) -> bool:
+    """PC 端 Reboot 测试结束/用户点击停止时，同步停止设备端 Agent 压测状态。
+
+    若恰好在设备重启（ADB 离线）瞬间点击停止，会在 wait_sec 内等待 ADB 恢复并下发 ACTION_STOP，
+    避免设备开机后继续自主重启。
+    """
+    deadline = time.monotonic() + max(0.0, wait_sec)
+    while True:
+        try:
+            proc = _run_adb(
+                sn,
+                ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER],
+                timeout=8,
+            )
+            if proc.returncode == 0:
+                return True
+        except Exception:
+            pass
+        if time.monotonic() >= deadline:
+            return False
+        from tools.emmc_test.ota_v5 import reconnect_adb
+        from tools.adb_runtime import resolve_adb_exe
+
+        reconnect_adb(sn, resolve_adb_exe() or "adb")
+        time.sleep(2.0)
 
 
 _REBOOT_REQ_PATH = f"/sdcard/Android/data/{AGENT_PACKAGE}/files/reboot.req"
