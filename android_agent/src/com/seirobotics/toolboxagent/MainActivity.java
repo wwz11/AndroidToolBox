@@ -69,11 +69,19 @@ public class MainActivity extends Activity {
         }
         refreshUi();
         handler.postDelayed(ticker, 1000);
+        focusSafeDefault();
+    }
+
+    private void focusSafeDefault() {
+        if (logScroll != null) {
+            logScroll.post(logScroll::requestFocus);
+            return;
+        }
         focusFirstEnabled();
     }
 
     private void focusFirstEnabled() {
-        for (Button btn : new Button[]{stopBtn, localRunBtn, resetBtn, clearLogBtn}) {
+        for (Button btn : new Button[]{localRunBtn, resetBtn, clearLogBtn, stopBtn}) {
             if (btn != null && btn.isEnabled()) {
                 btn.post(btn::requestFocus);
                 return;
@@ -88,7 +96,7 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             if (getCurrentFocus() == null) {
-                focusFirstEnabled();
+                focusSafeDefault();
                 return true;
             }
             if (logScroll != null && logScroll.hasFocus()) {
@@ -275,7 +283,7 @@ public class MainActivity extends Activity {
         btn.setFocusable(enabled);
         btn.setAlpha(enabled ? 1.0f : 0.35f);
         if (wasFocused && !enabled) {
-            focusFirstEnabled();
+            focusSafeDefault();
         }
     }
 
