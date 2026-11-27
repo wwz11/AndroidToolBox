@@ -802,6 +802,18 @@ export default function EmmcPanel({
     }
   }
 
+  useEffect(() => {
+    if (!active || !snOk) {
+      setAgentStatus(null);
+      return;
+    }
+    void refreshAgentStatus(true);
+    const timer = window.setInterval(() => {
+      void refreshAgentStatus(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [active, snOk, deviceSn]);
+
   async function refreshAgentStatus(silent = false) {
     if (!snOk) return;
     if (!silent) setAgentBusy(true);

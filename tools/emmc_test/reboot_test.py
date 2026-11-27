@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from tools.adb_runtime import resolve_adb_exe
+from tools.emmc_test.agent_bridge import sync_agent_on_reboot_end, sync_agent_on_reboot_start
 from tools.emmc_test.ota_v5 import _decode_output, _run_adb_argv, is_tcp_serial, reconnect_adb, wait_for_boot
 
 LogFn = Callable[[str], None]
@@ -422,6 +423,15 @@ class RebootTestRunner:
             )
             return success, fail, stop_reason, duration_hours, self.anomaly_count
 
+        agent_linked = sync_agent_on_reboot_start(
+            self.device_sn,
+            mode="count" if count_mode else "hours",
+            target_count=target_count if count_mode else 10,
+            run_hours=self.cfg.run_hours,
+        )
+        if agent_linked:
+            self.log("INFO 已联动设备端 ToolboxAgent（开机保活 + 电视端实时进度同步）")
+
         # 基线：记录测试前原因（不计入异常）
         try:
             baseline = self.collect_reboot_reason()
@@ -535,6 +545,8 @@ class RebootTestRunner:
                 f"已运行 {elapsed_min:.1f} 分钟）"
             )
 
+        if agent_linked:
+            sync_agent_on_reboot_end(self.device_sn)
         duration_hours = (time.monotonic() - start) / 3600.0
         if not stop_reason:
             stop_reason = "测试结束"

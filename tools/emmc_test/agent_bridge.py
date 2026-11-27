@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +85,7 @@ def install_and_init_agent(sn: str, *, base_dir: Path | None = None) -> dict[str
     _run_adb(sn, ["shell", "dumpsys", "deviceidle", "whitelist", f"+{AGENT_PACKAGE}"], timeout=10)
     _run_adb(sn, ["shell", "cmd", "appops", "set", AGENT_PACKAGE, "RUN_IN_BACKGROUND", "allow"], timeout=10)
     _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
+    time.sleep(1.0)
     return {"ok": True, "apk": str(apk), "status": get_agent_status(sn)}
 
 
@@ -152,3 +154,36 @@ def reset_agent_state(sn: str) -> dict[str, Any]:
         return {"ok": True, "status": {"installed": False, "state": "NOT_INSTALLED"}}
     _run_adb(sn, ["shell", "am", "broadcast", "-a", ACTION_RESET, "-n", AGENT_RECEIVER], timeout=10)
     return {"ok": True, "status": get_agent_status(sn)}
+
+
+def sync_agent_on_reboot_start(
+    sn: str,
+    *,
+    mode: str,
+    target_count: int,
+    run_hours: float,
+    stable_sec: int = 15,
+) -> bool:
+    """若设备已安装 ToolboxAgent，同步启动设备端状态记录与电视端展示。"""
+    try:
+        if not is_agent_installed(sn):
+            return False
+        start_agent_reboot(
+            sn,
+            mode=mode,
+            target_count=target_count,
+            run_hours=run_hours,
+            stable_sec=stable_sec,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def sync_agent_on_reboot_end(sn: str) -> None:
+    """PC 端 Reboot 测试结束时同步停止设备端 Agent 压测状态。"""
+    try:
+        if is_agent_installed(sn):
+            _run_adb(sn, ["shell", "am", "broadcast", "-a", ACTION_STOP, "-n", AGENT_RECEIVER], timeout=8)
+    except Exception:
+        pass
