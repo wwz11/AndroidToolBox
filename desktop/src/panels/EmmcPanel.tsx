@@ -637,6 +637,13 @@ export default function EmmcPanel({
     setHeaderErr("");
     setHeaderBusy(true);
     const shouldStart = headerStartPending;
+    if (shouldStart) {
+      setHeaderOpen(false);
+      setHeaderStartPending(false);
+      setStarting(true);
+      setStatus("正在保存报告头部并开始测试...");
+      toast.push("正在开始测试，请稍候...", "info");
+    }
     try {
       const { flow_no: _omit, ...metaFields } = headerDraft;
       const r = await api.emmcSaveReportHeader({
@@ -655,7 +662,7 @@ export default function EmmcPanel({
       setHeaderOpen(false);
       setHeaderStartPending(false);
       setAbUpgrade(Boolean(headerDraft.ab_upgrade));
-      setStatus(r.message);
+      setStatus(shouldStart ? "报告头部已保存，正在启动测试..." : r.message);
       setLogs((prev) => [...prev, `INFO ${r.message}`]);
       if (shouldStart) {
         await executeStart(flow, Boolean(headerDraft.ab_upgrade));
@@ -664,6 +671,12 @@ export default function EmmcPanel({
       const msg = `保存报告表头失败：${toErrorMessage(e)}`;
       setHeaderErr(msg);
       setStatus(msg);
+      toast.push(msg, "err");
+      if (shouldStart) {
+        setStarting(false);
+        setHeaderStartPending(true);
+        setHeaderOpen(true);
+      }
     } finally {
       setHeaderBusy(false);
     }
@@ -1941,7 +1954,13 @@ export default function EmmcPanel({
               loading={headerBusy}
               onClick={() => void saveHeader()}
             >
-              {headerStartPending ? "保存并开始测试" : "保存报告头部"}
+              {headerBusy
+                ? headerStartPending
+                  ? "正在开始测试..."
+                  : "保存中..."
+                : headerStartPending
+                  ? "保存并开始测试"
+                  : "保存报告头部"}
             </Button>
           </>
         }
