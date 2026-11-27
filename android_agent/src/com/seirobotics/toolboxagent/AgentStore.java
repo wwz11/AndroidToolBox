@@ -70,7 +70,7 @@ public final class AgentStore {
             o.put("mode", "count");
             o.put("target_count", 10);
             o.put("run_hours", 1.0);
-            o.put("stable_sec", 15);
+            o.put("stable_sec", 30);
             o.put("start_epoch_ms", 0L);
             o.put("accumulated_ms", 0L);
             o.put("boot_uptime_ms", 0L);

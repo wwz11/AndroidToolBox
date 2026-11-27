@@ -1071,7 +1071,7 @@ class AgentStartBody(BaseModel):
     mode: str = "count"
     target_count: int = 10
     run_hours: float = 1.0
-    stable_sec: int = 15
+    stable_sec: int = 30
 
 
 @router.get("/agent/status")

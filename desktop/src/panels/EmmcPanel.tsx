@@ -851,7 +851,7 @@ export default function EmmcPanel({
         mode: rebootMode,
         target_count: count,
         run_hours: hours,
-        stable_sec: 15,
+        stable_sec: 30,
       });
       setAgentStatus((r.status as typeof agentStatus) || null);
       toast.push("已下发设备端自主 Reboot 压测指令（断开 ADB 仍可继续）", "ok");

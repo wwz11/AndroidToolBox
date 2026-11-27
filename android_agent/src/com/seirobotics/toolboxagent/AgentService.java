@@ -62,7 +62,7 @@ public class AgentService extends Service {
             if (mode == null || mode.isEmpty()) mode = "count";
             int targetCount = intent.getIntExtra("target_count", 10);
             double runHours = intent.getDoubleExtra("run_hours", 1.0);
-            int stableSec = intent.getIntExtra("stable_sec", 15);
+            int stableSec = intent.getIntExtra("stable_sec", 30);
             startRebootTest(mode, targetCount, runHours, stableSec);
         } else if (ACTION_STOP.equals(action)) {
             stopStressTest("用户停止");
@@ -177,6 +177,7 @@ public class AgentService extends Service {
                 st.put("accumulated_ms", 0L);
                 st.put("boot_uptime_ms", SystemClock.elapsedRealtime());
                 st.put("last_boot_id", DeviceProbe.getBootId());
+                st.put("last_boot_reason", DeviceProbe.getBootReason());
                 st.put("can_self_reboot", canReboot);
                 st.put("waiting_pc_reboot", false);
                 st.put("ip", DeviceProbe.getLocalIpv4());
@@ -241,7 +242,7 @@ public class AgentService extends Service {
                 AgentStore.saveState(this, st);
                 broadcastStateChanged();
                 if (pendingRebootTask == null && !st.optBoolean("waiting_pc_reboot", false)) {
-                    int stableSec = Math.max(5, st.optInt("stable_sec", 15));
+                    int stableSec = Math.max(5, st.optInt("stable_sec", 30));
                     AgentStore.appendLog(this, "服务被重新拉起，恢复下一次重启调度...");
                     scheduleNextReboot(stableSec);
                 }
@@ -301,7 +302,7 @@ public class AgentService extends Service {
 
             AgentStore.saveState(this, st);
             broadcastStateChanged();
-            int stableSec = Math.max(5, st.optInt("stable_sec", 15));
+            int stableSec = Math.max(5, st.optInt("stable_sec", 30));
             scheduleNextReboot(stableSec);
         } catch (Exception ignored) {}
     }
@@ -410,7 +411,7 @@ public class AgentService extends Service {
                         req.optString("mode", "count"),
                         req.optInt("target_count", 10),
                         req.optDouble("run_hours", 1.0),
-                        req.optInt("stable_sec", 15));
+                        req.optInt("stable_sec", 30));
                 respBody = "{\"ok\":true}";
             } else if ("POST".equals(method) && path.startsWith("/stop")) {
                 stopStressTest("PC端请求停止");

@@ -54,11 +54,14 @@ public final class DeviceProbe {
     }
 
     public static String getBootReason() {
-        String r = getProp("sys.boot.reason");
-        if (!r.isEmpty()) return r;
-        r = getProp("ro.boot.bootreason");
-        if (!r.isEmpty()) return r;
-        return getProp("persist.sys.boot.reason");
+        String sys = getProp("sys.boot.reason").replaceAll(",+$", "").trim();
+        String ro = getProp("ro.boot.bootreason").replaceAll(",+$", "").trim();
+        if (sys.isEmpty()) sys = getProp("sys.boot.reason.last").replaceAll(",+$", "").trim();
+        if (sys.isEmpty()) sys = getProp("persist.sys.boot.reason").replaceAll(",+$", "").trim();
+        if (!sys.isEmpty() && !ro.isEmpty() && !sys.equalsIgnoreCase(ro)) {
+            return sys + " (" + ro + ")";
+        }
+        return !sys.isEmpty() ? sys : ro;
     }
 
     public static String scanPstoreAnomaly() {

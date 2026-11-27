@@ -122,7 +122,7 @@ def start_agent_reboot(
     mode: str = "count",
     target_count: int = 10,
     run_hours: float = 1.0,
-    stable_sec: int = 15,
+    stable_sec: int = 30,
 ) -> dict[str, Any]:
     if not is_agent_installed(sn):
         install_and_init_agent(sn)
@@ -170,7 +170,7 @@ def sync_agent_on_reboot_start(
     mode: str,
     target_count: int,
     run_hours: float,
-    stable_sec: int = 15,
+    stable_sec: int = 30,
 ) -> bool:
     """若设备已安装 ToolboxAgent，同步启动设备端状态记录与电视端展示。"""
     try:
