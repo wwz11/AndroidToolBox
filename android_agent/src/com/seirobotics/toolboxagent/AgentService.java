@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.wifi.WifiManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -60,7 +61,7 @@ public class AgentService extends Service {
             String mode = intent.getStringExtra("mode");
             if (mode == null || mode.isEmpty()) mode = "count";
             int targetCount = intent.getIntExtra("target_count", 10);
-            double runHours = intent.getDoubleExtra("run_hours", 1.0);
+            double runHours = readDoubleExtra(intent, "run_hours", 1.0);
             int stableSec = intent.getIntExtra("stable_sec", 30);
             startRebootTest(mode, targetCount, runHours, stableSec);
         } else if (ACTION_STOP.equals(action)) {
@@ -73,6 +74,20 @@ public class AgentService extends Service {
             stateWorker.execute(this::refreshCapabilities);
         }
         return START_STICKY;
+    }
+
+    private static double readDoubleExtra(Intent intent, String key, double fallback) {
+        if (intent == null) return fallback;
+        Bundle extras = intent.getExtras();
+        if (extras == null || !extras.containsKey(key)) return fallback;
+        Object val = extras.get(key);
+        if (val instanceof Number) return ((Number) val).doubleValue();
+        if (val instanceof String) {
+            try {
+                return Double.parseDouble(((String) val).trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return fallback;
     }
 
     @Override
@@ -166,7 +181,7 @@ public class AgentService extends Service {
                 st.put("state", AgentStore.STATE_RUNNING);
                 st.put("mode", "hours".equalsIgnoreCase(mode) ? "hours" : "count");
                 st.put("target_count", Math.max(1, targetCount));
-                st.put("run_hours", Math.max(0.05, runHours));
+                st.put("run_hours", Math.max(1.0 / 60.0, runHours));
                 st.put("stable_sec", Math.max(5, stableSec));
                 st.put("start_epoch_ms", System.currentTimeMillis());
                 st.put("accumulated_ms", 0L);

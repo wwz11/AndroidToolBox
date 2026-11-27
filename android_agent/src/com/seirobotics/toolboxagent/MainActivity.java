@@ -339,13 +339,26 @@ public class MainActivity extends Activity {
                         ? Math.max(0L, SystemClock.elapsedRealtime() - bootUp)
                         : 0L;
                 double totalHours = (accMs + liveDelta) / 3600_000.0;
-                summaryView.setText(String.format(
-                        Locale.US,
-                        "按时长压测 · %.2f / %s 小时（已完成 %d 次）",
-                        totalHours,
-                        runHours == Math.rint(runHours) ? String.valueOf((long) runHours) : String.valueOf(runHours),
-                        curRound
-                ));
+                if (runHours < 1.0) {
+                    double totalMin = totalHours * 60.0;
+                    double targetMin = Math.round(runHours * 600.0) / 10.0;
+                    summaryView.setText(String.format(
+                            Locale.US,
+                            "按时长压测 · %.1f / %s 分钟（已完成 %d 次）",
+                            totalMin,
+                            targetMin == Math.rint(targetMin) ? String.valueOf((long) targetMin) : String.valueOf(targetMin),
+                            curRound
+                    ));
+                } else {
+                    double roundedHours = Math.round(runHours * 100.0) / 100.0;
+                    summaryView.setText(String.format(
+                            Locale.US,
+                            "按时长压测 · %.2f / %s 小时（已完成 %d 次）",
+                            totalHours,
+                            roundedHours == Math.rint(roundedHours) ? String.valueOf((long) roundedHours) : String.valueOf(roundedHours),
+                            curRound
+                    ));
+                }
             } else {
                 int target = st.optInt("target_count", 10);
                 summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", curRound, target));
