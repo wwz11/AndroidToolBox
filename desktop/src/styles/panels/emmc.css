@@ -834,6 +834,36 @@
   overflow: auto;
 }
 
+.emmc-log-search {
+  width: 128px;
+  height: 28px;
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+.emmc-log-line {
+  display: inline;
+}
+
+.emmc-log-line.is-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.emmc-log-line.is-warn {
+  color: var(--warn-text);
+}
+
+.emmc-log-line.is-highlight {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.emmc-log-line.is-debug {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
 .emmc-log-badge {
   max-width: 100%;
   overflow: hidden;

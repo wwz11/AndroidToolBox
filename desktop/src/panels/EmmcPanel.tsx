@@ -23,6 +23,26 @@ type Props = {
 
 type Step = { id: string; label: string };
 type TimeUnit = "minutes" | "hours";
+type LogLevelFilter = "all" | "warn" | "error";
+
+function classifyLogLine(line: string): string {
+  if (
+    /\bERROR\b/.test(line) ||
+    /异常重启|判定失败|fail\b|失败\s*(?:[:：]|\d+)/i.test(line)
+  ) {
+    return "is-error";
+  }
+  if (/\bWARNING\b|收到停止请求|提前结束|跳过/.test(line)) {
+    return "is-warn";
+  }
+  if (/──\s*(?:开始|结束)|测试完成|Pass\b|已达设定/.test(line)) {
+    return "is-highlight";
+  }
+  if (/\bDEBUG\b/.test(line)) {
+    return "is-debug";
+  }
+  return "";
+}
 
 function formatConvertedTime(val: number): string {
   if (!Number.isFinite(val) || val < 0) return "";
@@ -192,8 +212,10 @@ export default function EmmcPanel({
   const [currentStep, setCurrentStep] = useState("");
   const [stepsDone, setStepsDone] = useState(0);
   const [stepsTotal, setStepsTotal] = useState(0);
+  const [logLevelFilter, setLogLevelFilter] = useState<LogLevelFilter>("all");
+  const [logQuery, setLogQuery] = useState("");
   const logCursorRef = useRef(0);
-  const logText = useMemo(() => {
+  const logLines = useMemo(() => {
     const out: string[] = [];
     let suppressIozoneExtraRound = false;
     let iozoneRateSeen = false;
@@ -226,8 +248,23 @@ export default function EmmcPanel({
           .replace(/平均\s*write_rate/g, "write_rate"),
       );
     }
-    return out.join("\n");
+    return out;
   }, [logs]);
+  const filteredLogLines = useMemo(() => {
+    const q = logQuery.trim().toLowerCase();
+    return logLines.filter((line) => {
+      if (logLevelFilter !== "all") {
+        const cls = classifyLogLine(line);
+        if (logLevelFilter === "error" && cls !== "is-error") return false;
+        if (logLevelFilter === "warn" && cls !== "is-error" && cls !== "is-warn") {
+          return false;
+        }
+      }
+      if (q && !line.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [logLines, logLevelFilter, logQuery]);
+  const logText = useMemo(() => filteredLogLines.join("\n"), [filteredLogLines]);
   const logScroll = useStickyLogScroll(logText);
 
   const snOk = Boolean(deviceSn) && !browseOnly && deviceOnline;
@@ -384,7 +421,7 @@ export default function EmmcPanel({
           if (incoming.length > 0) {
             setLogs((prev) => {
               const merged = prev.concat(incoming);
-              return merged.length > 400 ? merged.slice(-400) : merged;
+              return merged.length > 1000 ? merged.slice(-1000) : merged;
             });
           }
         } else {
@@ -1995,11 +2032,51 @@ export default function EmmcPanel({
                 <span className="emmc-log-badge is-running">
                   {currentLabel ? `进行中 · ${currentLabel}` : "运行中"}
                 </span>
-              ) : logs.length ? (
-                <span className="emmc-log-badge">{logs.length} 行</span>
+              ) : logLines.length ? (
+                <span className="emmc-log-badge">
+                  {logLevelFilter !== "all" || logQuery.trim()
+                    ? `${filteredLogLines.length}/${logLines.length} 行`
+                    : `${logLines.length} 行`}
+                </span>
               ) : null}
             </div>
             <div className="emmc-log-head-actions">
+              <div className="emmc-unit-toggle" role="group" aria-label="日志级别筛选">
+                {(
+                  [
+                    ["all", "全部"],
+                    ["warn", "告警+错误"],
+                    ["error", "仅错误"],
+                  ] as const
+                ).map(([lvl, text]) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    className={`emmc-unit-btn${logLevelFilter === lvl ? " is-active" : ""}`}
+                    onClick={() => setLogLevelFilter(lvl)}
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+              <input
+                className="field emmc-log-search"
+                value={logQuery}
+                onChange={(e) => setLogQuery(e.target.value)}
+                placeholder="筛选关键字…"
+                aria-label="筛选运行日志"
+              />
+              <Button
+                disabled={!filteredLogLines.length}
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(logText)
+                    .then(() => toast.push("已复制当前显示日志", "ok"))
+                    .catch(() => toast.push("复制失败", "err"));
+                }}
+              >
+                复制
+              </Button>
               <Button
                 className={logScroll.follow ? "on" : ""}
                 title={
@@ -2014,27 +2091,53 @@ export default function EmmcPanel({
               >
                 {logScroll.follow ? "跟随" : "停随"}
               </Button>
-              <Button disabled={!logs.length} onClick={() => setLogs([])}>
+              <Button
+                disabled={!logs.length}
+                onClick={() => {
+                  setLogs([]);
+                  setLogQuery("");
+                  setLogLevelFilter("all");
+                }}
+              >
                 清空
               </Button>
             </div>
           </div>
-          {logText ? (
+          {filteredLogLines.length ? (
             <pre
               className="log emmc-log"
               ref={logScroll.ref}
               onScroll={logScroll.onScroll}
             >
-              {logText}
+              {filteredLogLines.map((line, i) => {
+                const cls = classifyLogLine(line);
+                return (
+                  <span
+                    key={i}
+                    className={`emmc-log-line${cls ? ` ${cls}` : ""}`}
+                  >
+                    {line}
+                    {"\n"}
+                  </span>
+                );
+              })}
             </pre>
           ) : (
             <div className="emmc-log-empty">
               <EmptyState
-                title={snOk ? "尚无测试日志" : "未绑定设备"}
+                title={
+                  logs.length
+                    ? "无匹配日志"
+                    : snOk
+                      ? "尚无测试日志"
+                      : "未绑定设备"
+                }
                 description={
-                  snOk
-                    ? "开始后在此显示 eMMC 日志。"
-                    : "打开设备标签后可启动测试。"
+                  logs.length
+                    ? "可清除关键字或切换为「全部」查看完整日志。"
+                    : snOk
+                      ? "开始后在此显示 eMMC 日志。"
+                      : "打开设备标签后可启动测试。"
                 }
               />
             </div>
