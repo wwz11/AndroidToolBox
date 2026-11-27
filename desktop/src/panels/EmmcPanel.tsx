@@ -758,10 +758,10 @@ export default function EmmcPanel({
     }
   }
 
-  async function loginTideOa() {
+  async function loginTideOa(): Promise<boolean> {
     if (!window.toolbox?.tideOaLogin) {
       toast.push("请在桌面端客户端中使用 Tide OA 自动扫码登录", "warn");
-      return;
+      return false;
     }
     setOaBusy(true);
     setStatus("请在弹出的 Tide OA 窗口完成飞书扫码登录...");
@@ -769,19 +769,22 @@ export default function EmmcPanel({
       const res = await window.toolbox.tideOaLogin();
       if (!res?.ok || !res.token) {
         setStatus(res?.message || "已取消 Tide OA 登录");
-        return;
+        return false;
       }
       const saved = await api.emmcTideOaSaveToken(res.token, res.wsid || "2");
-      setOaLoggedIn(Boolean(saved.logged_in));
+      const ok = Boolean(saved.logged_in);
+      setOaLoggedIn(ok);
       const name = saved.user_name || saved.email || "已登录";
       setOaUserName(name);
       const okMsg = `Tide OA 已登录：${name}`;
       setStatus(okMsg);
       toast.push(okMsg, "ok");
+      return ok;
     } catch (e) {
       const msg = `Tide OA 登录失败：${toErrorMessage(e)}`;
       setStatus(msg);
       toast.push(msg, "err");
+      return false;
     } finally {
       setOaBusy(false);
     }
@@ -842,16 +845,27 @@ export default function EmmcPanel({
     }
   }
 
-  async function pullHeaderFromOa(flowRaw?: string) {
+  useEffect(() => {
+    if (
+      headerOpen &&
+      oaLoggedIn &&
+      headerDraft.flow_no.trim() &&
+      !headerDraft.import_project.trim() &&
+      !oaBusy
+    ) {
+      void pullHeaderFromOa(headerDraft.flow_no, true);
+    }
+  }, [headerOpen, oaLoggedIn]);
+
+  async function pullHeaderFromOa(flowRaw?: string, forceOaReady = false) {
     const flow = (flowRaw ?? headerDraft.flow_no).trim();
     if (!flow) {
       toast.push("请先填写流程号", "warn");
       return;
     }
-    if (!oaLoggedIn) {
-      toast.push("请先登录 Tide OA", "warn");
-      void loginTideOa();
-      return;
+    if (!oaLoggedIn && !forceOaReady) {
+      const ok = await loginTideOa();
+      if (!ok) return;
     }
     setOaBusy(true);
     setHeaderErr("");
