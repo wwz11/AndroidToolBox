@@ -309,3 +309,29 @@ def ensure_agent_alive(sn: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def capture_agent_screenshot(
+    sn: str,
+    *,
+    base_dir: Path | None = None,
+    name_prefix: str = "reboot_apk",
+) -> Path | None:
+    """将设备端 ToolboxAgent 页面拉到前台并截取屏幕 PNG 保存，失败时返回 None。"""
+    if not sn or not is_agent_installed(sn):
+        return None
+    try:
+        _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
+        time.sleep(0.8)
+        from tools.emmc_test.report_template import _screenshot_dir
+        from tools.screenshot.core import capture_adb_screen_png_bytes
+
+        png_bytes, _, _ = capture_adb_screen_png_bytes(sn, fast=False)
+        if not png_bytes:
+            return None
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        out = _screenshot_dir(base_dir) / f"{name_prefix}_{ts}.png"
+        out.write_bytes(png_bytes)
+        return out
+    except Exception:
+        return None

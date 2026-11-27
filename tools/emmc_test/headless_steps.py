@@ -1085,12 +1085,25 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
         passed = result == "PASS"
         screenshot_path: Path | None = None
         try:
-            text = session.read_all().strip()
-            if text:
-                screenshot_path = save_log_text_as_png(text, base_dir=env.base_dir, name_prefix="reboot_log")
-                log(f"INFO 测试日志图片: {screenshot_path.resolve()}")
+            from tools.emmc_test.agent_bridge import capture_agent_screenshot
+
+            screenshot_path = capture_agent_screenshot(
+                env.sn, base_dir=env.base_dir, name_prefix="reboot_apk"
+            )
+            if screenshot_path is not None:
+                log(f"INFO APK 页面截图: {screenshot_path.resolve()}")
         except Exception as exc:
-            log(f"WARNING 生成测试日志图片失败: {exc}")
+            log(f"WARNING 截取设备端 APK 页面失败: {exc}")
+        if screenshot_path is None:
+            try:
+                text = session.read_all().strip()
+                if text:
+                    screenshot_path = save_log_text_as_png(
+                        text, base_dir=env.base_dir, name_prefix="reboot_log"
+                    )
+                    log(f"INFO 测试日志图片: {screenshot_path.resolve()}")
+            except Exception as exc:
+                log(f"WARNING 生成测试日志图片失败: {exc}")
         log_hours = session.elapsed_minutes() / 60.0
         if log_hours > duration_hours:
             duration_hours = log_hours
