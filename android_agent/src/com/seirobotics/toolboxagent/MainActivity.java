@@ -302,7 +302,11 @@ public class MainActivity extends Activity {
         ScrollView scroll = logScroll;
         scroll.setFocusable(true);
         scroll.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus && logScrollUnlocked) {
+            if (hasFocus) {
+                if (!logScrollUnlocked) {
+                    showHintToast("按 OK 键才可上下移动日志");
+                }
+            } else if (logScrollUnlocked) {
                 setLogScrollUnlocked(false, false);
             }
         });
