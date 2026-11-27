@@ -15,7 +15,6 @@ from typing import Callable
 from tools.adb_runtime import resolve_adb_exe
 from tools.emmc_test.agent_bridge import (
     ensure_agent_alive,
-    ensure_device_reboot_daemon,
     find_agent_apk,
     install_and_init_agent,
     is_agent_installed,
@@ -456,8 +455,7 @@ class RebootTestRunner:
                 agent_fallback_reason = "设备端 ToolboxAgent 未响应或状态未就绪"
 
         if agent_linked:
-            ensure_device_reboot_daemon(self.device_sn)
-            self.log("INFO 已启用默认方案：APK + PC 联动 Reboot 压测（每次重启由设备端 APK 发起，ADB 断连最长重试 10 分钟）")
+            self.log("INFO 已启用默认方案：APK + PC 联动 Reboot 压测（所有重启完全由设备端 APK 发起，PC 仅同步进度，ADB 断连最长重试 10 分钟）")
             return self._run_agent_driven_loop(
                 start=start,
                 count_mode=count_mode,
@@ -615,7 +613,6 @@ class RebootTestRunner:
         last_offline_warn = 0.0
         last_reconnect_try = 0.0
         last_alive_check = 0.0
-        waiting_reboot_since: float | None = None
         stop_reason = ""
 
         if count_mode:
@@ -659,8 +656,6 @@ class RebootTestRunner:
             boot_id = str(st.get("last_boot_id") or "")
             if boot_id and boot_id != last_boot_id:
                 last_boot_id = boot_id
-                ensure_device_reboot_daemon(self.device_sn)
-                waiting_reboot_since = None
 
             agent_state = str(st.get("state") or "")
             cur_round = int(st.get("current_round") or 0)
@@ -711,16 +706,12 @@ class RebootTestRunner:
                 if ensure_agent_alive(self.device_sn):
                     self.log("WARNING 检测到设备端 APK 进程未运行，已通过 ADB 自动重新拉起")
 
-            # 若设备端已发起 reboot.req 但守护尚未消费（如刚开机或被系统限制），3秒后由 PC ADB 辅助触发
             if st.get("waiting_pc_reboot"):
-                if waiting_reboot_since is None:
-                    waiting_reboot_since = now
-                elif now - waiting_reboot_since >= 3.0:
-                    waiting_reboot_since = now
-                    ensure_device_reboot_daemon(self.device_sn)
-                    self._reboot_cmd_sent()
-            else:
-                waiting_reboot_since = None
+                fail += 1
+                stop_reason = "设备端 APK 无自主重启权限（本机 5555/su 均不可用）"
+                self.log(f"ERROR {stop_reason}")
+                sync_agent_on_reboot_end(self.device_sn)
+                break
 
             if not _sleep_with_stop(2.0, self.stop):
                 stop_reason = "用户停止"
