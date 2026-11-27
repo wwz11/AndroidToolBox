@@ -250,6 +250,16 @@ export default function EmmcPanel({
     }
     return out;
   }, [logs]);
+  const logCounts = useMemo(() => {
+    let errors = 0;
+    let warns = 0;
+    for (const line of logLines) {
+      const cls = classifyLogLine(line);
+      if (cls === "is-error") errors += 1;
+      else if (cls === "is-warn") warns += 1;
+    }
+    return { errors, warns };
+  }, [logLines]);
   const filteredLogLines = useMemo(() => {
     const q = logQuery.trim().toLowerCase();
     return logLines.filter((line) => {
@@ -2039,9 +2049,37 @@ export default function EmmcPanel({
                     : `${logLines.length} 行`}
                 </span>
               ) : null}
+              {logCounts.errors > 0 ? (
+                <button
+                  type="button"
+                  className={`emmc-log-badge is-err-pill${logLevelFilter === "error" ? " is-active" : ""}`}
+                  title="点击仅看错误日志"
+                  onClick={() =>
+                    setLogLevelFilter((prev) =>
+                      prev === "error" ? "all" : "error",
+                    )
+                  }
+                >
+                  错误 {logCounts.errors}
+                </button>
+              ) : null}
+              {logCounts.warns > 0 ? (
+                <button
+                  type="button"
+                  className={`emmc-log-badge is-warn-pill${logLevelFilter === "warn" ? " is-active" : ""}`}
+                  title="点击查看告警与错误"
+                  onClick={() =>
+                    setLogLevelFilter((prev) =>
+                      prev === "warn" ? "all" : "warn",
+                    )
+                  }
+                >
+                  告警 {logCounts.warns}
+                </button>
+              ) : null}
             </div>
             <div className="emmc-log-head-actions">
-              <div className="emmc-unit-toggle" role="group" aria-label="日志级别筛选">
+              <div className="emmc-unit-toggle is-compact" role="group" aria-label="日志级别筛选">
                 {(
                   [
                     ["all", "全部"],
@@ -2059,13 +2097,25 @@ export default function EmmcPanel({
                   </button>
                 ))}
               </div>
-              <input
-                className="field emmc-log-search"
-                value={logQuery}
-                onChange={(e) => setLogQuery(e.target.value)}
-                placeholder="筛选关键字…"
-                aria-label="筛选运行日志"
-              />
+              <div className="emmc-log-search-wrap">
+                <input
+                  className="field emmc-log-search"
+                  value={logQuery}
+                  onChange={(e) => setLogQuery(e.target.value)}
+                  placeholder="筛选关键字…"
+                  aria-label="筛选运行日志"
+                />
+                {logQuery ? (
+                  <button
+                    type="button"
+                    className="emmc-log-search-clear"
+                    aria-label="清除搜索"
+                    onClick={() => setLogQuery("")}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
               <Button
                 disabled={!filteredLogLines.length}
                 onClick={() => {
@@ -2089,7 +2139,7 @@ export default function EmmcPanel({
                   else logScroll.scrollToBottom();
                 }}
               >
-                {logScroll.follow ? "跟随" : "停随"}
+                {logScroll.follow ? "跟随" : "回到底部"}
               </Button>
               <Button
                 disabled={!logs.length}
@@ -2117,7 +2167,6 @@ export default function EmmcPanel({
                     className={`emmc-log-line${cls ? ` ${cls}` : ""}`}
                   >
                     {line}
-                    {"\n"}
                   </span>
                 );
               })}

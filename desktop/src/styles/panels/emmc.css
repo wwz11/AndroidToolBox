@@ -834,20 +834,80 @@
   overflow: auto;
 }
 
+.emmc-unit-toggle.is-compact {
+  height: 28px;
+}
+
+.emmc-unit-toggle.is-compact .emmc-unit-btn {
+  height: 22px;
+}
+
+.emmc-log-badge.is-err-pill {
+  cursor: pointer;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.emmc-log-badge.is-warn-pill {
+  cursor: pointer;
+  color: var(--warn-text);
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 40%, var(--border));
+}
+
+.emmc-log-badge.is-err-pill.is-active,
+.emmc-log-badge.is-warn-pill.is-active {
+  box-shadow: 0 0 0 1px currentColor;
+}
+
+.emmc-log-search-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .emmc-log-search {
-  width: 128px;
+  width: 132px;
   height: 28px;
   font-size: 12px;
-  padding: 0 8px;
+  padding: 0 22px 0 8px;
+}
+
+.emmc-log-search-clear {
+  position: absolute;
+  right: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.emmc-log-search-clear:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .emmc-log-line {
-  display: inline;
+  display: block;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.emmc-log-line:hover {
+  background: color-mix(in srgb, var(--surface-2) 65%, transparent);
 }
 
 .emmc-log-line.is-error {
   color: var(--danger);
   font-weight: 600;
+  background: color-mix(in srgb, var(--danger-soft) 55%, transparent);
 }
 
 .emmc-log-line.is-warn {
