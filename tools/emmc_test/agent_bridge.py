@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import time
@@ -17,6 +18,7 @@ AGENT_MAIN_ACTIVITY = f"{AGENT_PACKAGE}/.MainActivity"
 AGENT_RECEIVER = f"{AGENT_PACKAGE}/.CommandReceiver"
 AGENT_STATE_PATH = f"/sdcard/Android/data/{AGENT_PACKAGE}/files/state.json"
 AGENT_LOG_PATH = f"/sdcard/Android/data/{AGENT_PACKAGE}/files/agent.log"
+AGENT_APK_HASH_PATH = f"/sdcard/Android/data/{AGENT_PACKAGE}/files/apk.sha256"
 
 ACTION_START_REBOOT = f"{AGENT_PACKAGE}.ACTION_START_REBOOT"
 ACTION_STOP = f"{AGENT_PACKAGE}.ACTION_STOP"
@@ -65,6 +67,26 @@ def is_agent_installed(sn: str) -> bool:
         return False
 
 
+def _local_apk_sha256(apk: Path) -> str:
+    return hashlib.sha256(apk.read_bytes()).hexdigest()[:16]
+
+
+def _needs_agent_install(sn: str, *, base_dir: Path | None = None) -> bool:
+    if not is_agent_installed(sn):
+        return True
+    apk = find_agent_apk(base_dir)
+    if not apk:
+        return False
+    expected = _local_apk_sha256(apk)
+    try:
+        proc = _run_adb(sn, ["shell", "cat", AGENT_APK_HASH_PATH], timeout=8)
+        if proc.returncode != 0:
+            return True
+        return _out_text(proc) != expected
+    except Exception:
+        return False
+
+
 def install_and_init_agent(sn: str, *, base_dir: Path | None = None) -> dict[str, Any]:
     apk = find_agent_apk(base_dir)
     if not apk:
@@ -87,6 +109,15 @@ def install_and_init_agent(sn: str, *, base_dir: Path | None = None) -> dict[str
     _run_adb(sn, ["shell", "cmd", "appops", "set", AGENT_PACKAGE, "SYSTEM_ALERT_WINDOW", "allow"], timeout=10)
     _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
     time.sleep(1.0)
+    try:
+        expected = _local_apk_sha256(apk)
+        _run_adb(
+            sn,
+            ["shell", f"mkdir -p /sdcard/Android/data/{AGENT_PACKAGE}/files && printf '%s' '{expected}' > {AGENT_APK_HASH_PATH}"],
+            timeout=8,
+        )
+    except Exception:
+        pass
     return {"ok": True, "apk": str(apk), "status": get_agent_status(sn)}
 
 
@@ -123,7 +154,7 @@ def start_agent_reboot(
     run_hours: float = 1.0,
     stable_sec: int = 30,
 ) -> dict[str, Any]:
-    if not is_agent_installed(sn):
+    if _needs_agent_install(sn):
         install_and_init_agent(sn)
     # 先确保 Activity/Service 激活
     _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
