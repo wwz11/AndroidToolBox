@@ -434,15 +434,18 @@ class RebootTestRunner:
 
         agent_linked = False
         agent_fallback_reason = ""
-        if not is_agent_installed(self.device_sn):
-            if find_agent_apk() is None:
+        if find_agent_apk() is None:
+            if not is_agent_installed(self.device_sn):
                 agent_fallback_reason = "未找到 ToolboxAgent.apk"
-            else:
-                try:
-                    self.log("INFO 未检测到设备端 ToolboxAgent，正在自动安装并激活...")
-                    install_and_init_agent(self.device_sn)
-                except Exception as exc:
+        else:
+            try:
+                self.log("INFO 正在自动安装并激活设备端 ToolboxAgent...")
+                install_and_init_agent(self.device_sn)
+            except Exception as exc:
+                if not is_agent_installed(self.device_sn):
                     agent_fallback_reason = f"自动安装/激活失败: {exc}"
+                else:
+                    self.log(f"WARNING 更新 ToolboxAgent 失败，将使用设备已有版本: {exc}")
 
         if not agent_fallback_reason:
             agent_linked = sync_agent_on_reboot_start(
