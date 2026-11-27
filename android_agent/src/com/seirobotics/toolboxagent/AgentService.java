@@ -222,6 +222,20 @@ public class AgentService extends Service {
                 st.put("waiting_pc_reboot", false);
                 st.put("next_reboot_uptime_ms", 0L);
                 st.put("stop_reason", reason);
+                if (completed) {
+                    st.put("boot_uptime_ms", 0L);
+                    if ("hours".equalsIgnoreCase(st.optString("mode", "count"))) {
+                        long targetMs = Math.round(st.optDouble("run_hours", 1.0) * 3600_000.0);
+                        if (st.optLong("accumulated_ms", 0L) < targetMs) {
+                            st.put("accumulated_ms", targetMs);
+                        }
+                    } else {
+                        int target = st.optInt("target_count", 10);
+                        if (st.optInt("current_round", 0) < target) {
+                            st.put("current_round", target);
+                        }
+                    }
+                }
                 AgentStore.saveState(this, st);
                 AgentStore.appendLog(this, (completed ? "压测已完成: " : "停止压测: ") + reason);
             } catch (Exception ignored) {}

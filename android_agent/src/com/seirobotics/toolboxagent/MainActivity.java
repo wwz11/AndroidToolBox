@@ -451,7 +451,7 @@ public class MainActivity extends Activity {
 
     private String stateLabel(String st) {
         if (AgentStore.STATE_RUNNING.equals(st)) return "● 压测运行中";
-        if (AgentStore.STATE_COMPLETED.equals(st)) return "✓ 压测已完成";
+        if (AgentStore.STATE_COMPLETED.equals(st)) return "✓ 压测 PASS";
         if (AgentStore.STATE_FAILED.equals(st)) return "✕ 异常失败";
         if (AgentStore.STATE_STOPPED.equals(st)) return "■ 已停止";
         return "○ 未开始测试";
@@ -498,9 +498,11 @@ public class MainActivity extends Activity {
             failCard.setStroke(3, Color.parseColor("#8F333B"));
             statusCard.setBackground(failCard);
         } else if (AgentStore.STATE_COMPLETED.equals(state)) {
-            badgeView.setTextColor(Color.parseColor("#7BC4FF"));
-            badgeView.setBackground(cardBg("#142A3E", "#2C5E8A"));
-            statusCard.setBackground(cardBg("#151C25", "#2C5E8A"));
+            badgeView.setTextColor(Color.parseColor("#5CE0A8"));
+            badgeView.setBackground(cardBg("#133326", "#2B7A59"));
+            GradientDrawable passCard = cardBg("#12211B", "#2B7A59");
+            passCard.setStroke(4, Color.parseColor("#2B7A59"));
+            statusCard.setBackground(passCard);
         } else {
             badgeView.setTextColor(Color.parseColor("#B8C4D4"));
             badgeView.setBackground(cardBg("#1D2530", "#384658"));
@@ -520,6 +522,7 @@ public class MainActivity extends Activity {
                     .append("    自主重启: ").append(selfReboot ? "支持" : "不支持").append("\n");
             d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason);
         } else {
+            boolean isCompleted = AgentStore.STATE_COMPLETED.equals(state);
             if ("hours".equals(mode)) {
                 double runHours = st.optDouble("run_hours", 1.0);
                 long accMs = st.optLong("accumulated_ms", 0L);
@@ -527,7 +530,9 @@ public class MainActivity extends Activity {
                 long liveDelta = (isRunning && bootUp > 0)
                         ? Math.max(0L, SystemClock.elapsedRealtime() - bootUp)
                         : 0L;
-                double totalHours = (accMs + liveDelta) / 3600_000.0;
+                double totalHours = isCompleted
+                        ? runHours
+                        : Math.min(runHours, (accMs + liveDelta) / 3600_000.0);
                 if (runHours < 1.0) {
                     double totalMin = totalHours * 60.0;
                     double targetMin = Math.round(runHours * 600.0) / 10.0;
@@ -550,11 +555,13 @@ public class MainActivity extends Activity {
                 }
             } else {
                 int target = st.optInt("target_count", 10);
-                summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", curRound, target));
+                int showRound = isCompleted ? Math.max(curRound, target) : curRound;
+                summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", showRound, target));
             }
 
             if (isRunning) {
                 countdownView.setVisibility(android.view.View.VISIBLE);
+                countdownView.setTextColor(Color.parseColor("#5CE0A8"));
                 long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
                 if (nextUptime > 0L) {
                     long remainMs = nextUptime - SystemClock.elapsedRealtime();
@@ -565,6 +572,10 @@ public class MainActivity extends Activity {
                 } else {
                     countdownView.setText("正在压测中 · 正在执行重启...");
                 }
+            } else if (isCompleted) {
+                countdownView.setVisibility(android.view.View.VISIBLE);
+                countdownView.setTextColor(Color.parseColor("#5CE0A8"));
+                countdownView.setText("✓ Reboot 压测 PASS · 进度 100%（共成功 " + okCount + " 次）");
             } else {
                 countdownView.setVisibility(android.view.View.GONE);
             }
