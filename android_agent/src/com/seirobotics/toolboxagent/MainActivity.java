@@ -242,7 +242,7 @@ public class MainActivity extends Activity {
         if (AgentStore.STATE_COMPLETED.equals(st)) return "已完成";
         if (AgentStore.STATE_FAILED.equals(st)) return "异常失败";
         if (AgentStore.STATE_STOPPED.equals(st)) return "已停止";
-        return "空闲";
+        return "未开始";
     }
 
     private void refreshUi() {
@@ -269,50 +269,56 @@ public class MainActivity extends Activity {
         int failCount = st.optInt("fail_rounds", 0);
         int anomCount = st.optInt("anomaly_count", 0);
         int stableSec = st.optInt("stable_sec", 30);
-
-        if ("hours".equals(mode)) {
-            double runHours = st.optDouble("run_hours", 1.0);
-            long accMs = st.optLong("accumulated_ms", 0L);
-            long bootUp = st.optLong("boot_uptime_ms", 0L);
-            long liveDelta = (AgentStore.STATE_RUNNING.equals(state) && bootUp > 0)
-                    ? Math.max(0L, SystemClock.elapsedRealtime() - bootUp)
-                    : 0L;
-            double totalHours = (accMs + liveDelta) / 3600_000.0;
-            summaryView.setText(String.format(
-                    Locale.US,
-                    "按时长压测 · %.2f / %s 小时（已完成 %d 次）",
-                    totalHours,
-                    runHours == Math.rint(runHours) ? String.valueOf((long) runHours) : String.valueOf(runHours),
-                    curRound
-            ));
-        } else {
-            int target = st.optInt("target_count", 10);
-            summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", curRound, target));
-        }
-
         String reason = st.optString("last_boot_reason", "").trim();
         boolean selfReboot = st.optBoolean("can_self_reboot", false);
 
         StringBuilder d = new StringBuilder();
-        d.append("成功: ").append(okCount).append(" 次    失败: ").append(failCount)
-                .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒");
-        long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
-        if (AgentStore.STATE_RUNNING.equals(state)) {
-            if (nextUptime > 0L) {
-                long remainMs = nextUptime - SystemClock.elapsedRealtime();
-                long remainSec = remainMs > 0L ? (remainMs + 999L) / 1000L : 0L;
-                d.append(remainSec > 0
-                        ? "    |    距离下次重启: " + remainSec + " 秒"
-                        : "    |    正在执行重启...");
+        if (AgentStore.STATE_IDLE.equals(state)) {
+            summaryView.setText("未开始测试 · 等待 PC 端发起或点击「本地试跑10次」");
+            d.append("预设等待期: ").append(stableSec).append(" 秒")
+                    .append("    自主重启: ").append(selfReboot ? "支持" : "不支持").append("\n");
+            d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason);
+        } else {
+            if ("hours".equals(mode)) {
+                double runHours = st.optDouble("run_hours", 1.0);
+                long accMs = st.optLong("accumulated_ms", 0L);
+                long bootUp = st.optLong("boot_uptime_ms", 0L);
+                long liveDelta = (AgentStore.STATE_RUNNING.equals(state) && bootUp > 0)
+                        ? Math.max(0L, SystemClock.elapsedRealtime() - bootUp)
+                        : 0L;
+                double totalHours = (accMs + liveDelta) / 3600_000.0;
+                summaryView.setText(String.format(
+                        Locale.US,
+                        "按时长压测 · %.2f / %s 小时（已完成 %d 次）",
+                        totalHours,
+                        runHours == Math.rint(runHours) ? String.valueOf((long) runHours) : String.valueOf(runHours),
+                        curRound
+                ));
             } else {
-                d.append("    |    正在执行重启...");
+                int target = st.optInt("target_count", 10);
+                summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", curRound, target));
             }
+
+            d.append("成功: ").append(okCount).append(" 次    失败: ").append(failCount)
+                    .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒");
+            long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
+            if (AgentStore.STATE_RUNNING.equals(state)) {
+                if (nextUptime > 0L) {
+                    long remainMs = nextUptime - SystemClock.elapsedRealtime();
+                    long remainSec = remainMs > 0L ? (remainMs + 999L) / 1000L : 0L;
+                    d.append(remainSec > 0
+                            ? "    |    距离下次重启: " + remainSec + " 秒"
+                            : "    |    正在执行重启...");
+                } else {
+                    d.append("    |    正在执行重启...");
+                }
+            }
+            d.append("\n");
+            d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason)
+                    .append("    自主重启: ").append(selfReboot ? "支持" : "不支持");
+            String stopReason = st.optString("stop_reason", "").trim();
+            if (!stopReason.isEmpty()) d.append("\n停止原因: ").append(stopReason);
         }
-        d.append("\n");
-        d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason)
-                .append("    自主重启: ").append(selfReboot ? "支持" : "不支持");
-        String stopReason = st.optString("stop_reason", "").trim();
-        if (!stopReason.isEmpty()) d.append("\n停止原因: ").append(stopReason);
         detailView.setText(d.toString());
 
         String logs = AgentStore.readTailLog(this, 40);
