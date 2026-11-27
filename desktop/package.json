@@ -1,7 +1,7 @@
 {
   "name": "toolbox-desktop",
   "private": true,
-  "version": "2026.11.14",
+  "version": "2026.11.23",
   "description": "AndroidTVTestToolBox Electron shell",
   "author": "AndroidTVTestToolBox",
   "main": "electron/main.cjs",
