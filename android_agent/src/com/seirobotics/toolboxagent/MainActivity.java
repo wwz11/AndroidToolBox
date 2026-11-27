@@ -1,6 +1,7 @@
 package com.seirobotics.toolboxagent;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -101,7 +102,7 @@ public class MainActivity extends Activity {
             }
             if (logScroll != null && logScroll.hasFocus()) {
                 int code = event.getKeyCode();
-                if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_BACK) {
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
                     focusFirstEnabled();
                     return true;
                 }
@@ -186,12 +187,6 @@ public class MainActivity extends Activity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.START);
 
-        btnRow.addView(stopBtn = makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
-        btnRow.addView(resetBtn = makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
-        btnRow.addView(clearLogBtn = makeBtn("清除日志", () -> {
-            AgentStore.clearLog(this);
-            refreshUi();
-        }));
         btnRow.addView(localRunBtn = makeBtn("本地试跑10次", () -> {
             Intent i = new Intent(AgentService.ACTION_START_REBOOT);
             i.putExtra("mode", "count");
@@ -199,6 +194,12 @@ public class MainActivity extends Activity {
             i.putExtra("stable_sec", 30);
             startAgentService(i);
         }));
+        btnRow.addView(resetBtn = makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
+        btnRow.addView(clearLogBtn = makeBtn("清除日志", () -> {
+            AgentStore.clearLog(this);
+            refreshUi();
+        }));
+        btnRow.addView(stopBtn = makeBtn("停止压测", this::confirmStopTest));
         root.addView(btnRow);
 
         logScroll = new ScrollView(this);
@@ -253,6 +254,24 @@ public class MainActivity extends Activity {
         b.setLayoutParams(lp);
         b.setOnClickListener(v -> onClick.run());
         return b;
+    }
+
+    private void confirmStopTest() {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("确认停止压测")
+                .setMessage("确定要停止当前正在进行的 Reboot 压测吗？")
+                .setNegativeButton("取消", (d, w) -> focusSafeDefault())
+                .setPositiveButton("确认停止", (d, w) -> {
+                    startAgentService(new Intent(AgentService.ACTION_STOP));
+                    focusSafeDefault();
+                })
+                .setOnCancelListener(d -> focusSafeDefault())
+                .create();
+        dialog.show();
+        Button cancelBtn = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        if (cancelBtn != null) {
+            cancelBtn.post(cancelBtn::requestFocus);
+        }
     }
 
     private void startAgentService(Intent extraIntent) {
