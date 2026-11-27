@@ -61,7 +61,6 @@
                 <action android:name="com.seirobotics.toolboxagent.ACTION_START_REBOOT" />
                 <action android:name="com.seirobotics.toolboxagent.ACTION_STOP" />
                 <action android:name="com.seirobotics.toolboxagent.ACTION_RESET" />
-                <action android:name="com.seirobotics.toolboxagent.ACTION_ENABLE_TCP_ADB" />
             </intent-filter>
         </receiver>
     </application>

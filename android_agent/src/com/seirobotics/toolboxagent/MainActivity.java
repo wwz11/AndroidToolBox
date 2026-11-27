@@ -151,7 +151,6 @@ public class MainActivity extends Activity {
             AgentStore.clearLog(this);
             refreshUi();
         }));
-        btnRow.addView(makeBtn("开启网络ADB", () -> startAgentService(new Intent(AgentService.ACTION_ENABLE_TCP_ADB))));
         btnRow.addView(makeBtn("本地试跑10次", () -> {
             Intent i = new Intent(AgentService.ACTION_START_REBOOT);
             i.putExtra("mode", "count");
@@ -282,8 +281,6 @@ public class MainActivity extends Activity {
 
         String reason = st.optString("last_boot_reason", "").trim();
         if (reason.isEmpty()) reason = DeviceProbe.getBootReason();
-        String ip = st.optString("ip", "").trim();
-        String tcpPort = st.optString("adb_tcp_port", "").trim();
         boolean selfReboot = st.optBoolean("can_self_reboot", false);
 
         StringBuilder d = new StringBuilder();
@@ -303,9 +300,7 @@ public class MainActivity extends Activity {
         }
         d.append("\n");
         d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason)
-                .append("    自主重启: ").append(selfReboot ? "支持" : "不支持").append("\n");
-        d.append("设备 IP: ").append(ip.isEmpty() ? "未连网/仅USB" : ip)
-                .append("    本机 ADB 端口: ").append(tcpPort.isEmpty() ? "-" : tcpPort);
+                .append("    自主重启: ").append(selfReboot ? "支持" : "不支持");
         String stopReason = st.optString("stop_reason", "").trim();
         if (!stopReason.isEmpty()) d.append("\n停止原因: ").append(stopReason);
         detailView.setText(d.toString());

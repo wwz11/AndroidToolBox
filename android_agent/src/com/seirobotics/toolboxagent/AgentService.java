@@ -29,7 +29,6 @@ public class AgentService extends Service {
     public static final String ACTION_START_REBOOT = "com.seirobotics.toolboxagent.ACTION_START_REBOOT";
     public static final String ACTION_STOP = "com.seirobotics.toolboxagent.ACTION_STOP";
     public static final String ACTION_RESET = "com.seirobotics.toolboxagent.ACTION_RESET";
-    public static final String ACTION_ENABLE_TCP_ADB = "com.seirobotics.toolboxagent.ACTION_ENABLE_TCP_ADB";
     public static final String ACTION_STATE_CHANGED = "com.seirobotics.toolboxagent.STATE_CHANGED";
 
     public static final int HTTP_PORT = 17839;
@@ -68,12 +67,6 @@ public class AgentService extends Service {
             stopStressTest("用户停止");
         } else if (ACTION_RESET.equals(action)) {
             resetState();
-        } else if (ACTION_ENABLE_TCP_ADB.equals(action)) {
-            httpWorker.execute(() -> {
-                boolean ok = DeviceProbe.enableTcpAdb(5555);
-                AgentStore.appendLog(this, ok ? "已开启网络 ADB (5555)" : "开启网络 ADB 失败（需要 root/su）");
-                broadcastStateChanged();
-            });
         } else if (ACTION_BOOT_EVENT.equals(action)) {
             stateWorker.execute(this::handleBootEvent);
         } else {
@@ -165,7 +158,6 @@ public class AgentService extends Service {
         cancelPendingReboot();
         stateWorker.execute(() -> {
             boolean canReboot = DeviceProbe.canSelfReboot(this);
-            DeviceProbe.enableTcpAdb(5555);
             JSONObject st = AgentStore.defaultState();
             try {
                 st.put("state", AgentStore.STATE_RUNNING);
@@ -224,7 +216,6 @@ public class AgentService extends Service {
 
     private void handleBootEvent() {
         AgentStore.clearRebootReq(this);
-        DeviceProbe.enableTcpAdb(5555);
         JSONObject st = AgentStore.loadState(this);
         String bootId = DeviceProbe.getBootId();
         boolean canReboot = DeviceProbe.canSelfReboot(this);
