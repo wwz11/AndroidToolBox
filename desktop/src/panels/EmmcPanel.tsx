@@ -807,11 +807,34 @@ export default function EmmcPanel({
       setAgentStatus(null);
       return;
     }
-    void refreshAgentStatus(true);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await api.emmcAgentStatus(deviceSn);
+        if (cancelled) return;
+        if (
+          !running &&
+          r.installed &&
+          (r.state === "COMPLETED" || r.state === "FAILED" || r.state === "STOPPED")
+        ) {
+          const resetRes = await api.emmcAgentReset(deviceSn);
+          if (!cancelled && resetRes.status) {
+            setAgentStatus(resetRes.status as typeof agentStatus);
+            return;
+          }
+        }
+        setAgentStatus(r);
+      } catch {
+        /* ignore */
+      }
+    })();
     const timer = window.setInterval(() => {
       void refreshAgentStatus(true);
     }, 5000);
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [active, snOk, deviceSn]);
 
   async function refreshAgentStatus(silent = false) {
@@ -1065,6 +1088,14 @@ export default function EmmcPanel({
         params.ota_file_path = otaFile;
       }
       const sendSteps = abOn ? picked : picked.filter((id) => id !== "ota");
+      if (!on.reboot && agentStatus?.installed && agentStatus.state !== "IDLE") {
+        void api
+          .emmcAgentReset(deviceSn)
+          .then((res) => {
+            if (res.status) setAgentStatus(res.status as typeof agentStatus);
+          })
+          .catch(() => {});
+      }
       const r = await api.emmcStart(
         deviceSn,
         sendSteps,
