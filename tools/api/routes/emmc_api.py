@@ -458,33 +458,45 @@ def start_job(body: StartBody) -> dict:
                 prev_text = str(prev.get("text") or "").strip()
                 if prev_text in ("进行中", "执行中"):
                     prev_text = ""
-                final_cur = tot
-                text = prev_text
-                # 完成时无论 Pass/Fail 均拉满进度，并保留「次/分钟/小时」单位
-                m = re.match(
-                    r"^[\d.]+\s*/\s*([\d.]+)\s*(次|分钟|小时)\s*$",
-                    prev_text,
-                )
-                if m:
-                    text = f"{m.group(1)}/{m.group(1)} {m.group(2)}"
-                elif not text and tot > 0:
-                    text = f"{final_cur}/{tot} 次" if tot == 1 else f"{final_cur}/{tot}"
-                elif status == "Pass" and not text:
-                    text = "完成"
-                elif status != "Pass" and not text:
-                    text = "失败"
-                if tot > 0:
-                    job.step_progress[step_id] = {
-                        "current": final_cur,
-                        "total": tot,
-                        "text": text,
-                    }
+                if status == "Pass":
+                    final_cur = tot
+                    text = prev_text
+                    m = re.match(
+                        r"^[\d.]+\s*/\s*([\d.]+)\s*(次|分钟|小时)\s*$",
+                        prev_text,
+                    )
+                    if m:
+                        text = f"{m.group(1)}/{m.group(1)} {m.group(2)}"
+                    elif not text and tot > 0:
+                        text = f"{final_cur}/{tot} 次" if tot == 1 else f"{final_cur}/{tot}"
+                    elif not text:
+                        text = "完成"
+                    if tot > 0:
+                        job.step_progress[step_id] = {
+                            "current": final_cur,
+                            "total": tot,
+                            "text": text,
+                        }
+                    else:
+                        job.step_progress[step_id] = {
+                            "current": 1,
+                            "total": 1,
+                            "text": text,
+                        }
                 else:
-                    job.step_progress[step_id] = {
-                        "current": 1,
-                        "total": 1,
-                        "text": text or ("完成" if status == "Pass" else "失败"),
-                    }
+                    # 失败时保留实际完成的进度与时长/次数，不虚标为满进度
+                    if tot > 0:
+                        job.step_progress[step_id] = {
+                            "current": min(cur, tot),
+                            "total": tot,
+                            "text": prev_text or f"{min(cur, tot)}/{tot}",
+                        }
+                    else:
+                        job.step_progress[step_id] = {
+                            "current": 0,
+                            "total": 1,
+                            "text": prev_text or "失败",
+                        }
                 job.progress_current = 0
                 job.progress_total = 0
                 job.progress_text = ""

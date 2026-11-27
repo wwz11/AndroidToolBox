@@ -1312,6 +1312,14 @@ def run_rpmb(env: StepEnv, session: HeadlessLogSession) -> bool:
             log("ERROR 未达设定运行时间，脚本中途退出，测试失败")
             passed = False
         duration_hours = max(session.elapsed_minutes(), (time.monotonic() - start_mono) / 60.0) / 60.0
+        actual_min = duration_hours * 60.0
+        tot_sec = max(1, int(duration_sec))
+        cur_sec = min(tot_sec, int(actual_min * 60.0)) if not passed else tot_sec
+        env.report_progress(
+            cur_sec,
+            tot_sec,
+            f"{run_minutes:g}/{run_minutes:g} 分钟" if passed else f"{actual_min:.1f}/{run_minutes:g} 分钟",
+        )
         screenshot_path: Path | None = None
         try:
             text = session.read_all().strip()
