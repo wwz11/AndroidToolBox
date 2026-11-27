@@ -145,8 +145,13 @@ public class MainActivity extends Activity {
         root.addView(btnRow);
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setFocusable(false);
-        scroll.setBackground(cardBg("#10151C", "#1F2A38"));
+        scroll.setFocusable(true);
+        StateListDrawable scrollSld = new StateListDrawable();
+        GradientDrawable scrollFocused = cardBg("#10151C", "#58A6FF");
+        scrollFocused.setStroke(3, Color.parseColor("#58A6FF"));
+        scrollSld.addState(new int[]{android.R.attr.state_focused}, scrollFocused);
+        scrollSld.addState(new int[]{}, cardBg("#10151C", "#1F2A38"));
+        scroll.setBackground(scrollSld);
         scroll.setPadding(22, 16, 22, 16);
         LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);

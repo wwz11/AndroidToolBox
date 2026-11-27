@@ -58,6 +58,18 @@ public final class DeviceProbe {
         String ro = getProp("ro.boot.bootreason").replaceAll(",+$", "").trim();
         if (sys.isEmpty()) sys = getProp("sys.boot.reason.last").replaceAll(",+$", "").trim();
         if (sys.isEmpty()) sys = getProp("persist.sys.boot.reason").replaceAll(",+$", "").trim();
+        // SELinux Enforcing 下 untrusted_app 读不到 sys.boot.reason，回退通过本机 5555 shell 读取
+        if (sys.isEmpty() && ro.isEmpty()) {
+            String out = LocalAdbClient.runShell(
+                    5555,
+                    "getprop sys.boot.reason; echo '|'; getprop ro.boot.bootreason",
+                    2000);
+            if (out != null && out.contains("|")) {
+                String[] parts = out.split("\\|", 2);
+                sys = parts[0].replaceAll("[\\r\\n,]+", "").trim();
+                ro = parts.length > 1 ? parts[1].replaceAll("[\\r\\n,]+", "").trim() : "";
+            }
+        }
         if (!sys.isEmpty() && !ro.isEmpty() && !sys.equalsIgnoreCase(ro)) {
             return sys + " (" + ro + ")";
         }
