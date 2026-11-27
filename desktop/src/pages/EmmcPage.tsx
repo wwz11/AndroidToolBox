@@ -72,8 +72,12 @@ export default function EmmcPage({ pageActive = true }: Props) {
 
       {roster.error ? <StatusBanner tone="error">{roster.error}</StatusBanner> : null}
       {activeOffline && !blockWithOfflineOverlay ? (
-        <StatusBanner tone="warn">
-          {active?.sn || "当前设备"} 已断连，重连后会自动恢复，测试与日志查看不受影响。
+        <StatusBanner tone="warn" className="is-compact">
+          <span className="ui-banner-dot" aria-hidden="true" />
+          <span className="ui-banner-text">
+            <strong>{active?.sn || "当前设备"}</strong> 已断连，重连后会自动恢复（测试与日志查看不受影响）
+          </span>
+          <span className="ui-banner-tag">等待重连</span>
         </StatusBanner>
       ) : null}
 

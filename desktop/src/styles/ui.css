@@ -90,6 +90,43 @@
   line-height: var(--lh-normal, 1.45);
 }
 
+.ui-banner-warn.is-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 0 2px;
+  border-left: 3px solid var(--warn);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ui-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--warn);
+  flex: 0 0 auto;
+}
+
+.ui-banner-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-banner-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  color: var(--warn-text);
+}
+
 .ui-banner-success {
   padding: 8px 12px;
   border-radius: var(--radius-md, 8px);

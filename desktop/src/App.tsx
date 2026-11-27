@@ -495,7 +495,7 @@ export default function App() {
             className={`nav-item nav-about-btn${aboutOpen ? " active" : ""}${
               updateState === "ready" ? " has-activity" : ""
             }`}
-            title="关于 / 设置"
+            title={navCollapsed ? "关于 / 设置" : undefined}
             onClick={() => setAboutOpen(true)}
           >
             <span className="nav-item-main">

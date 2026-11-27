@@ -175,6 +175,14 @@
 
 .nav-about-btn {
   width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md, 8px);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.nav-about-btn:hover {
+  border-color: var(--border);
+  background: var(--surface-2);
 }
 
 .about-modal .about-body {
