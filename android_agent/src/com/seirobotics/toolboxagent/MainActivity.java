@@ -8,6 +8,7 @@ import android.content.IntentFilter;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,6 +27,7 @@ public class MainActivity extends Activity {
     private TextView summaryView;
     private TextView detailView;
     private TextView logView;
+    private Button firstBtn;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -59,6 +61,7 @@ public class MainActivity extends Activity {
         }
         refreshUi();
         handler.postDelayed(ticker, 1000);
+        if (firstBtn != null) firstBtn.requestFocus();
     }
 
     @Override
@@ -129,7 +132,7 @@ public class MainActivity extends Activity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.START);
 
-        btnRow.addView(makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
+        btnRow.addView(firstBtn = makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
         btnRow.addView(makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
         btnRow.addView(makeBtn("开启网络ADB", () -> startAgentService(new Intent(AgentService.ACTION_ENABLE_TCP_ADB))));
         btnRow.addView(makeBtn("本地试跑10次", () -> {
@@ -142,6 +145,7 @@ public class MainActivity extends Activity {
         root.addView(btnRow);
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setFocusable(false);
         scroll.setBackground(cardBg("#10151C", "#1F2A38"));
         scroll.setPadding(22, 16, 22, 16);
         LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
@@ -159,13 +163,28 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
+    private StateListDrawable btnBg() {
+        StateListDrawable sld = new StateListDrawable();
+        GradientDrawable pressed = cardBg("#24527A", "#7BC4FF");
+        pressed.setStroke(4, Color.parseColor("#7BC4FF"));
+        GradientDrawable focused = cardBg("#2B3D54", "#58A6FF");
+        focused.setStroke(4, Color.parseColor("#58A6FF"));
+        GradientDrawable normal = cardBg("#1E2836", "#374960");
+        sld.addState(new int[]{android.R.attr.state_pressed}, pressed);
+        sld.addState(new int[]{android.R.attr.state_focused}, focused);
+        sld.addState(new int[]{android.R.attr.state_selected}, focused);
+        sld.addState(new int[]{}, normal);
+        return sld;
+    }
+
     private Button makeBtn(String label, Runnable onClick) {
         Button b = new Button(this);
         b.setText(label);
         b.setTextColor(Color.parseColor("#EEF3F8"));
-        b.setBackground(cardBg("#1E2836", "#374960"));
+        b.setBackground(btnBg());
         b.setPadding(24, 10, 24, 10);
         b.setFocusable(true);
+        b.setFocusableInTouchMode(true);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 16, 0);
