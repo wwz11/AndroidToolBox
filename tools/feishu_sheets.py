@@ -409,6 +409,61 @@ def is_feishu_file_alive(*, app_id: str, app_secret: str, url_or_token: str) -> 
         return True
 
 
+def _list_feishu_folder_files(token: str, folder_token: str) -> list[dict[str, Any]]:
+    """列出飞书云盘指定文件夹下的文件与子文件夹（最多 5 页）。"""
+    from urllib.parse import quote
+
+    files: list[dict[str, Any]] = []
+    page_token = ""
+    for _ in range(5):
+        qs = f"folder_token={quote(folder_token)}&page_size=200"
+        if page_token:
+            qs += f"&page_token={quote(page_token)}"
+        res = _request_json("GET", f"/drive/v1/files?{qs}", token=token, timeout=15.0)
+        data = res.get("data") or {}
+        files.extend(data.get("files") or [])
+        if not data.get("has_more"):
+            break
+        page_token = str(data.get("next_page_token") or "").strip()
+        if not page_token:
+            break
+    return files
+
+
+def _ensure_feishu_flow_folder(
+    token: str,
+    parent_folder_token: str,
+    flow_no: str,
+) -> str:
+    """在飞书模板目录下按流程号复用或创建子文件夹；失败时安全降级为原目录。"""
+    parent = parent_folder_token.strip()
+    flow_name = re.sub(r'[<>:"/\\|?*]', "_", (flow_no or "").strip())
+    if not parent or not flow_name:
+        return parent
+    try:
+        items = _list_feishu_folder_files(token, parent)
+        for item in items:
+            if (
+                str(item.get("type") or "").lower() == "folder"
+                and str(item.get("name") or "").strip() == flow_name
+                and item.get("token")
+            ):
+                return str(item["token"]).strip()
+        res = _request_json(
+            "POST",
+            "/drive/v1/files/create_folder",
+            token=token,
+            body={"name": flow_name, "folder_token": parent},
+            timeout=15.0,
+        )
+        new_folder = str((res.get("data") or {}).get("token") or "").strip()
+        if new_folder:
+            return new_folder
+    except Exception:
+        pass
+    return parent
+
+
 def find_feishu_spreadsheet_in_folder(
     *,
     app_id: str,
@@ -418,7 +473,7 @@ def find_feishu_spreadsheet_in_folder(
     flow_no: str = "",
 ) -> dict[str, Any] | None:
     """在飞书云文档（含已转交所有权到个人空间的文档）及目录中查找同名或同流程号的已有在线表格，避免重复生成。"""
-    from urllib.parse import quote, urlparse
+    from urllib.parse import urlparse
 
     try:
         token = get_tenant_access_token(app_id, app_secret)
@@ -477,7 +532,7 @@ def find_feishu_spreadsheet_in_folder(
             except Exception:
                 pass
 
-        # 2) 兜底查模板所在目录
+        # 2) 兜底查模板所在目录及流程号子文件夹
         kind, _ = parse_feishu_doc_url(template_url)
         src_token = resolve_spreadsheet_token(token, template_url)
         folder_token = _get_parent_folder_token(
@@ -486,40 +541,44 @@ def find_feishu_spreadsheet_in_folder(
         if not folder_token:
             return None
 
-        files: list[dict[str, Any]] = []
-        page_token = ""
-        for _ in range(5):
-            qs = f"folder_token={quote(folder_token)}&page_size=200"
-            if page_token:
-                qs += f"&page_token={quote(page_token)}"
-            res = _request_json("GET", f"/drive/v1/files?{qs}", token=token, timeout=15.0)
-            data = res.get("data") or {}
-            files.extend(data.get("files") or [])
-            if not data.get("has_more"):
-                break
-            page_token = str(data.get("next_page_token") or "").strip()
-            if not page_token:
-                break
-
-        sheets = [f for f in files if str(f.get("type") or "").lower() == "sheet" and f.get("token")]
-        for item in sheets:
-            if target_name and str(item.get("name") or "").strip() == target_name:
-                return _hit(
-                    str(item.get("token") or "").strip(),
-                    str(item.get("name") or "").strip(),
-                    str(item.get("url") or "").strip(),
-                )
+        root_files = _list_feishu_folder_files(token, folder_token)
+        search_lists: list[list[dict[str, Any]]] = []
         if flow_clean:
-            for item in sheets:
-                fname = str(item.get("name") or "").strip()
-                if "导入测试报告" in fname and (
-                    fname.endswith(f"_{flow_clean}") or fname.endswith(f" {flow_clean}")
+            for item in root_files:
+                if (
+                    str(item.get("type") or "").lower() == "folder"
+                    and str(item.get("name") or "").strip() == flow_clean
+                    and item.get("token")
                 ):
+                    try:
+                        search_lists.append(
+                            _list_feishu_folder_files(token, str(item["token"]).strip())
+                        )
+                    except Exception:
+                        pass
+                    break
+        search_lists.append(root_files)
+
+        for files in search_lists:
+            sheets = [f for f in files if str(f.get("type") or "").lower() == "sheet" and f.get("token")]
+            for item in sheets:
+                if target_name and str(item.get("name") or "").strip() == target_name:
                     return _hit(
                         str(item.get("token") or "").strip(),
-                        fname,
+                        str(item.get("name") or "").strip(),
                         str(item.get("url") or "").strip(),
                     )
+            if flow_clean:
+                for item in sheets:
+                    fname = str(item.get("name") or "").strip()
+                    if "导入测试报告" in fname and (
+                        fname.endswith(f"_{flow_clean}") or fname.endswith(f" {flow_clean}")
+                    ):
+                        return _hit(
+                            str(item.get("token") or "").strip(),
+                            fname,
+                            str(item.get("url") or "").strip(),
+                        )
     except Exception:
         return None
     return None
@@ -532,6 +591,7 @@ def copy_feishu_spreadsheet(
     url_or_token: str,
     name: str,
     folder_token: str = "",
+    flow_no: str = "",
 ) -> dict[str, Any]:
     """复制在线飞书表格生成新在线报告，返回新表格 token 与 URL。"""
     token = get_tenant_access_token(app_id, app_secret)
@@ -540,6 +600,8 @@ def copy_feishu_spreadsheet(
     target_folder = folder_token.strip() or _get_parent_folder_token(
         token, src_token, "sheet", is_wiki=(kind == "wiki"), app_id=app_id
     )
+    if target_folder and flow_no.strip():
+        target_folder = _ensure_feishu_flow_folder(token, target_folder, flow_no)
 
     body: dict[str, Any] = {"name": name.strip() or "eMMC 测试报告", "type": "sheet"}
     if target_folder:

@@ -43,6 +43,11 @@ class TestReportTemplateV3(unittest.TestCase):
             )
             report_path = rt.create_report_with_header("FLOW123", meta, base_dir=base)
             self.assertIn("v3.0", report_path.name)
+            self.assertEqual(report_path.parent, rt.flow_reports_dir("FLOW123", base_dir=base))
+            self.assertEqual(
+                rt.report_path_for_flow("FLOW123", base_dir=base).resolve(),
+                report_path.resolve(),
+            )
 
             read_back = rt.read_report_header(report_path)
             self.assertEqual(read_back.import_project, "PROJ_X")
