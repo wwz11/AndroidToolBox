@@ -99,6 +99,8 @@ export default function EmmcPanel({
   const [jobId, setJobId] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
+  runningRef.current = running;
   const [starting, setStarting] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [reportPath, setReportPath] = useState("");
@@ -814,7 +816,7 @@ export default function EmmcPanel({
       try {
         const r = await api.emmcAgentStatus(deviceSn);
         if (cancelled) return;
-        if (!running && r.installed && r.state !== "IDLE") {
+        if (!runningRef.current && r.installed && r.state !== "IDLE") {
           const resetRes = await api.emmcAgentReset(deviceSn);
           if (!cancelled && resetRes.status) {
             setAgentStatus(resetRes.status as typeof agentStatus);
@@ -844,7 +846,7 @@ export default function EmmcPanel({
     if (!snOk) return;
     try {
       const r = await api.emmcAgentStatus(deviceSn);
-      if (!running && r.installed && r.state === "RUNNING") {
+      if (!runningRef.current && r.installed && r.state === "RUNNING") {
         const resetRes = await api.emmcAgentReset(deviceSn);
         if (resetRes.status) {
           setAgentStatus(resetRes.status as typeof agentStatus);
@@ -1065,6 +1067,7 @@ export default function EmmcPanel({
           })
           .catch(() => {});
       }
+      runningRef.current = true;
       const r = await api.emmcStart(
         deviceSn,
         sendSteps,
