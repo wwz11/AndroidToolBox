@@ -463,7 +463,7 @@
 
 .emmc-step-bar-text {
   flex: 0 0 auto;
-  max-width: 72px;
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

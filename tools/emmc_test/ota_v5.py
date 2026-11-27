@@ -960,6 +960,15 @@ class OtaUpgradeRunner:
                         cfg.upgrade_count,
                         f"{completed}/{cfg.upgrade_count} 次 (失败 {failed_rounds})",
                     )
+                else:
+                    elapsed_min = (time.monotonic() - start_mono) / 60.0
+                    tot = max(1, int(cfg.max_run_minutes * 60))
+                    cur = min(int(time.monotonic() - start_mono), tot)
+                    self._emit_progress(
+                        cur,
+                        tot,
+                        f"{elapsed_min:.1f}/{cfg.max_run_minutes} 分钟 (失败 {failed_rounds})",
+                    )
                 break
 
             completed += 1
