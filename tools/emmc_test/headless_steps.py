@@ -587,6 +587,21 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
         write_fail = run_count - write_pass
         read_fail = run_count - read_pass
         check_fail = run_count - check_pass
+        elapsed_final = time.monotonic() - start_mono
+        if time_mode:
+            tot_s = max(1, int(duration_sec))
+            cur_s = tot_s if passed else min(tot_s, int(elapsed_final))
+            fail_cnt = max(write_fail, read_fail, check_fail)
+            lbl = f"{elapsed_final / 60.0:.1f}/{max_run_min:g} 分钟"
+            if not passed and fail_cnt > 0:
+                lbl = f"{lbl} (失败 {fail_cnt})"
+            env.report_progress(cur_s, tot_s, lbl)
+        else:
+            fail_cnt = max(write_fail, read_fail, check_fail)
+            lbl = f"{check_pass}/{loop_total} 次"
+            if not passed and fail_cnt > 0:
+                lbl = f"{lbl} (失败 {fail_cnt})"
+            env.report_progress(min(check_pass, loop_total), loop_total, lbl)
         log("INFO 测试完成")
         log(
             f"INFO {run_count} copies , copy failed {write_fail} , "
