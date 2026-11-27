@@ -1,6 +1,7 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul
+set "PYTHONIOENCODING=utf-8"
 cd /d "%~dp0.."
 set "PYTHONPATH=%CD%"
 set "ROOT=%CD%"
