@@ -15,6 +15,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -28,6 +29,7 @@ public class MainActivity extends Activity {
     private TextView detailView;
     private TextView logView;
     private Button firstBtn;
+    private String lastLogText = "";
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -61,7 +63,18 @@ public class MainActivity extends Activity {
         }
         refreshUi();
         handler.postDelayed(ticker, 1000);
-        if (firstBtn != null) firstBtn.requestFocus();
+        if (firstBtn != null) {
+            firstBtn.post(() -> firstBtn.requestFocus());
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && getCurrentFocus() == null && firstBtn != null) {
+            firstBtn.requestFocus();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     @Override
@@ -193,7 +206,6 @@ public class MainActivity extends Activity {
         b.setBackground(btnBg());
         b.setPadding(24, 10, 24, 10);
         b.setFocusable(true);
-        b.setFocusableInTouchMode(true);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 16, 0);
@@ -299,6 +311,10 @@ public class MainActivity extends Activity {
         detailView.setText(d.toString());
 
         String logs = AgentStore.readTailLog(this, 40);
-        logView.setText(logs.isEmpty() ? "暂无日志" : logs);
+        String nextLog = logs.isEmpty() ? "暂无日志" : logs;
+        if (!nextLog.equals(lastLogText)) {
+            lastLogText = nextLog;
+            logView.setText(nextLog);
+        }
     }
 }
