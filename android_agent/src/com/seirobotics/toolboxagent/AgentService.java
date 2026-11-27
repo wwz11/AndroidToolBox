@@ -234,6 +234,11 @@ public class AgentService extends Service {
             if (bootId.equals(st.optString("last_boot_id"))) {
                 AgentStore.saveState(this, st);
                 broadcastStateChanged();
+                if (pendingRebootTask == null && !st.optBoolean("waiting_pc_reboot", false)) {
+                    int stableSec = Math.max(5, st.optInt("stable_sec", 15));
+                    AgentStore.appendLog(this, "服务被重新拉起，恢复下一次重启调度...");
+                    scheduleNextReboot(stableSec);
+                }
                 return;
             }
 

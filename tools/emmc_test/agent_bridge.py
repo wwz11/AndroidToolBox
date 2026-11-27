@@ -228,3 +228,28 @@ def read_agent_state_fast(sn: str) -> dict[str, Any] | None:
         return parsed if isinstance(parsed, dict) else None
     except Exception:
         return None
+
+
+def ensure_agent_alive(sn: str) -> bool:
+    """若设备 ADB 在线但 APK 进程已退出，通过 ADB 拉起 AgentService/MainActivity。返回是否执行了拉起。"""
+    try:
+        proc = _run_adb(sn, ["shell", "pidof", AGENT_PACKAGE], timeout=6)
+        if proc.returncode == 0 and _out_text(proc).strip():
+            return False
+    except Exception:
+        return False
+
+    try:
+        _run_adb(
+            sn,
+            [
+                "shell", "am", "start-foreground-service",
+                "-n", f"{AGENT_PACKAGE}/.AgentService",
+                "-a", f"{AGENT_PACKAGE}.INTERNAL_BOOT",
+            ],
+            timeout=10,
+        )
+        _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
+        return True
+    except Exception:
+        return False

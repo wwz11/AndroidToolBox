@@ -14,6 +14,7 @@ from typing import Callable
 
 from tools.adb_runtime import resolve_adb_exe
 from tools.emmc_test.agent_bridge import (
+    ensure_agent_alive,
     ensure_device_reboot_daemon,
     find_agent_apk,
     install_and_init_agent,
@@ -599,6 +600,7 @@ class RebootTestRunner:
         last_comm_ok = time.monotonic()
         last_offline_warn = 0.0
         last_reconnect_try = 0.0
+        last_alive_check = 0.0
         waiting_reboot_since: float | None = None
         stop_reason = ""
 
@@ -688,6 +690,12 @@ class RebootTestRunner:
             if agent_state in ("COMPLETED", "FAILED", "STOPPED"):
                 stop_reason = str(st.get("stop_reason") or agent_state)
                 break
+
+            # 测试未完成且 ADB 在线时，定期检查 APK 进程是否存活，若被系统杀掉则由 ADB 自动拉起
+            if now - last_alive_check >= 8.0:
+                last_alive_check = now
+                if ensure_agent_alive(self.device_sn):
+                    self.log("WARNING 检测到设备端 APK 进程未运行，已通过 ADB 自动重新拉起")
 
             # 若设备端已发起 reboot.req 但守护尚未消费（如刚开机或被系统限制），3秒后由 PC ADB 辅助触发
             if st.get("waiting_pc_reboot"):
