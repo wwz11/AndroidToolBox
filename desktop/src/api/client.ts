@@ -1346,6 +1346,14 @@ export const api = {
         string,
         { current: number; total: number; text: string }
       >;
+      stress_stats?: {
+        write_pass: number;
+        read_pass: number;
+        check_pass: number;
+        write_fail: number;
+        read_fail: number;
+        check_fail: number;
+      } | null;
       progress_current?: number;
       progress_total?: number;
       progress_text?: string;

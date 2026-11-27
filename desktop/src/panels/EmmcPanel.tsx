@@ -181,6 +181,14 @@ export default function EmmcPanel({
   const [stepProgress, setStepProgress] = useState<
     Record<string, { current: number; total: number; text: string }>
   >({});
+  const [backendStressStats, setBackendStressStats] = useState<{
+    writePass: number;
+    readPass: number;
+    checkPass: number;
+    writeFail: number;
+    readFail: number;
+    checkFail: number;
+  } | null>(null);
   const [currentStep, setCurrentStep] = useState("");
   const [stepsDone, setStepsDone] = useState(0);
   const [stepsTotal, setStepsTotal] = useState(0);
@@ -238,6 +246,7 @@ export default function EmmcPanel({
     [steps, selected],
   );
   const stressStats = useMemo(() => {
+    if (backendStressStats) return backendStressStats;
     let writePass = 0;
     let readPass = 0;
     let checkPass = 0;
@@ -268,7 +277,7 @@ export default function EmmcPanel({
       else if (line.includes("ERROR check fail")) checkFail += 1;
     }
     return { writePass, readPass, checkPass, writeFail, readFail, checkFail };
-  }, [logs]);
+  }, [backendStressStats, logs]);
 
   const stepsLoadedRef = useRef(false);
 
@@ -423,6 +432,17 @@ export default function EmmcPanel({
               return prev;
             }
             return { ...next };
+          });
+        }
+        if (r.stress_stats) {
+          const s = r.stress_stats;
+          setBackendStressStats({
+            writePass: Number(s.write_pass) || 0,
+            readPass: Number(s.read_pass) || 0,
+            checkPass: Number(s.check_pass) || 0,
+            writeFail: Number(s.write_fail) || 0,
+            readFail: Number(s.read_fail) || 0,
+            checkFail: Number(s.check_fail) || 0,
           });
         }
         setCurrentStep(r.current_step || "");
@@ -1153,6 +1173,7 @@ export default function EmmcPanel({
       setLogs([]);
       setStepResults({});
       setStepProgress({});
+      setBackendStressStats(null);
       setCurrentStep(sendSteps[0] || "");
       setStepsDone(0);
       setStepsTotal(sendSteps.length);

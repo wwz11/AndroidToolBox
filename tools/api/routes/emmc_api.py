@@ -88,6 +88,7 @@ class _Job:
     step_results: dict[str, str] = field(default_factory=dict)
     # 每项进度：{ step_id: { current, total, text } }
     step_progress: dict[str, dict[str, int | str]] = field(default_factory=dict)
+    stress_stats: dict[str, int] = field(default_factory=dict)
     progress_current: int = 0
     progress_total: int = 0
     progress_text: str = ""
@@ -494,6 +495,10 @@ def start_job(body: StartBody) -> dict:
                 job.progress_total = tot
                 job.progress_text = label
 
+    def _on_stress_stats(stats: dict[str, int]) -> None:
+        with _LOCK:
+            job.stress_stats = {k: int(v) for k, v in stats.items()}
+
     def _run() -> None:
         try:
             import importlib
@@ -516,6 +521,7 @@ def start_job(body: StartBody) -> dict:
                 base_dir=_base(),
                 params=params,
                 progress=_on_progress,
+                stress_stats=_on_stress_stats,
             )
             ok = _hs_mod.run_pipeline(
                 env,
@@ -614,6 +620,7 @@ def job_status(
                 }
                 for sid, p in dict(job.step_progress).items()
             },
+            "stress_stats": dict(job.stress_stats) if job.stress_stats else None,
             "progress_current": job.progress_current,
             "progress_total": job.progress_total,
             "progress_text": job.progress_text,

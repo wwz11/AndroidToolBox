@@ -168,6 +168,7 @@ class StepEnv:
     loop_num: int | None = None
     params: DeviceStepParams = field(default_factory=DeviceStepParams)
     progress: ProgressFn | None = None
+    stress_stats: Callable[[dict[str, int]], None] | None = None
     current_step: str = ""
 
     def report_progress(
@@ -183,6 +184,32 @@ class StepEnv:
         label = (text or "").strip() or (f"{cur}/{tot}" if tot > 0 else str(cur))
         try:
             self.progress(step, cur, tot, label)
+        except Exception:
+            pass
+
+    def report_stress_stats(
+        self,
+        *,
+        write_pass: int,
+        read_pass: int,
+        check_pass: int,
+        write_fail: int,
+        read_fail: int,
+        check_fail: int,
+    ) -> None:
+        if self.stress_stats is None:
+            return
+        try:
+            self.stress_stats(
+                {
+                    "write_pass": max(0, int(write_pass)),
+                    "read_pass": max(0, int(read_pass)),
+                    "check_pass": max(0, int(check_pass)),
+                    "write_fail": max(0, int(write_fail)),
+                    "read_fail": max(0, int(read_fail)),
+                    "check_fail": max(0, int(check_fail)),
+                }
+            )
         except Exception:
             pass
 
@@ -410,6 +437,17 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
     write_pass = 0
     read_pass = 0
     check_pass = 0
+    write_fail = 0
+    read_fail = 0
+    check_fail = 0
+    env.report_stress_stats(
+        write_pass=0,
+        read_pass=0,
+        check_pass=0,
+        write_fail=0,
+        read_fail=0,
+        check_fail=0,
+    )
     start_mono = time.monotonic()
     session.start("stress", cfg.sn, title="读写压力测试", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
@@ -449,7 +487,7 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
         log(out[-1] if out else "DEBUG make_file done")
 
     def do_test(i: int) -> None:
-        nonlocal write_pass, read_pass, check_pass
+        nonlocal write_pass, read_pass, check_pass, write_fail, read_fail, check_fail
         out1 = string_run_shell(
             f"adb -s {cfg.sn} shell \n"
             f"cd {work_dir}/ \n"
@@ -460,6 +498,7 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
             write_pass += 1
             log("DEBUG write successful")
         else:
+            write_fail += 1
             log(f"ERROR write fail : {out1}")
 
         out2 = string_run_shell(
@@ -472,6 +511,7 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
             read_pass += 1
             log("DEBUG read successful")
         else:
+            read_fail += 1
             log(f"ERROR read fail : {out2}")
 
         out3 = string_run_shell(
@@ -484,7 +524,17 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
             check_pass += 1
             log("DEBUG check successful")
         else:
+            check_fail += 1
             log(f"ERROR check fail : {out3}")
+
+        env.report_stress_stats(
+            write_pass=write_pass,
+            read_pass=read_pass,
+            check_pass=check_pass,
+            write_fail=write_fail,
+            read_fail=read_fail,
+            check_fail=check_fail,
+        )
 
         string_run_shell(
             f"adb -s {cfg.sn} shell \n"
@@ -578,15 +628,22 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
                 break
         passed = (
             run_count > 0
-            and write_pass == run_count
-            and read_pass == run_count
-            and check_pass == run_count
+            and write_fail == 0
+            and read_fail == 0
+            and check_fail == 0
+            and write_pass > 0
+            and write_pass == read_pass == check_pass
             and reached_target
             and not env.stop.is_set()
         )
-        write_fail = run_count - write_pass
-        read_fail = run_count - read_pass
-        check_fail = run_count - check_pass
+        env.report_stress_stats(
+            write_pass=write_pass,
+            read_pass=read_pass,
+            check_pass=check_pass,
+            write_fail=write_fail,
+            read_fail=read_fail,
+            check_fail=check_fail,
+        )
         elapsed_final = time.monotonic() - start_mono
         if time_mode:
             tot_s = max(1, int(duration_sec))
