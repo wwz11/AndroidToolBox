@@ -930,11 +930,13 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                     log(f"WARNING 写入测试报告失败: {exc}")
         elif not runs or avg is None:
             log("WARNING 未写入测试报告：iozone 未产生有效测试结果")
-        env.report_progress(3, 3, "3/3 次")
+        done_rounds = len(runs)
+        env.report_progress(done_rounds, 3, f"{done_rounds}/3 次")
         return passed
     except Exception as exc:
         env.log(f"ERROR {exc}")
-        env.report_progress(3, 3, "3/3 次")
+        done_rounds = len(runs) if "runs" in locals() else 0
+        env.report_progress(done_rounds, 3, f"{done_rounds}/3 次")
         return False
     finally:
         saved = session.close()
@@ -973,6 +975,18 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
         success, fail, stop_reason, duration_hours, anomaly = runner.run_test_loop()
         target_count = max(0, int(cfg.target_count or 0))
         count_mode = target_count > 0
+        if count_mode:
+            msg = f"{success}/{target_count} 次" if fail == 0 else f"{success}/{target_count} 次 (失败 {fail})"
+            env.report_progress(success, target_count, msg)
+        else:
+            tot_sec = max(1, int(cfg.run_hours * 3600))
+            cur_sec = min(tot_sec, int(duration_hours * 3600))
+            msg = (
+                f"{duration_hours:.2f}/{cfg.run_hours:g} 小时"
+                if fail == 0
+                else f"{duration_hours:.2f}/{cfg.run_hours:g} 小时 (失败 {fail})"
+            )
+            env.report_progress(cur_sec, tot_sec, msg)
         total_rounds = success + fail
         if count_mode:
             reached = total_rounds >= target_count

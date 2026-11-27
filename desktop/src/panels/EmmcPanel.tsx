@@ -1327,15 +1327,17 @@ export default function EmmcPanel({
                 const rawTot = Number(sp?.total) || 0;
                 const spText = (sp?.text || "").trim();
                 const isIozone = s.id === "iozone";
-                const spTot = isIozone ? 1 : rawTot;
-                const spCur = isIozone ? (verdict === "Pass" ? 1 : 0) : rawCur;
-                const rawProgress = isIozone
-                  ? verdict === "Pass"
-                    ? "1/1 次"
-                    : verdict === "Fail"
-                      ? "0/1 次"
-                      : ""
-                  : spText || (spTot > 0 ? `${spCur}/${spTot}` : "");
+                const spTot = rawTot > 0 ? rawTot : isIozone ? 1 : 0;
+                const spCur = rawTot > 0 ? rawCur : isIozone ? (verdict === "Pass" ? 1 : 0) : rawCur;
+                const rawProgress =
+                  spText ||
+                  (spTot > 0
+                    ? `${spCur}/${spTot} 次`
+                    : isIozone && verdict === "Pass"
+                      ? "1/1 次"
+                      : isIozone && verdict === "Fail"
+                        ? "0/1 次"
+                        : "");
                 const itemProgress =
                   rawProgress === "执行中" || rawProgress === "进行中"
                     ? ""

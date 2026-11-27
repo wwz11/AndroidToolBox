@@ -446,11 +446,13 @@ class RebootTestRunner:
             round_no += 1
             self.log(f"INFO ========== 第 {round_no} 次 reboot ==========")
             if count_mode:
-                self.log(f"INFO 进度 {round_no}/{target_count}")
+                self.log(f"INFO 进度 {round_no}/{target_count}（已成功 {success}，失败 {fail}）")
                 self._emit_progress(
-                    round_no,
+                    success,
                     target_count,
-                    f"{round_no}/{target_count} 次",
+                    f"{success}/{target_count} 次"
+                    if fail == 0
+                    else f"{success}/{target_count} 次 (失败 {fail})",
                 )
             else:
                 remaining_min = max(0.0, (duration_sec - elapsed) / 60.0)

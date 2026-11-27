@@ -847,9 +847,6 @@ class OtaUpgradeRunner:
             self.log(
                 f"INFO ========== 升级轮次 {round_idx}/{cfg.upgrade_count} =========="
             )
-            self._emit_progress(
-                round_idx, cfg.upgrade_count, f"{round_idx}/{cfg.upgrade_count} 次"
-            )
             return
         elapsed_min = (time.monotonic() - start_mono) / 60.0
         self.log(
@@ -957,10 +954,22 @@ class OtaUpgradeRunner:
                 failed_rounds += 1
                 stop_reason = f"轮次 {round_idx} 升级失败（已重试 {attempts} 次）"
                 self.log(f"ERROR {stop_reason}，停止测试")
+                if cfg.upgrade_count > 0:
+                    self._emit_progress(
+                        completed,
+                        cfg.upgrade_count,
+                        f"{completed}/{cfg.upgrade_count} 次 (失败 {failed_rounds})",
+                    )
                 break
 
             completed += 1
             self.log(f"INFO 轮次 {round_idx} 完成")
+            if cfg.upgrade_count > 0:
+                self._emit_progress(
+                    completed,
+                    cfg.upgrade_count,
+                    f"{completed}/{cfg.upgrade_count} 次",
+                )
             if cfg.upgrade_count > 0 and round_idx >= cfg.upgrade_count:
                 stop_reason = f"已达设定轮次 {cfg.upgrade_count}"
                 break
