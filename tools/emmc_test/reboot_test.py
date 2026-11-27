@@ -145,10 +145,22 @@ def load_reboot_config(path: Path) -> RebootConfig:
         target_count = 0
     return RebootConfig(
         device_sn=sn,
-        run_hours=max(0.1, run_hours),
+        run_hours=max(1.0 / 60.0, run_hours),
         boot_timeout_sec=max(60, boot_timeout),
         target_count=max(0, target_count),
     )
+
+
+def format_reboot_duration_progress(
+    elapsed_hours: float, target_hours: float, fail: int = 0
+) -> str:
+    if target_hours < 1.0:
+        elapsed_min = elapsed_hours * 60.0
+        target_min = round(target_hours * 60.0, 2)
+        base = f"{elapsed_min:.1f}/{target_min:g} 分钟"
+    else:
+        base = f"{elapsed_hours:.2f}/{target_hours:g} 小时"
+    return base if fail == 0 else f"{base} (失败 {fail})"
 
 
 def write_reboot_config(path: Path, cfg: RebootConfig) -> None:
@@ -512,7 +524,7 @@ class RebootTestRunner:
                 self._emit_progress(
                     pct_num,
                     pct_den,
-                    f"{hrs:.2f}/{self.cfg.run_hours:g} 小时",
+                    format_reboot_duration_progress(hrs, self.cfg.run_hours, fail),
                 )
             if not self._reboot_cmd_sent():
                 fail += 1
@@ -622,7 +634,11 @@ class RebootTestRunner:
         if count_mode:
             self._emit_progress(0, target_count, f"0/{target_count} 次")
         else:
-            self._emit_progress(0, max(1, int(duration_sec)), f"0.00/{self.cfg.run_hours:g} 小时")
+            self._emit_progress(
+                0,
+                max(1, int(duration_sec)),
+                format_reboot_duration_progress(0.0, self.cfg.run_hours),
+            )
 
         while True:
             if self._is_stop_requested():
@@ -693,11 +709,7 @@ class RebootTestRunner:
                 pct_den = max(1, int(duration_sec))
                 pct_num = min(pct_den, int(elapsed))
                 hrs = elapsed / 3600.0
-                msg = (
-                    f"{hrs:.2f}/{self.cfg.run_hours:g} 小时"
-                    if fail == 0
-                    else f"{hrs:.2f}/{self.cfg.run_hours:g} 小时 (失败 {fail})"
-                )
+                msg = format_reboot_duration_progress(hrs, self.cfg.run_hours, fail)
                 self._emit_progress(pct_num, pct_den, msg)
                 if elapsed >= duration_sec:
                     stop_reason = f"已达到设定时长 {self.cfg.run_hours:g} 小时"

@@ -972,7 +972,7 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
     else:
         cfg.target_count = 0
         if env.params.reboot_run_hours is not None:
-            cfg.run_hours = max(0.1, float(env.params.reboot_run_hours))
+            cfg.run_hours = max(1.0 / 60.0, float(env.params.reboot_run_hours))
     session.start("reboot", env.sn, title="reboot测试")
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     log("INFO 开始 reboot 循环测试")
@@ -994,13 +994,11 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
             msg = f"{success}/{target_count} 次" if fail == 0 else f"{success}/{target_count} 次 (失败 {fail})"
             env.report_progress(success, target_count, msg)
         else:
+            from tools.emmc_test.reboot_test import format_reboot_duration_progress
+
             tot_sec = max(1, int(cfg.run_hours * 3600))
             cur_sec = min(tot_sec, int(duration_hours * 3600))
-            msg = (
-                f"{duration_hours:.2f}/{cfg.run_hours:g} 小时"
-                if fail == 0
-                else f"{duration_hours:.2f}/{cfg.run_hours:g} 小时 (失败 {fail})"
-            )
+            msg = format_reboot_duration_progress(duration_hours, cfg.run_hours, fail)
             env.report_progress(cur_sec, tot_sec, msg)
         total_rounds = success + fail
         if count_mode:

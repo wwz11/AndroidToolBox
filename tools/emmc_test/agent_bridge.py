@@ -133,7 +133,7 @@ def start_agent_reboot(
         "-n", AGENT_RECEIVER,
         "--es", "mode", "hours" if mode == "hours" else "count",
         "--ei", "target_count", str(max(1, int(target_count))),
-        "--ef", "run_hours", str(max(0.05, float(run_hours))),
+        "--ef", "run_hours", str(max(1.0 / 60.0, float(run_hours))),
         "--ei", "stable_sec", str(max(5, int(stable_sec))),
     ]
     proc = _run_adb(sn, args, timeout=15)

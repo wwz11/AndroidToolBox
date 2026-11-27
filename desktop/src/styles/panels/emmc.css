@@ -638,6 +638,18 @@
   min-width: 1.8em;
 }
 
+.emmc-param .emmc-unit-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 56px;
+  max-width: 72px;
+  height: 30px;
+  padding: 0 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .emmc-reboot-mode {
   display: flex;
   flex-wrap: wrap;
