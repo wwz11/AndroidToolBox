@@ -613,6 +613,7 @@ class RebootTestRunner:
         last_offline_warn = 0.0
         last_reconnect_try = 0.0
         last_alive_check = 0.0
+        comm_timeout_sec = max(_AGENT_COMM_TIMEOUT_SEC, int(self.cfg.boot_timeout_sec or 0))
         stop_reason = ""
 
         if count_mode:
@@ -637,12 +638,12 @@ class RebootTestRunner:
                     last_offline_warn = now
                     self.log(
                         f"WARNING ADB 断连，正在重试与设备端 APK 通信"
-                        f"（已重试 {int(offline_sec)}/{_AGENT_COMM_TIMEOUT_SEC} 秒）..."
+                        f"（已重试 {int(offline_sec)}/{comm_timeout_sec} 秒）..."
                     )
-                if offline_sec >= _AGENT_COMM_TIMEOUT_SEC:
+                if offline_sec >= comm_timeout_sec:
                     fail += 1
                     stop_reason = (
-                        f"ADB 断连重试 {int(_AGENT_COMM_TIMEOUT_SEC // 60)} 分钟仍无法与设备端 APK 通信，判定失败"
+                        f"ADB 断连重试 {comm_timeout_sec} 秒仍无法与设备端 APK 通信，判定失败"
                     )
                     self.log(f"ERROR {stop_reason}")
                     break

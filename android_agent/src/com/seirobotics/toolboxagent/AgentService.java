@@ -276,7 +276,8 @@ public class AgentService extends Service {
             if ("hours".equals(mode)) {
                 long accMs = st.optLong("accumulated_ms", 0L) + SystemClock.elapsedRealtime();
                 st.put("boot_uptime_ms", SystemClock.elapsedRealtime());
-                double targetMs = st.optDouble("run_hours", 1.0) * 3600_000.0;
+                // 断线兜底时按 1.05 倍目标时长触发，避免 APK 抢跑早于 PC 单调时钟而触发时长不足误判
+                double targetMs = st.optDouble("run_hours", 1.0) * 3600_000.0 * 1.05;
                 if (accMs >= targetMs) {
                     st.put("accumulated_ms", accMs);
                     st.put("state", AgentStore.STATE_COMPLETED);
@@ -314,8 +315,8 @@ public class AgentService extends Service {
                 long prevUptime = st.optLong("boot_uptime_ms", 0L);
                 long curUptime = SystemClock.elapsedRealtime();
                 long delta = prevUptime > 0 && curUptime >= prevUptime ? (curUptime - prevUptime) : curUptime;
-                // 累加本轮运行耗时及约 15 秒关机/重启过渡耗时，避免受 RTC/NTP 校时跳变影响
-                st.put("accumulated_ms", st.optLong("accumulated_ms", 0L) + delta + 15_000L);
+                // 仅累加实际运行耗时，不虚增固定重启耗时，避免受 RTC/NTP 校时跳变影响
+                st.put("accumulated_ms", st.optLong("accumulated_ms", 0L) + delta);
                 st.put("boot_uptime_ms", 0L);
                 AgentStore.saveState(this, st);
             } catch (Exception ignored) {}
