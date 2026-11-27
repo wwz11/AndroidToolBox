@@ -2580,7 +2580,9 @@ input.field.net {
   min-width: 0;
 }
 
-.device-page > .banner-err {
+.device-page > .banner-err,
+.device-page > .ui-banner-warn,
+.device-page > .ui-banner-success {
   flex: 0 0 auto;
   margin: 10px 16px 0;
 }
