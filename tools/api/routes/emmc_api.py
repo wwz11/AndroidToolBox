@@ -17,7 +17,7 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from tools.api.deps import evict_finished_jobs
+from tools.api.deps import evict_finished_jobs, require_sn
 from tools.bundled_paths import app_base_dir
 from tools.emmc_test.auto_runner import AUTO_LABELS, AUTO_STEPS
 from tools.emmc_test.headless_log import emmc_logs_dir
