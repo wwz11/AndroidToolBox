@@ -73,9 +73,14 @@ public class MainActivity extends Activity {
     }
 
     private void focusFirstEnabled() {
-        Button target = (stopBtn != null && stopBtn.isEnabled()) ? stopBtn : resetBtn;
-        if (target != null) {
-            target.post(target::requestFocus);
+        for (Button btn : new Button[]{stopBtn, localRunBtn, resetBtn, clearLogBtn}) {
+            if (btn != null && btn.isEnabled()) {
+                btn.post(btn::requestFocus);
+                return;
+            }
+        }
+        if (logScroll != null) {
+            logScroll.post(logScroll::requestFocus);
         }
     }
 
@@ -278,7 +283,16 @@ public class MainActivity extends Activity {
         JSONObject st = AgentStore.loadState(this);
         String state = st.optString("state", AgentStore.STATE_IDLE);
         boolean isRunning = AgentStore.STATE_RUNNING.equals(state);
+        boolean isIdle = AgentStore.STATE_IDLE.equals(state);
+        int curRound = st.optInt("current_round", 0);
+        int okCount = st.optInt("success_rounds", 0);
+        int failCount = st.optInt("fail_rounds", 0);
+        int anomCount = st.optInt("anomaly_count", 0);
+        String logs = AgentStore.readTailLog(this, 40);
+
         setBtnEnabled(stopBtn, isRunning);
+        setBtnEnabled(resetBtn, !isRunning && (!isIdle || curRound > 0 || okCount > 0 || failCount > 0 || anomCount > 0));
+        setBtnEnabled(clearLogBtn, !logs.trim().isEmpty());
         setBtnEnabled(localRunBtn, !isRunning);
 
         badgeView.setText(stateLabel(state));
@@ -305,10 +319,6 @@ public class MainActivity extends Activity {
         }
 
         String mode = st.optString("mode", "count");
-        int curRound = st.optInt("current_round", 0);
-        int okCount = st.optInt("success_rounds", 0);
-        int failCount = st.optInt("fail_rounds", 0);
-        int anomCount = st.optInt("anomaly_count", 0);
         int stableSec = st.optInt("stable_sec", 30);
         String reason = st.optString("last_boot_reason", "").trim();
         boolean selfReboot = st.optBoolean("can_self_reboot", false);
@@ -366,7 +376,6 @@ public class MainActivity extends Activity {
         }
         detailView.setText(d.toString());
 
-        String logs = AgentStore.readTailLog(this, 40);
         String nextLog = logs.isEmpty() ? "暂无日志" : logs;
         if (!nextLog.equals(lastLogText)) {
             lastLogText = nextLog;
