@@ -17,6 +17,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -106,32 +107,56 @@ public class MainActivity extends Activity {
             if (logScroll != null && logScroll.hasFocus()) {
                 int code = event.getKeyCode();
                 if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
-                    logScrollUnlocked = !logScrollUnlocked;
-                    showHintToast(logScrollUnlocked
-                            ? "已解锁日志滚动，可按上下键查看（按 OK 或返回键退出）"
-                            : "已退出日志滚动模式");
+                    setLogScrollUnlocked(!logScrollUnlocked, true);
                     return true;
                 }
                 if (code == KeyEvent.KEYCODE_BACK && logScrollUnlocked) {
-                    logScrollUnlocked = false;
-                    showHintToast("已退出日志滚动模式");
+                    setLogScrollUnlocked(false, true);
                     return true;
                 }
-                if (code == KeyEvent.KEYCODE_DPAD_DOWN && !logScrollUnlocked) {
-                    showHintToast("按 OK 键才可上下移动日志");
-                    return true;
-                }
-                if (code == KeyEvent.KEYCODE_DPAD_UP && logScrollUnlocked) {
-                    return super.dispatchKeyEvent(event);
-                }
-                if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
-                    if (logScrollUnlocked) return true;
-                    focusFirstEnabled();
-                    return true;
+                if (!logScrollUnlocked) {
+                    if (code == KeyEvent.KEYCODE_DPAD_DOWN
+                            || code == KeyEvent.KEYCODE_PAGE_DOWN
+                            || code == KeyEvent.KEYCODE_PAGE_UP) {
+                        showHintToast("按 OK 键才可上下移动日志");
+                        return true;
+                    }
+                    if (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_LEFT) {
+                        focusFirstEnabled();
+                        return true;
+                    }
+                } else {
+                    if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                        return true;
+                    }
                 }
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private void setLogScrollUnlocked(boolean unlocked, boolean showToast) {
+        logScrollUnlocked = unlocked;
+        updateLogScrollBg();
+        if (!unlocked && logScroll != null && logView != null) {
+            logScroll.post(() -> logScroll.scrollTo(0, Math.max(0, logView.getHeight())));
+        }
+        if (showToast) {
+            showHintToast(unlocked
+                    ? "已解锁日志滚动，可按上下键查看（按 OK 或返回键退出）"
+                    : "已退出日志滚动模式");
+        }
+    }
+
+    private void updateLogScrollBg() {
+        if (logScroll == null) return;
+        StateListDrawable scrollSld = new StateListDrawable();
+        String focusColor = logScrollUnlocked ? "#5CE0A8" : "#58A6FF";
+        GradientDrawable scrollFocused = cardBg("#10151C", focusColor);
+        scrollFocused.setStroke(3, Color.parseColor(focusColor));
+        scrollSld.addState(new int[]{android.R.attr.state_focused}, scrollFocused);
+        scrollSld.addState(new int[]{}, cardBg("#10151C", "#1F2A38"));
+        logScroll.setBackground(scrollSld);
     }
 
     private void showHintToast(String msg) {
@@ -233,18 +258,38 @@ public class MainActivity extends Activity {
         btnRow.addView(stopBtn = makeBtn("停止压测", this::confirmStopTest));
         root.addView(btnRow);
 
-        logScroll = new ScrollView(this);
+        logScroll = new ScrollView(this) {
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent ev) {
+                return logScrollUnlocked && super.onInterceptTouchEvent(ev);
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent ev) {
+                if (!logScrollUnlocked) return false;
+                return super.onTouchEvent(ev);
+            }
+
+            @Override
+            public boolean onGenericMotionEvent(MotionEvent event) {
+                if (!logScrollUnlocked) return false;
+                return super.onGenericMotionEvent(event);
+            }
+
+            @Override
+            public boolean executeKeyEvent(KeyEvent event) {
+                if (!logScrollUnlocked) return false;
+                return super.executeKeyEvent(event);
+            }
+        };
         ScrollView scroll = logScroll;
         scroll.setFocusable(true);
         scroll.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus) logScrollUnlocked = false;
+            if (!hasFocus && logScrollUnlocked) {
+                setLogScrollUnlocked(false, false);
+            }
         });
-        StateListDrawable scrollSld = new StateListDrawable();
-        GradientDrawable scrollFocused = cardBg("#10151C", "#58A6FF");
-        scrollFocused.setStroke(3, Color.parseColor("#58A6FF"));
-        scrollSld.addState(new int[]{android.R.attr.state_focused}, scrollFocused);
-        scrollSld.addState(new int[]{}, cardBg("#10151C", "#1F2A38"));
-        scroll.setBackground(scrollSld);
+        updateLogScrollBg();
         scroll.setPadding(22, 16, 22, 16);
         LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
