@@ -18,8 +18,14 @@ def _safe_sn_for_filename(sn: str) -> str:
     return safe or "unknown"
 
 
-def emmc_logs_dir() -> Path:
-    return _app_base_dir() / "logs" / "emmc"
+def _safe_flow_for_dir(flow_no: str) -> str:
+    return re.sub(r'[<>:"/\\|?*]+', "_", flow_no.strip()).strip()
+
+
+def emmc_logs_dir(flow_no: str = "") -> Path:
+    root = _app_base_dir() / "logs" / "emmc"
+    safe_flow = _safe_flow_for_dir(flow_no)
+    return root / safe_flow if safe_flow else root
 
 
 class HeadlessLogSession:
@@ -37,17 +43,19 @@ class HeadlessLogSession:
     def active(self) -> bool:
         return self._file is not None
 
-    def start(self, test_key: str, sn: str, *, title: str) -> Path:
+    def start(self, test_key: str, sn: str, *, title: str, flow_no: str = "") -> Path:
         self.close()
-        log_dir = emmc_logs_dir()
+        log_dir = emmc_logs_dir(flow_no)
         log_dir.mkdir(parents=True, exist_ok=True)
         ts = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         path = log_dir / f"{test_key}_{_safe_sn_for_filename(sn)}_{ts}.log"
         self.path = path
         self._file = path.open("w", encoding="utf-8", newline="\n")
+        flow_line = f"流程号: {flow_no.strip()}\n" if flow_no.strip() else ""
         header = (
             f"=== {title} ===\n"
             f"时间: {dt.datetime.now():%Y-%m-%d %H:%M:%S}\n"
+            f"{flow_line}"
             f"SN: {sn or '(未指定)'}\n"
             f"{'=' * 40}\n"
         )

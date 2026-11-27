@@ -178,10 +178,10 @@ def steps() -> dict:
 
 
 @router.get("/dirs")
-def dirs() -> dict:
+def dirs(flow_no: str = "") -> dict:
     reports = emmc_reports_dir(base_dir=_base())
     reports.mkdir(parents=True, exist_ok=True)
-    logs = emmc_logs_dir()
+    logs = emmc_logs_dir(flow_no)
     logs.mkdir(parents=True, exist_ok=True)
     return {
         "reports_dir": str(reports.resolve()),
@@ -326,7 +326,6 @@ def _ensure_feishu_report_for_flow(
                     app_secret=cfg["app_secret"],
                     url_or_token=cfg["template_url"],
                     name=local_report.stem,
-                    flow_no=flow,
                 )
                 url = str(res.get("url") or "").strip()
             if url:
@@ -775,7 +774,6 @@ def copy_feishu_template_report(body: FeishuConfigBody) -> dict:
             app_secret=app_secret,
             url_or_token=url,
             name=name,
-            flow_no=flow,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -932,7 +930,6 @@ def _copy_and_sync_local_path_to_feishu(
                 app_secret=cfg["app_secret"],
                 url_or_token=cfg["template_url"],
                 name=local_path.stem,
-                flow_no=flow,
             )
     url = str(res.get("url") or "").strip()
     if url:

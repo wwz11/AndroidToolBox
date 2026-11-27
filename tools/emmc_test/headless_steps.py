@@ -411,7 +411,7 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
     read_pass = 0
     check_pass = 0
     start_mono = time.monotonic()
-    session.start("stress", cfg.sn, title="读写压力测试")
+    session.start("stress", cfg.sn, title="读写压力测试", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     if time_mode:
         log(f"INFO 停止条件: 按时长（目标 {max_run_min:g} 分钟）")
@@ -691,7 +691,7 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
         env.log(f"ERROR iozone 文件不存在: {iozone_bin}")
         return False
 
-    session.start("iozone", env.sn, title="iozone读写速度")
+    session.start("iozone", env.sn, title="iozone读写速度", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     silent_log = lambda _line: None
     env.report_progress(0, 3, "0/3 次")
@@ -860,6 +860,9 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                             / "emmc"
                             / "logs"
                         )
+                        flow_clean = re.sub(r'[<>:"/\\|?*]+', "_", (env.flow_no or "").strip()).strip()
+                        if flow_clean:
+                            logs_dir = logs_dir / flow_clean
                         logs_dir.mkdir(parents=True, exist_ok=True)
                         lp = logs_dir / (
                             f"iozone_{file_size_mb}M_run{i + 1}_{time.strftime('%Y%m%d_%H%M%S')}.log"
@@ -973,7 +976,7 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
         cfg.target_count = 0
         if env.params.reboot_run_hours is not None:
             cfg.run_hours = max(1.0 / 60.0, float(env.params.reboot_run_hours))
-    session.start("reboot", env.sn, title="reboot测试")
+    session.start("reboot", env.sn, title="reboot测试", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     log("INFO 开始 reboot 循环测试")
     result = "FAIL"
@@ -1093,7 +1096,7 @@ def run_ota(env: StepEnv, session: HeadlessLogSession) -> bool:
     if not Path(cfg.ota_file_path).is_file():
         env.log(f"ERROR OTA 文件不存在: {cfg.ota_file_path}")
         return False
-    session.start("ota_v5", env.sn, title="OTA测试v5")
+    session.start("ota_v5", env.sn, title="OTA测试v5", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     log("INFO 开始 OTA v5 循环升级测试")
     result = "FAIL"
@@ -1273,7 +1276,7 @@ def run_rpmb(env: StepEnv, session: HeadlessLogSession) -> bool:
         env.log(f"ERROR RPMB 资源文件缺失: {', '.join(missing)} 目录: {assets_dir}")
         return False
     duration_sec = int(run_minutes * 60)
-    session.start("rpmb", env.sn, title="RPMB测试")
+    session.start("rpmb", env.sn, title="RPMB测试", flow_no=env.flow_no)
     log = _ts_log(lambda line: (session.append(line), env.log(line)))
     log(f"INFO 开始 RPMB 测试，设定运行 {run_minutes:g} 分钟")
     log(f"INFO 资源目录: {assets_dir}")

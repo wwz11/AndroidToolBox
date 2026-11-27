@@ -133,16 +133,10 @@ def _reports_root(base_dir: Path | None = None) -> Path:
 
 
 def emmc_reports_dir(*, base_dir: Path | None = None) -> Path:
-    """eMMC 测试报告根目录（不存在则创建）。"""
+    """eMMC 测试报告输出目录（不存在则创建）。"""
     path = _reports_root(base_dir)
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def flow_reports_dir(flow_no: str, *, base_dir: Path | None = None) -> Path:
-    """按流程号划分的报告子目录：output/emmc/reports/<flow_no>/。"""
-    safe_flow = _sanitize_flow_for_filename(flow_no)
-    return _reports_root(base_dir) / safe_flow
 
 
 def _sanitize_report_name_part(text: str) -> str:
@@ -172,7 +166,7 @@ def report_path_for_project(
     *,
     base_dir: Path | None = None,
 ) -> Path:
-    return flow_reports_dir(flow_no, base_dir=base_dir) / report_filename(flow_no, import_project)
+    return _reports_root(base_dir) / report_filename(flow_no, import_project)
 
 
 def report_title_for_sheet(import_project: str, *, english: bool = False) -> str:
@@ -254,7 +248,7 @@ def _legacy_report_path(flow_no: str, *, base_dir: Path | None = None) -> Path:
 
 
 def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
-    """按流程号确定报告文件路径（归档于 output/emmc/reports/<flow_no>/）。"""
+    """按流程号确定报告文件路径（固定文件名，便于多项测试汇总到同一报告）。"""
     flow = flow_no.strip()
     if not flow:
         raise ValueError("流程号不能为空")
@@ -272,21 +266,7 @@ def report_path_for_flow(flow_no: str, *, base_dir: Path | None = None) -> Path:
     named = report_path_for_project(flow, import_project, base_dir=base_dir)
     if named.is_file():
         return named
-    # 扫描流程号子目录下已有的 v3.0 报告（兼容修改导入项目或跨机拷贝）
-    fdir = flow_reports_dir(flow, base_dir=base_dir)
-    if fdir.is_dir():
-        candidates = [
-            p
-            for p in fdir.glob("*.xlsx")
-            if p.is_file() and not p.name.startswith("~$") and "模版v2.0" not in p.name
-        ]
-        if candidates:
-            candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-            return candidates[0]
-    # 向后兼容旧版平铺在 reports 根目录下的历史报告
-    legacy_flat = _reports_root(base_dir) / report_filename(flow, import_project)
-    if legacy_flat.is_file():
-        return legacy_flat
+    # 兼容 v3.0 空格命名
     try:
         sanitized = _sanitize_report_name_part(import_project)
         safe_flow = _sanitize_flow_for_filename(flow)

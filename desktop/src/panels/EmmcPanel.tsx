@@ -143,9 +143,7 @@ export default function EmmcPanel({
   const [otaMaxRun, setOtaMaxRun] = useState("1440");
   const [otaMaxRunUnit, setOtaMaxRunUnit] = useState<TimeUnit>("minutes");
   const [otaTimeout, setOtaTimeout] = useState("10");
-  const [otaTimeoutUnit, setOtaTimeoutUnit] = useState<TimeUnit>("minutes");
   const [otaInterval, setOtaInterval] = useState("10");
-  const [otaIntervalUnit, setOtaIntervalUnit] = useState<TimeUnit>("minutes");
   const [otaPath, setOtaPath] = useState("");
   const [stopOnFail, setStopOnFail] = useState(false);
   const [abUpgrade, setAbUpgrade] = useState(true);
@@ -501,10 +499,35 @@ export default function EmmcPanel({
     return n;
   }
 
-  function parseNonNegFloat(raw: string, label: string): number {
-    const n = Number.parseFloat(raw.trim());
-    if (!Number.isFinite(n) || n < 0) throw new Error(`${label} 必须为非负数`);
-    return n;
+  function renderUnitToggle(
+    unit: TimeUnit,
+    onSwitch: (next: TimeUnit) => void,
+    ariaLabel: string,
+  ) {
+    return (
+      <div className="emmc-unit-toggle" role="group" aria-label={ariaLabel}>
+        <button
+          type="button"
+          className={`emmc-unit-btn${unit === "minutes" ? " is-active" : ""}`}
+          disabled={!snOk || running}
+          onClick={() => {
+            if (unit !== "minutes") onSwitch("minutes");
+          }}
+        >
+          分钟
+        </button>
+        <button
+          type="button"
+          className={`emmc-unit-btn${unit === "hours" ? " is-active" : ""}`}
+          disabled={!snOk || running}
+          onClick={() => {
+            if (unit !== "hours") onSwitch("hours");
+          }}
+        >
+          小时
+        </button>
+      </div>
+    );
   }
 
   function setAll(checked: boolean) {
@@ -589,7 +612,7 @@ export default function EmmcPanel({
 
   async function openLogsDir() {
     try {
-      const r = await api.emmcDirs();
+      const r = await api.emmcDirs(flowNo.trim() || undefined);
       await openAny(r.logs_dir);
     } catch (e) {
       const msg = `打开日志目录失败：${toErrorMessage(e)}`;
@@ -1099,17 +1122,10 @@ export default function EmmcPanel({
           );
         }
         params.ota_retry_limit = parseNonNegInt(otaRetry, "每轮重试");
-        const timeoutVal = parsePosFloat(otaTimeout, "单轮超时");
-        params.ota_timeout_minutes = Math.max(
-          1,
-          Math.round(otaTimeoutUnit === "hours" ? timeoutVal * 60 : timeoutVal),
-        );
-        const intervalVal = parseNonNegFloat(otaInterval, "轮次间隔");
-        params.ota_round_interval_minutes = Math.max(
-          0,
-          Math.round(
-            otaIntervalUnit === "hours" ? intervalVal * 60 : intervalVal,
-          ),
+        params.ota_timeout_minutes = parsePosInt(otaTimeout, "单轮超时");
+        params.ota_round_interval_minutes = parseNonNegInt(
+          otaInterval,
+          "轮次间隔",
         );
         params.ota_file_path = otaFile;
       }
@@ -1628,22 +1644,16 @@ export default function EmmcPanel({
                                   setStressMinutes(e.target.value)
                                 }
                               />
-                              <select
-                                className="field emmc-unit-select"
-                                aria-label="读写压力时长单位"
-                                value={stressUnit}
-                                disabled={!snOk || running}
-                                onChange={(e) => {
-                                  const next = e.target.value as TimeUnit;
+                              {renderUnitToggle(
+                                stressUnit,
+                                (next) => {
                                   setStressMinutes((prev) =>
                                     convertTimeInput(prev, stressUnit, next),
                                   );
                                   setStressUnit(next);
-                                }}
-                              >
-                                <option value="minutes">分钟</option>
-                                <option value="hours">小时</option>
-                              </select>
+                                },
+                                "读写压力时长单位",
+                              )}
                             </div>
                           </label>
                         )}
@@ -1718,22 +1728,16 @@ export default function EmmcPanel({
                                 disabled={!snOk || running}
                                 onChange={(e) => setRebootHours(e.target.value)}
                               />
-                              <select
-                                className="field emmc-unit-select"
-                                aria-label="reboot 时长单位"
-                                value={rebootUnit}
-                                disabled={!snOk || running}
-                                onChange={(e) => {
-                                  const next = e.target.value as TimeUnit;
+                              {renderUnitToggle(
+                                rebootUnit,
+                                (next) => {
                                   setRebootHours((prev) =>
                                     convertTimeInput(prev, rebootUnit, next),
                                   );
                                   setRebootUnit(next);
-                                }}
-                              >
-                                <option value="hours">小时</option>
-                                <option value="minutes">分钟</option>
-                              </select>
+                                },
+                                "reboot 时长单位",
+                              )}
                             </div>
                           </label>
                         ) : (
@@ -1825,13 +1829,9 @@ export default function EmmcPanel({
                                   disabled={!snOk || running}
                                   onChange={(e) => setOtaMaxRun(e.target.value)}
                                 />
-                                <select
-                                  className="field emmc-unit-select"
-                                  aria-label="OTA 最大运行时长单位"
-                                  value={otaMaxRunUnit}
-                                  disabled={!snOk || running}
-                                  onChange={(e) => {
-                                    const next = e.target.value as TimeUnit;
+                                {renderUnitToggle(
+                                  otaMaxRunUnit,
+                                  (next) => {
                                     setOtaMaxRun((prev) =>
                                       convertTimeInput(
                                         prev,
@@ -1840,11 +1840,9 @@ export default function EmmcPanel({
                                       ),
                                     );
                                     setOtaMaxRunUnit(next);
-                                  }}
-                                >
-                                  <option value="minutes">分钟</option>
-                                  <option value="hours">小时</option>
-                                </select>
+                                  },
+                                  "OTA 最大运行时长单位",
+                                )}
                               </div>
                             </label>
                           )}
@@ -1866,26 +1864,7 @@ export default function EmmcPanel({
                                 disabled={!snOk || running}
                                 onChange={(e) => setOtaTimeout(e.target.value)}
                               />
-                              <select
-                                className="field emmc-unit-select"
-                                aria-label="OTA 单轮超时单位"
-                                value={otaTimeoutUnit}
-                                disabled={!snOk || running}
-                                onChange={(e) => {
-                                  const next = e.target.value as TimeUnit;
-                                  setOtaTimeout((prev) =>
-                                    convertTimeInput(
-                                      prev,
-                                      otaTimeoutUnit,
-                                      next,
-                                    ),
-                                  );
-                                  setOtaTimeoutUnit(next);
-                                }}
-                              >
-                                <option value="minutes">分钟</option>
-                                <option value="hours">小时</option>
-                              </select>
+                              <span className="emmc-param-unit">分</span>
                             </div>
                           </label>
                           <label className="emmc-param">
@@ -1897,26 +1876,7 @@ export default function EmmcPanel({
                                 disabled={!snOk || running}
                                 onChange={(e) => setOtaInterval(e.target.value)}
                               />
-                              <select
-                                className="field emmc-unit-select"
-                                aria-label="OTA 轮次间隔单位"
-                                value={otaIntervalUnit}
-                                disabled={!snOk || running}
-                                onChange={(e) => {
-                                  const next = e.target.value as TimeUnit;
-                                  setOtaInterval((prev) =>
-                                    convertTimeInput(
-                                      prev,
-                                      otaIntervalUnit,
-                                      next,
-                                    ),
-                                  );
-                                  setOtaIntervalUnit(next);
-                                }}
-                              >
-                                <option value="minutes">分钟</option>
-                                <option value="hours">小时</option>
-                              </select>
+                              <span className="emmc-param-unit">分</span>
                             </div>
                           </label>
                         </div>
@@ -1979,22 +1939,16 @@ export default function EmmcPanel({
                               disabled={!snOk || running}
                               onChange={(e) => setRpmbMin(e.target.value)}
                             />
-                            <select
-                              className="field emmc-unit-select"
-                              aria-label="RPMB 时长单位"
-                              value={rpmbUnit}
-                              disabled={!snOk || running}
-                              onChange={(e) => {
-                                const next = e.target.value as TimeUnit;
+                            {renderUnitToggle(
+                              rpmbUnit,
+                              (next) => {
                                 setRpmbMin((prev) =>
                                   convertTimeInput(prev, rpmbUnit, next),
                                 );
                                 setRpmbUnit(next);
-                              }}
-                            >
-                              <option value="minutes">分钟</option>
-                              <option value="hours">小时</option>
-                            </select>
+                              },
+                              "RPMB 时长单位",
+                            )}
                           </div>
                         </label>
                       </div>

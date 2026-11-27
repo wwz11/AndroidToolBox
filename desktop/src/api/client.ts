@@ -1251,8 +1251,10 @@ export const api = {
 
   emmcSteps: () =>
     request<{ steps: Array<{ id: string; label: string }> }>("/emmc/steps"),
-  emmcDirs: () =>
-    request<{ reports_dir: string; logs_dir: string }>("/emmc/dirs"),
+  emmcDirs: (flowNo?: string) =>
+    request<{ reports_dir: string; logs_dir: string }>(
+      `/emmc/dirs${q({ flow_no: flowNo?.trim() || undefined })}`,
+    ),
   emmcReport: (flowNo: string) =>
     request<{
       flow_no: string;
