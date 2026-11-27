@@ -1360,11 +1360,7 @@ export default function EmmcPanel({
                 const itemPct =
                   spTot > 0
                     ? Math.min(100, Math.round((100 * spCur) / spTot))
-                    : verdict === "Pass"
-                      ? 100
-                      : verdict === "running"
-                        ? 5
-                        : 0;
+                    : 0;
                 const showItemBar =
                   Boolean(selected[s.id]) &&
                   (verdict === "running" ||
