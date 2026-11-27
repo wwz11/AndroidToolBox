@@ -134,6 +134,10 @@ public class MainActivity extends Activity {
 
         btnRow.addView(firstBtn = makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
         btnRow.addView(makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
+        btnRow.addView(makeBtn("清除日志", () -> {
+            AgentStore.clearLog(this);
+            refreshUi();
+        }));
         btnRow.addView(makeBtn("开启网络ADB", () -> startAgentService(new Intent(AgentService.ACTION_ENABLE_TCP_ADB))));
         btnRow.addView(makeBtn("本地试跑10次", () -> {
             Intent i = new Intent(AgentService.ACTION_START_REBOOT);

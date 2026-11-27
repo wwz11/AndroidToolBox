@@ -147,6 +147,17 @@ public final class AgentStore {
         }
     }
 
+    public static void clearLog(Context ctx) {
+        synchronized (LOCK) {
+            try {
+                File f = getLogFile(ctx);
+                if (f.exists()) f.delete();
+                File bak = new File(f.getParentFile(), "agent.log.1");
+                if (bak.exists()) bak.delete();
+            } catch (Exception ignored) {}
+        }
+    }
+
     public static String readTailLog(Context ctx, int maxLines) {
         synchronized (LOCK) {
             File f = getLogFile(ctx);
