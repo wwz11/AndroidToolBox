@@ -140,6 +140,21 @@ export default function EmmcPanel({
   const [oaLoggedIn, setOaLoggedIn] = useState(false);
   const [oaUserName, setOaUserName] = useState("");
   const [oaBusy, setOaBusy] = useState(false);
+  const [agentBusy, setAgentBusy] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<{
+    installed: boolean;
+    state: string;
+    current_round?: number;
+    target_count?: number;
+    success_rounds?: number;
+    fail_rounds?: number;
+    anomaly_count?: number;
+    can_self_reboot?: boolean;
+    ip?: string;
+    adb_tcp_port?: string;
+    last_boot_reason?: string;
+    stop_reason?: string;
+  } | null>(null);
   const feishuLoginCancelRef = useRef(false);
   const feishuPopupRef = useRef<Window | null>(null);
   const [stepResults, setStepResults] = useState<Record<string, string>>({});
@@ -784,6 +799,68 @@ export default function EmmcPanel({
       setStatus(`退出 Tide OA 失败：${toErrorMessage(e)}`);
     } finally {
       setOaBusy(false);
+    }
+  }
+
+  async function refreshAgentStatus(silent = false) {
+    if (!snOk) return;
+    if (!silent) setAgentBusy(true);
+    try {
+      const r = await api.emmcAgentStatus(deviceSn);
+      setAgentStatus(r);
+    } catch (e) {
+      if (!silent) toast.push(`查询设备端 Agent 失败：${toErrorMessage(e)}`, "err");
+    } finally {
+      if (!silent) setAgentBusy(false);
+    }
+  }
+
+  async function installAgentApk() {
+    if (!snOk) return;
+    setAgentBusy(true);
+    try {
+      const r = await api.emmcAgentInstall(deviceSn);
+      setAgentStatus((r.status as typeof agentStatus) || { installed: true, state: "IDLE" });
+      toast.push("设备端压测 Agent 安装并激活成功", "ok");
+    } catch (e) {
+      toast.push(`安装 Agent 失败：${toErrorMessage(e)}`, "err");
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function startAgentRebootTest() {
+    if (!snOk) return;
+    setAgentBusy(true);
+    try {
+      const count = rebootMode === "count" ? parsePosInt(rebootCount, "reboot 次数") : 10;
+      const hours = rebootMode === "hours" ? parsePosFloat(rebootHours, "reboot 时长") : 1;
+      const r = await api.emmcAgentStart(deviceSn, {
+        mode: rebootMode,
+        target_count: count,
+        run_hours: hours,
+        stable_sec: 15,
+      });
+      setAgentStatus((r.status as typeof agentStatus) || null);
+      toast.push("已下发设备端自主 Reboot 压测指令（断开 ADB 仍可继续）", "ok");
+    } catch (e) {
+      toast.push(`启动设备端压测失败：${toErrorMessage(e)}`, "err");
+    } finally {
+      setAgentBusy(false);
+    }
+  }
+
+  async function stopAgentRebootTest() {
+    if (!snOk) return;
+    setAgentBusy(true);
+    try {
+      const r = await api.emmcAgentStop(deviceSn);
+      setAgentStatus((r.status as typeof agentStatus) || null);
+      toast.push("已停止设备端压测", "ok");
+    } catch (e) {
+      toast.push(`停止设备端压测失败：${toErrorMessage(e)}`, "err");
+    } finally {
+      setAgentBusy(false);
     }
   }
 
@@ -1584,6 +1661,39 @@ export default function EmmcPanel({
                             <span className="emmc-param-unit">秒</span>
                           </div>
                         </label>
+                      </div>
+                      <div className="emmc-btn-row tight" style={{ marginTop: 6, alignItems: "center" }}>
+                        <Button
+                          disabled={!snOk || agentBusy}
+                          onClick={() => void installAgentApk()}
+                          title="安装并激活 ToolboxAgent.apk 到当前 userdebug 设备"
+                        >
+                          {agentStatus?.installed ? "重装 Agent" : "安装 Agent APK"}
+                        </Button>
+                        <Button
+                          disabled={!snOk || agentBusy || agentStatus?.state === "RUNNING"}
+                          onClick={() => void startAgentRebootTest()}
+                          title="由设备端 APK 主导执行重启压测，ADB 断开也不影响"
+                        >
+                          设备端自主压测
+                        </Button>
+                        {agentStatus?.state === "RUNNING" ? (
+                          <Button disabled={!snOk || agentBusy} onClick={() => void stopAgentRebootTest()}>
+                            停止设备端
+                          </Button>
+                        ) : null}
+                        <Button disabled={!snOk || agentBusy} onClick={() => void refreshAgentStatus(false)}>
+                          刷新 Agent
+                        </Button>
+                        {agentStatus ? (
+                          <span className="emmc-hint" style={{ marginLeft: 4 }}>
+                            {!agentStatus.installed
+                              ? "Agent 未安装"
+                              : `${agentStatus.state} · 第 ${agentStatus.current_round ?? 0} 轮 · ${
+                                  agentStatus.can_self_reboot ? "支持自主重启" : "需PC辅助重启"
+                                }${agentStatus.ip ? ` · ${agentStatus.ip}` : ""}`}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   );

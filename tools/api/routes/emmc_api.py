@@ -57,6 +57,13 @@ from tools.tide_oa import (
     logout_tide_oa,
     validate_and_save_tide_token,
 )
+from tools.emmc_test.agent_bridge import (
+    get_agent_status,
+    install_and_init_agent,
+    reset_agent_state,
+    start_agent_reboot,
+    stop_agent_test,
+)
 
 router = APIRouter()
 
@@ -1056,5 +1063,65 @@ def get_tide_oa_flow(flow_no: str) -> dict:
         return fetch_emmc_flow_header(flow_no)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+class AgentStartBody(BaseModel):
+    mode: str = "count"
+    target_count: int = 10
+    run_hours: float = 1.0
+    stable_sec: int = 15
+
+
+@router.get("/agent/status")
+def api_agent_status(device: str = "") -> dict:
+    sn = require_sn(device) if device else ""
+    try:
+        return get_agent_status(sn)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/agent/install")
+def api_agent_install(device: str = "") -> dict:
+    sn = require_sn(device) if device else ""
+    try:
+        return install_and_init_agent(sn, base_dir=_base())
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/agent/start")
+def api_agent_start(body: AgentStartBody, device: str = "") -> dict:
+    sn = require_sn(device) if device else ""
+    try:
+        return start_agent_reboot(
+            sn,
+            mode=body.mode,
+            target_count=body.target_count,
+            run_hours=body.run_hours,
+            stable_sec=body.stable_sec,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/agent/stop")
+def api_agent_stop(device: str = "") -> dict:
+    sn = require_sn(device) if device else ""
+    try:
+        return stop_agent_test(sn)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.post("/agent/reset")
+def api_agent_reset(device: str = "") -> dict:
+    sn = require_sn(device) if device else ""
+    try:
+        return reset_agent_state(sn)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

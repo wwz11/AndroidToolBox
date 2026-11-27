@@ -1354,6 +1354,47 @@ export const api = {
     }),
   emmcStop: (jobId: string) =>
     request<{ ok: boolean }>(`/emmc/jobs/${jobId}/stop`, { method: "POST" }),
+  emmcAgentStatus: (device: string) =>
+    request<{
+      installed: boolean;
+      state: string;
+      mode?: string;
+      target_count?: number;
+      run_hours?: number;
+      current_round?: number;
+      success_rounds?: number;
+      fail_rounds?: number;
+      anomaly_count?: number;
+      last_boot_reason?: string;
+      can_self_reboot?: boolean;
+      waiting_pc_reboot?: boolean;
+      ip?: string;
+      adb_tcp_port?: string;
+      stop_reason?: string;
+    }>(`/emmc/agent/status${q({ device })}`),
+  emmcAgentInstall: (device: string) =>
+    request<{ ok: boolean; apk: string; status: Record<string, unknown> }>(
+      `/emmc/agent/install${q({ device })}`,
+      { method: "POST", timeoutMs: 60000 },
+    ),
+  emmcAgentStart: (
+    device: string,
+    body: { mode: "count" | "hours"; target_count: number; run_hours: number; stable_sec?: number },
+  ) =>
+    request<{ ok: boolean; status: Record<string, unknown> }>(
+      `/emmc/agent/start${q({ device })}`,
+      { method: "POST", body: JSON.stringify(body), timeoutMs: 60000 },
+    ),
+  emmcAgentStop: (device: string) =>
+    request<{ ok: boolean; status: Record<string, unknown> }>(
+      `/emmc/agent/stop${q({ device })}`,
+      { method: "POST" },
+    ),
+  emmcAgentReset: (device: string) =>
+    request<{ ok: boolean; status: Record<string, unknown> }>(
+      `/emmc/agent/reset${q({ device })}`,
+      { method: "POST" },
+    ),
   emmcFeishuConfig: (flowNo = "") =>
     request<{
       app_id: string;
