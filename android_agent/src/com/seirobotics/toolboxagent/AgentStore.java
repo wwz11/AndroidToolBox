@@ -20,6 +20,7 @@ public final class AgentStore {
     public static final String STATE_STOPPED = "STOPPED";
 
     private static final Object LOCK = new Object();
+    private static String lastLogMsg = "";
 
     private AgentStore() {}
 
@@ -133,6 +134,10 @@ public final class AgentStore {
     public static void appendLog(Context ctx, String msg) {
         synchronized (LOCK) {
             try {
+                if (msg != null && msg.equals(lastLogMsg)) {
+                    return;
+                }
+                lastLogMsg = msg == null ? "" : msg;
                 File f = getLogFile(ctx);
                 if (f.exists() && f.length() > 512 * 1024) {
                     File bak = new File(f.getParentFile(), "agent.log.1");
@@ -150,6 +155,7 @@ public final class AgentStore {
     public static void clearLog(Context ctx) {
         synchronized (LOCK) {
             try {
+                lastLogMsg = "";
                 File f = getLogFile(ctx);
                 if (f.exists()) f.delete();
                 File bak = new File(f.getParentFile(), "agent.log.1");
