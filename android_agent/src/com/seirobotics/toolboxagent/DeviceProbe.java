@@ -136,6 +136,7 @@ public final class DeviceProbe {
 
     public static boolean canSelfReboot(Context ctx) {
         if (runSuCommand("id")) return true;
+        if (LocalAdbClient.isAvailable(5555)) return true;
         try {
             int granted = ctx.checkSelfPermission("android.permission.REBOOT");
             if (granted == android.content.pm.PackageManager.PERMISSION_GRANTED) return true;
@@ -151,6 +152,10 @@ public final class DeviceProbe {
 
     public static boolean triggerReboot(Context ctx) {
         if (runSuCommand("svc power reboot || reboot")) return true;
+        if (LocalAdbClient.isAvailable(5555)) {
+            LocalAdbClient.runShell(5555, "svc power reboot || reboot", 3000);
+            return true;
+        }
         if (runShellCommand("svc power reboot || reboot || setprop sys.powerctl reboot")) return true;
         try {
             PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);

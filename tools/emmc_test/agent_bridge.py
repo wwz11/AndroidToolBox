@@ -81,9 +81,10 @@ def install_and_init_agent(sn: str, *, base_dir: Path | None = None) -> dict[str
         if proc.returncode != 0 and "success" not in out.lower():
             raise RuntimeError(f"安装 ToolboxAgent.apk 失败: {err or out}")
 
-    # 加入 Doze 白名单 + 解除后台限制 + 拉起一次 Activity（确保可接收 BOOT_COMPLETED）
+    # 加入 Doze 白名单 + 解除后台限制 + 持久化本机 TCP ADB 5555 端口 + 拉起一次 Activity
     _run_adb(sn, ["shell", "dumpsys", "deviceidle", "whitelist", f"+{AGENT_PACKAGE}"], timeout=10)
     _run_adb(sn, ["shell", "cmd", "appops", "set", AGENT_PACKAGE, "RUN_IN_BACKGROUND", "allow"], timeout=10)
+    _run_adb(sn, ["shell", "su 0 setprop persist.adb.tcp.port 5555 2>/dev/null || setprop service.adb.tcp.port 5555"], timeout=10)
     _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
     time.sleep(1.0)
     return {"ok": True, "apk": str(apk), "status": get_agent_status(sn)}
