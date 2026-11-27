@@ -311,18 +311,51 @@ def ensure_agent_alive(sn: str) -> bool:
         return False
 
 
+def _is_agent_foreground(sn: str) -> bool:
+    """检查设备当前前台焦点窗口/Resumed Activity 是否为 ToolboxAgent。"""
+    try:
+        proc = _run_adb(
+            sn,
+            [
+                "shell",
+                "dumpsys window 2>/dev/null | grep -E 'mCurrentFocus|mFocusedApp' || "
+                "dumpsys activity activities 2>/dev/null | grep -E 'mResumedActivity|topResumedActivity'",
+            ],
+            timeout=8,
+        )
+        out = _out_text(proc)
+        return AGENT_PACKAGE in out
+    except Exception:
+        return False
+
+
 def capture_agent_screenshot(
     sn: str,
     *,
     base_dir: Path | None = None,
     name_prefix: str = "reboot_apk",
 ) -> Path | None:
-    """将设备端 ToolboxAgent 页面拉到前台并截取屏幕 PNG 保存，失败时返回 None。"""
+    """将设备端 ToolboxAgent 页面拉到前台并确认焦点后截取屏幕 PNG，失败或未在前台时返回 None。"""
     if not sn or not is_agent_installed(sn):
         return None
     try:
-        _run_adb(sn, ["shell", "am", "start", "-n", AGENT_MAIN_ACTIVITY], timeout=10)
-        time.sleep(0.8)
+        # 唤醒屏幕并拉起 ToolboxAgent（-W 等待启动/切换完成）
+        _run_adb(sn, ["shell", "input", "keyevent", "KEYCODE_WAKEUP"], timeout=6)
+        foreground_ok = False
+        for attempt in range(4):
+            _run_adb(
+                sn,
+                ["shell", "am", "start", "-W", "-n", AGENT_MAIN_ACTIVITY],
+                timeout=12,
+            )
+            time.sleep(0.5 if attempt == 0 else 0.7)
+            if _is_agent_foreground(sn):
+                foreground_ok = True
+                break
+        if not foreground_ok:
+            return None
+        # 留出 UI 刷新最终状态（COMPLETED/FAILED/STOPPED）的时间
+        time.sleep(0.4)
         from tools.emmc_test.report_template import _screenshot_dir
         from tools.screenshot.core import capture_adb_screen_png_bytes
 
