@@ -124,6 +124,16 @@ public final class DeviceProbe {
         return false;
     }
 
+    public static boolean runShellCommand(String cmd) {
+        try {
+            Process p = new ProcessBuilder("sh", "-c", cmd).redirectErrorStream(true).start();
+            int rc = p.waitFor();
+            return rc == 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     public static boolean canSelfReboot(Context ctx) {
         if (runSuCommand("id")) return true;
         try {
@@ -141,6 +151,7 @@ public final class DeviceProbe {
 
     public static boolean triggerReboot(Context ctx) {
         if (runSuCommand("svc power reboot || reboot")) return true;
+        if (runShellCommand("svc power reboot || reboot || setprop sys.powerctl reboot")) return true;
         try {
             PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
             if (pm != null) {

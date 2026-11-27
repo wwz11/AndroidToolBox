@@ -433,28 +433,42 @@ class RebootTestRunner:
             )
             return success, fail, stop_reason, duration_hours, self.anomaly_count
 
-        if not is_agent_installed(self.device_sn) and find_agent_apk() is not None:
-            try:
-                self.log("INFO 未检测到设备端 ToolboxAgent，正在自动安装并激活...")
-                install_and_init_agent(self.device_sn)
-            except Exception as exc:
-                self.log(f"WARNING 自动安装 ToolboxAgent 失败，将回退到纯 PC ADB 模式: {exc}")
+        agent_linked = False
+        agent_fallback_reason = ""
+        if not is_agent_installed(self.device_sn):
+            if find_agent_apk() is None:
+                agent_fallback_reason = "未找到 ToolboxAgent.apk"
+            else:
+                try:
+                    self.log("INFO 未检测到设备端 ToolboxAgent，正在自动安装并激活...")
+                    install_and_init_agent(self.device_sn)
+                except Exception as exc:
+                    agent_fallback_reason = f"自动安装/激活失败: {exc}"
 
-        agent_linked = sync_agent_on_reboot_start(
-            self.device_sn,
-            mode="count" if count_mode else "hours",
-            target_count=target_count if count_mode else 10,
-            run_hours=self.cfg.run_hours,
-        )
+        if not agent_fallback_reason:
+            agent_linked = sync_agent_on_reboot_start(
+                self.device_sn,
+                mode="count" if count_mode else "hours",
+                target_count=target_count if count_mode else 10,
+                run_hours=self.cfg.run_hours,
+            )
+            if not agent_linked:
+                agent_fallback_reason = "设备端 ToolboxAgent 未响应或状态未就绪"
+
         if agent_linked:
             ensure_device_reboot_daemon(self.device_sn)
-            self.log("INFO 已启用 APK 主导 Reboot 压测（每次重启由设备端 APK 发起，ADB 断连最长重试 10 分钟）")
+            self.log("INFO 已启用默认方案：APK + PC 联动 Reboot 压测（每次重启由设备端 APK 发起，ADB 断连最长重试 10 分钟）")
             return self._run_agent_driven_loop(
                 start=start,
                 count_mode=count_mode,
                 target_count=target_count,
                 duration_sec=duration_sec,
             )
+
+        self.log(
+            f"WARNING APK + PC 联动不可用（{agent_fallback_reason or '未知原因'}），"
+            "已自动降级为次要方案：纯 PC ADB 重启方式"
+        )
 
         # 基线：记录测试前原因（不计入异常）
         try:

@@ -1702,10 +1702,10 @@ export default function EmmcPanel({
                         {agentStatus ? (
                           <span className="emmc-hint" style={{ marginLeft: 4 }}>
                             {!agentStatus.installed
-                              ? "Agent 未安装"
-                              : `${agentStatus.state} · 第 ${agentStatus.current_round ?? 0} 轮 · ${
-                                  agentStatus.can_self_reboot ? "支持自主重启" : "需PC辅助重启"
-                                }${agentStatus.ip ? ` · ${agentStatus.ip}` : ""}`}
+                              ? "默认联动 Agent（开始时自动安装，异常则回退纯 ADB）"
+                              : `默认联动 · ${agentStatus.state} · 第 ${agentStatus.current_round ?? 0} 轮${
+                                  agentStatus.ip ? ` · ${agentStatus.ip}` : ""
+                                }`}
                           </span>
                         ) : null}
                       </div>
