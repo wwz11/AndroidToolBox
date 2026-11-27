@@ -805,7 +805,7 @@ export default function EmmcPanel({
   }
 
   useEffect(() => {
-    if (!active || !snOk) {
+    if (!snOk) {
       setAgentStatus(null);
       return;
     }
@@ -826,6 +826,11 @@ export default function EmmcPanel({
         /* ignore */
       }
     })();
+    if (!active) {
+      return () => {
+        cancelled = true;
+      };
+    }
     const timer = window.setInterval(() => {
       void refreshAgentStatus(true);
     }, 5000);
@@ -839,6 +844,13 @@ export default function EmmcPanel({
     if (!snOk) return;
     try {
       const r = await api.emmcAgentStatus(deviceSn);
+      if (!running && r.installed && r.state === "RUNNING") {
+        const resetRes = await api.emmcAgentReset(deviceSn);
+        if (resetRes.status) {
+          setAgentStatus(resetRes.status as typeof agentStatus);
+          return;
+        }
+      }
       setAgentStatus(r);
     } catch (e) {
       if (!silent) toast.push(`查询设备端 Agent 失败：${toErrorMessage(e)}`, "err");
