@@ -664,8 +664,6 @@ class RebootTestRunner:
             fail = int(st.get("fail_rounds") or 0)
             self.anomaly_count = int(st.get("anomaly_count") or 0)
             reason = str(st.get("last_boot_reason") or "").strip()
-            if not reason:
-                reason = self.collect_reboot_reason().primary
             anomaly_detail = str(st.get("last_anomaly_detail") or "")
 
             if cur_round > last_logged_round:
