@@ -12,6 +12,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -173,6 +174,8 @@ public class AgentService extends Service {
                 st.put("run_hours", Math.max(0.05, runHours));
                 st.put("stable_sec", Math.max(5, stableSec));
                 st.put("start_epoch_ms", System.currentTimeMillis());
+                st.put("accumulated_ms", 0L);
+                st.put("boot_uptime_ms", SystemClock.elapsedRealtime());
                 st.put("last_boot_id", DeviceProbe.getBootId());
                 st.put("can_self_reboot", canReboot);
                 st.put("waiting_pc_reboot", false);
@@ -271,9 +274,11 @@ public class AgentService extends Service {
 
             String mode = st.optString("mode", "count");
             if ("hours".equals(mode)) {
-                long startMs = st.optLong("start_epoch_ms", System.currentTimeMillis());
+                long accMs = st.optLong("accumulated_ms", 0L) + SystemClock.elapsedRealtime();
+                st.put("boot_uptime_ms", SystemClock.elapsedRealtime());
                 double targetMs = st.optDouble("run_hours", 1.0) * 3600_000.0;
-                if (System.currentTimeMillis() - startMs >= targetMs) {
+                if (accMs >= targetMs) {
+                    st.put("accumulated_ms", accMs);
                     st.put("state", AgentStore.STATE_COMPLETED);
                     st.put("stop_reason", "已达到目标压测时长");
                     AgentStore.saveState(this, st);
@@ -305,6 +310,15 @@ public class AgentService extends Service {
         pendingRebootTask = () -> stateWorker.execute(() -> {
             JSONObject st = AgentStore.loadState(this);
             if (!AgentStore.STATE_RUNNING.equals(st.optString("state"))) return;
+            try {
+                long prevUptime = st.optLong("boot_uptime_ms", 0L);
+                long curUptime = SystemClock.elapsedRealtime();
+                long delta = prevUptime > 0 && curUptime >= prevUptime ? (curUptime - prevUptime) : curUptime;
+                // 累加本轮运行耗时及约 15 秒关机/重启过渡耗时，避免受 RTC/NTP 校时跳变影响
+                st.put("accumulated_ms", st.optLong("accumulated_ms", 0L) + delta + 15_000L);
+                st.put("boot_uptime_ms", 0L);
+                AgentStore.saveState(this, st);
+            } catch (Exception ignored) {}
             AgentStore.appendLog(this, "由 APK 发起第 " + (st.optInt("current_round", 0) + 1) + " 次重启...");
             AgentStore.writeRebootReq(this, st.optInt("current_round", 0) + 1);
             boolean sent = DeviceProbe.triggerReboot(this);
