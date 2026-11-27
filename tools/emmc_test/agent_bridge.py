@@ -139,6 +139,12 @@ def start_agent_reboot(
     if proc.returncode != 0:
         err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
         raise RuntimeError(f"下发设备端压测指令失败: {err or _out_text(proc)}")
+    # 等待 APK 将 state.json 刷新为 RUNNING（避免读取到上一轮遗留的 COMPLETED/FAILED）
+    for _ in range(10):
+        st = read_agent_state_fast(sn)
+        if st and st.get("state") == "RUNNING" and int(st.get("current_round") or 0) == 0:
+            return {"ok": True, "status": st}
+        time.sleep(0.5)
     return {"ok": True, "status": get_agent_status(sn)}
 
 

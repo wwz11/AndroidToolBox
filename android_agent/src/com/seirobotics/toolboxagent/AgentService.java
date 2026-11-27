@@ -36,7 +36,8 @@ public class AgentService extends Service {
     private static final int NOTIF_ID = 1001;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private final ExecutorService worker = Executors.newCachedThreadPool();
+    private final ExecutorService stateWorker = Executors.newSingleThreadExecutor();
+    private final ExecutorService httpWorker = Executors.newCachedThreadPool();
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
     private ServerSocket httpServer;
@@ -67,15 +68,15 @@ public class AgentService extends Service {
         } else if (ACTION_RESET.equals(action)) {
             resetState();
         } else if (ACTION_ENABLE_TCP_ADB.equals(action)) {
-            worker.execute(() -> {
+            httpWorker.execute(() -> {
                 boolean ok = DeviceProbe.enableTcpAdb(5555);
                 AgentStore.appendLog(this, ok ? "已开启网络 ADB (5555)" : "开启网络 ADB 失败（需要 root/su）");
                 broadcastStateChanged();
             });
         } else if (ACTION_BOOT_EVENT.equals(action)) {
-            worker.execute(this::handleBootEvent);
+            stateWorker.execute(this::handleBootEvent);
         } else {
-            worker.execute(this::refreshCapabilities);
+            stateWorker.execute(this::refreshCapabilities);
         }
         return START_STICKY;
     }
@@ -88,7 +89,8 @@ public class AgentService extends Service {
         } catch (Exception ignored) {}
         cancelPendingReboot();
         releaseLocks();
-        worker.shutdownNow();
+        stateWorker.shutdownNow();
+        httpWorker.shutdownNow();
         super.onDestroy();
     }
 
@@ -160,7 +162,7 @@ public class AgentService extends Service {
 
     public void startRebootTest(String mode, int targetCount, double runHours, int stableSec) {
         cancelPendingReboot();
-        worker.execute(() -> {
+        stateWorker.execute(() -> {
             boolean canReboot = DeviceProbe.canSelfReboot(this);
             DeviceProbe.enableTcpAdb(5555);
             JSONObject st = AgentStore.defaultState();
@@ -299,7 +301,7 @@ public class AgentService extends Service {
 
     private void scheduleNextReboot(int delaySec) {
         cancelPendingReboot();
-        pendingRebootTask = () -> worker.execute(() -> {
+        pendingRebootTask = () -> stateWorker.execute(() -> {
             JSONObject st = AgentStore.loadState(this);
             if (!AgentStore.STATE_RUNNING.equals(st.optString("state"))) return;
             AgentStore.appendLog(this, "由 APK 发起第 " + (st.optInt("current_round", 0) + 1) + " 次重启...");
@@ -327,12 +329,12 @@ public class AgentService extends Service {
 
     private void startHttpServer() {
         serverRunning = true;
-        worker.execute(() -> {
+        httpWorker.execute(() -> {
             try {
                 httpServer = new ServerSocket(HTTP_PORT, 16, InetAddress.getByName("127.0.0.1"));
                 while (serverRunning && !httpServer.isClosed()) {
                     Socket sock = httpServer.accept();
-                    worker.execute(() -> handleHttpClient(sock));
+                    httpWorker.execute(() -> handleHttpClient(sock));
                 }
             } catch (Exception e) {
                 AgentStore.appendLog(this, "本地状态服务监听失败: " + e.getMessage());
