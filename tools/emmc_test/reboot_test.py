@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from tools.adb_runtime import resolve_adb_exe
-from tools.emmc_test.ota_v5 import _decode_output, _run_adb_argv, wait_for_boot
+from tools.emmc_test.ota_v5 import _decode_output, _run_adb_argv, is_tcp_serial, reconnect_adb, wait_for_boot
 
 LogFn = Callable[[str], None]
 
@@ -269,33 +269,56 @@ class RebootTestRunner:
     def _is_stop_requested(self) -> bool:
         return self.stop is not None and self.stop.is_set()
 
-    def _wait_for_device_online(self, timeout_sec: int) -> bool:
+    def _is_device_ready(self) -> bool:
         try:
-            proc = self._adb(["wait-for-device"], timeout=timeout_sec)
-        except Exception as exc:
-            self.log(f"WARNING wait-for-device 异常: {exc}")
+            proc = self._adb(["get-state"], timeout=5)
+        except Exception:
             return False
-        if proc.returncode == 0:
-            return True
-        err = _decode_output(proc.stderr).strip()
-        self.log(f"WARNING wait-for-device 失败: {err or proc.returncode}")
+        return proc.returncode == 0 and "device" in _decode_output(proc.stdout).strip().lower()
+
+    def _wait_for_device_online(self, timeout_sec: int) -> bool:
+        deadline = time.monotonic() + max(1, timeout_sec)
+        attempt = 0
+        while time.monotonic() < deadline:
+            if self._is_stop_requested():
+                return False
+            if self._is_device_ready():
+                return True
+            attempt += 1
+            if is_tcp_serial(self.device_sn) or attempt % 2 == 1:
+                reconnect_adb(self.device_sn, self.adb_exe)
+            if not _sleep_with_stop(2.0, self.stop):
+                return False
+        self.log(f"WARNING 等待设备恢复在线超时（{timeout_sec}秒）")
         return False
 
     def _reboot_cmd_sent(self) -> bool:
-        """执行 reboot；部分平台会返回非0但命令已发送，做容错处理。"""
-        try:
-            self.log("INFO 执行 adb reboot")
-            proc = self._adb(["reboot"], timeout=30)
-        except Exception as exc:
-            self.log(f"ERROR adb reboot 异常: {exc}")
+        """执行 reboot；遇到短暂掉线时先重连再重试，部分平台返回非0但连接已断开按已发送处理。"""
+        if not self._is_device_ready():
+            self.log("WARNING 发送 reboot 前检测到 ADB 暂未就绪，尝试等待重连...")
+            if not self._wait_for_device_online(30):
+                self.log("ERROR 发送 reboot 前设备仍未恢复在线")
+                return False
+
+        for attempt in (1, 2):
+            try:
+                self.log("INFO 执行 adb reboot")
+                proc = self._adb(["reboot"], timeout=30)
+            except Exception as exc:
+                self.log(f"ERROR adb reboot 异常: {exc}")
+                return False
+            if proc.returncode == 0:
+                return True
+            output = (_decode_output(proc.stdout) + "\n" + _decode_output(proc.stderr)).strip().lower()
+            if any(key in output for key in ("closed", "broken pipe", "connection reset")):
+                self.log("WARNING adb reboot 返回非0，但连接已断开，按已发送 reboot 处理")
+                return True
+            if attempt == 1 and any(key in output for key in ("not found", "offline", "no devices")):
+                self.log("WARNING adb reboot 遇到设备短暂掉线，尝试重连后重试...")
+                if self._wait_for_device_online(20):
+                    continue
+            self.log(f"ERROR adb reboot 失败: {output or proc.returncode}")
             return False
-        if proc.returncode == 0:
-            return True
-        output = (_decode_output(proc.stdout) + "\n" + _decode_output(proc.stderr)).strip().lower()
-        if any(key in output for key in ("closed", "broken pipe", "connection reset")):
-            self.log("WARNING adb reboot 返回非0，但连接已断开，按已发送 reboot 处理")
-            return True
-        self.log(f"ERROR adb reboot 失败: {output or proc.returncode}")
         return False
 
     def _scan_pstore(self) -> str:

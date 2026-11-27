@@ -208,6 +208,27 @@ def write_ota_v5_config(path: Path, cfg: OtaV5Config, *, path_for_ini: str) -> N
         parser.write(f)
 
 
+def is_tcp_serial(sn: str) -> bool:
+    """判断序列号是否为网络 ADB 地址（host:port）。"""
+    s = (sn or "").strip()
+    if ":" not in s:
+        return False
+    host, _, port = s.rpartition(":")
+    return bool(host) and port.isdigit()
+
+
+def reconnect_adb(sn: str, adb_exe: str) -> None:
+    """网络 ADB 自动 connect，USB ADB 尝试重置 offline 连接。"""
+    target = (sn or "").strip()
+    try:
+        if is_tcp_serial(target):
+            _run_adb_argv(adb_exe, ["connect", target], timeout=8, log=None)
+        else:
+            _run_adb_argv(adb_exe, ["reconnect", "offline"], timeout=5, log=None)
+    except Exception:
+        pass
+
+
 def wait_for_boot(
     sn: str,
     adb_exe: str,
@@ -221,9 +242,11 @@ def wait_for_boot(
     argv_prefix: list[str] = []
     if sn:
         argv_prefix = ["-s", sn]
+    attempt = 0
     while time.monotonic() - start < timeout:
         if stop and stop.is_set():
             return False
+        attempt += 1
         try:
             proc = _run_adb_argv(
                 adb_exe,
@@ -237,11 +260,15 @@ def wait_for_boot(
                 if not _sleep_until_deadline(_BOOT_STABLE_SEC, 1.0, stop=stop):
                     return False
                 return True
+            if proc.returncode != 0 and (is_tcp_serial(sn) or attempt % 2 == 0):
+                reconnect_adb(sn, adb_exe)
         except Exception as exc:
             log(f"WARNING 检查设备状态异常: {exc}")
+            reconnect_adb(sn, adb_exe)
         elapsed = int(time.monotonic() - start)
         log(f"INFO 等待设备启动... {elapsed}秒")
-        time.sleep(5)
+        if not _sleep_until_deadline(5.0, 1.0, stop=stop):
+            return False
     log(f"ERROR 设备启动超时 ({timeout}秒)")
     return False
 
