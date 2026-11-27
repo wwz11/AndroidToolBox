@@ -291,7 +291,6 @@ public class MainActivity extends Activity {
         }
 
         String reason = st.optString("last_boot_reason", "").trim();
-        if (reason.isEmpty()) reason = DeviceProbe.getBootReason();
         boolean selfReboot = st.optBoolean("can_self_reboot", false);
 
         StringBuilder d = new StringBuilder();

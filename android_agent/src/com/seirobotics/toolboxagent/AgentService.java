@@ -147,6 +147,9 @@ public class AgentService extends Service {
         JSONObject st = AgentStore.loadState(this);
         try {
             st.put("can_self_reboot", DeviceProbe.canSelfReboot(this));
+            if (st.optString("last_boot_reason", "").trim().isEmpty()) {
+                st.put("last_boot_reason", DeviceProbe.getBootReason());
+            }
             st.put("ip", DeviceProbe.getLocalIpv4());
             st.put("adb_tcp_port", DeviceProbe.getProp("service.adb.tcp.port"));
             AgentStore.saveState(this, st);
@@ -188,30 +191,35 @@ public class AgentService extends Service {
     public void stopStressTest(String reason) {
         cancelPendingReboot();
         AgentStore.clearRebootReq(this);
-        JSONObject st = AgentStore.loadState(this);
-        try {
-            st.put("state", AgentStore.STATE_STOPPED);
-            st.put("waiting_pc_reboot", false);
-            st.put("next_reboot_uptime_ms", 0L);
-            st.put("stop_reason", reason);
-            AgentStore.saveState(this, st);
-            AgentStore.appendLog(this, "停止压测: " + reason);
-        } catch (Exception ignored) {}
-        broadcastStateChanged();
+        stateWorker.execute(() -> {
+            JSONObject st = AgentStore.loadState(this);
+            try {
+                st.put("state", AgentStore.STATE_STOPPED);
+                st.put("waiting_pc_reboot", false);
+                st.put("next_reboot_uptime_ms", 0L);
+                st.put("stop_reason", reason);
+                AgentStore.saveState(this, st);
+                AgentStore.appendLog(this, "停止压测: " + reason);
+            } catch (Exception ignored) {}
+            broadcastStateChanged();
+        });
     }
 
     public void resetState() {
         cancelPendingReboot();
         AgentStore.clearRebootReq(this);
-        JSONObject st = AgentStore.defaultState();
-        try {
-            st.put("can_self_reboot", DeviceProbe.canSelfReboot(this));
-            st.put("ip", DeviceProbe.getLocalIpv4());
-            st.put("adb_tcp_port", DeviceProbe.getProp("service.adb.tcp.port"));
-            AgentStore.saveState(this, st);
-            AgentStore.appendLog(this, "已重置压测记录");
-        } catch (Exception ignored) {}
-        broadcastStateChanged();
+        stateWorker.execute(() -> {
+            JSONObject st = AgentStore.defaultState();
+            try {
+                st.put("can_self_reboot", DeviceProbe.canSelfReboot(this));
+                st.put("last_boot_reason", DeviceProbe.getBootReason());
+                st.put("ip", DeviceProbe.getLocalIpv4());
+                st.put("adb_tcp_port", DeviceProbe.getProp("service.adb.tcp.port"));
+                AgentStore.saveState(this, st);
+                AgentStore.appendLog(this, "已重置压测记录");
+            } catch (Exception ignored) {}
+            broadcastStateChanged();
+        });
     }
 
     private void handleBootEvent() {
