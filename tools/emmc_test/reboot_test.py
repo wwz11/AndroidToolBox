@@ -625,7 +625,7 @@ class RebootTestRunner:
         last_logged_round = 0
         last_boot_id = ""
         last_comm_ok = time.monotonic()
-        last_offline_warn = 0.0
+        last_offline_warn = last_comm_ok
         last_reconnect_try = 0.0
         last_alive_check = 0.0
         comm_timeout_sec = max(_AGENT_COMM_TIMEOUT_SEC, int(self.cfg.boot_timeout_sec or 0))
@@ -653,7 +653,7 @@ class RebootTestRunner:
                 if now - last_reconnect_try >= 4.0:
                     last_reconnect_try = now
                     reconnect_adb(self.device_sn, self.adb_exe)
-                if now - last_offline_warn >= 30.0:
+                if now - last_offline_warn >= 120.0:
                     last_offline_warn = now
                     self.log(
                         f"WARNING ADB 断连，正在重试与设备端 APK 通信"
@@ -672,7 +672,7 @@ class RebootTestRunner:
                 continue
 
             last_comm_ok = now
-            last_offline_warn = 0.0
+            last_offline_warn = now
             boot_id = str(st.get("last_boot_id") or "")
             if boot_id and boot_id != last_boot_id:
                 last_boot_id = boot_id
