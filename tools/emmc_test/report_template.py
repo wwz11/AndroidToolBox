@@ -732,6 +732,7 @@ def write_stress_result(
     report_path: Path | None = None,
     template_path: Path | None = None,
     base_dir: Path | None = None,
+    next_step: str | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -772,6 +773,7 @@ def write_stress_result(
         _try_sync_online_report(
             saved,
             summary=f"读写压力测试：{'Pass' if passed else 'Fail'}（成功 {write_pass}/{read_pass}/{check_pass}，共 {run_count} 次）",
+            next_step=next_step,
         )
         return saved
 
@@ -1125,6 +1127,7 @@ def write_iozone_result(
     screenshot_path: Path | None = None,
     log_paths: list[Path] | None = None,
     run_logs: list[str] | None = None,
+    next_step: str | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -1199,6 +1202,7 @@ def write_iozone_result(
         _try_sync_online_report(
             saved,
             summary=f"Iozone {size_label} 读写速度测试：{passed}",
+            next_step=next_step,
         )
         return saved
 
@@ -1213,6 +1217,7 @@ def write_rpmb_result(
     base_dir: Path | None = None,
     flow_no: str = "",
     screenshot_path: Path | None = None,
+    next_step: str | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -1238,6 +1243,7 @@ def write_rpmb_result(
                 if duration_hours < 1.0
                 else f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)} 小时）"
             ),
+            next_step=next_step,
         )
         return saved
 
@@ -1254,6 +1260,7 @@ def write_reboot_result(
     base_dir: Path | None = None,
     flow_no: str = "",
     screenshot_path: Path | None = None,
+    next_step: str | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -1277,6 +1284,7 @@ def write_reboot_result(
         _try_sync_online_report(
             saved,
             summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} 次 / 失败 {fail_count} 次，时长 {round(float(duration_hours), 2)} 小时）",
+            next_step=next_step,
         )
         return saved
 
@@ -1293,6 +1301,7 @@ def write_ota_result(
     base_dir: Path | None = None,
     flow_no: str = "",
     screenshot_path: Path | None = None,
+    next_step: str | None = None,
 ) -> Path:
     tpl = template_path or default_template_path(base_dir)
     if report_path is None:
@@ -1315,6 +1324,7 @@ def write_ota_result(
         _try_sync_online_report(
             saved,
             summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} 轮 / 失败 {fail_count} 轮，时长 {round(float(duration_minutes), 1)} 分钟）",
+            next_step=next_step,
         )
         return saved
 
@@ -1324,6 +1334,7 @@ def _try_sync_online_report(
     *,
     summary: str = "",
     notify: bool = True,
+    next_step: str | None = None,
 ) -> None:
     """若当前流程已绑定在线飞书报告，同步最新数据并私聊通知测试人员（失败不影响本地报告）。"""
     flow = flow_no_from_report_path(report_path)
@@ -1350,6 +1361,10 @@ def _try_sync_online_report(
         )
         if notify and cfg.get("notify_enabled") and cfg.get("user_open_id"):
             meta = read_report_header(report_path)
+            full_summary = summary
+            if next_step is not None:
+                next_label = next_step.strip() or "全部测试项已结束"
+                full_summary = f"{summary}\n**下一项**：{next_label}" if summary else f"**下一项**：{next_label}"
             send_feishu_report_notification(
                 app_id=cfg["app_id"],
                 app_secret=cfg["app_secret"],
@@ -1358,7 +1373,7 @@ def _try_sync_online_report(
                 flow_no=flow,
                 report_url=url,
                 initial_result=meta.initial_result,
-                summary=summary,
+                summary=full_summary,
             )
     except Exception:
         pass

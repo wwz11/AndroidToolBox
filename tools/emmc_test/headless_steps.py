@@ -170,6 +170,13 @@ class StepEnv:
     progress: ProgressFn | None = None
     stress_stats: Callable[[dict[str, int]], None] | None = None
     current_step: str = ""
+    next_step_label: str = ""
+    stop_on_fail: bool = False
+
+    def next_step_for_report(self, passed: bool) -> str:
+        if not passed and self.stop_on_fail:
+            return "已停止后续步骤"
+        return self.next_step_label
 
     def report_progress(
         self, current: int, total: int, text: str = ""
@@ -717,6 +724,7 @@ def run_stress(env: StepEnv, session: HeadlessLogSession) -> bool:
                 passed=passed,
                 report_path=env.report_path,
                 base_dir=env.base_dir,
+                next_step=env.next_step_for_report(passed),
             )
             _log_report_saved(env, log, path)
         except Exception as exc:
@@ -992,6 +1000,7 @@ def run_iozone(env: StepEnv, session: HeadlessLogSession) -> bool:
                     flow_no=env.flow_no,
                     screenshot_path=screenshot_path,
                     log_paths=run_log_paths,
+                    next_step=env.next_step_for_report(passed),
                 )
                 _log_report_saved(env, log, path)
             except Exception as exc:
@@ -1125,6 +1134,7 @@ def run_reboot(env: StepEnv, session: HeadlessLogSession) -> bool:
                 base_dir=env.base_dir,
                 flow_no=env.flow_no,
                 screenshot_path=screenshot_path,
+                next_step=env.next_step_for_report(passed),
             )
             _log_report_saved(env, log, path, "reboot → 模版第32行")
         except Exception as exc:
@@ -1217,6 +1227,7 @@ def run_ota(env: StepEnv, session: HeadlessLogSession) -> bool:
                 base_dir=env.base_dir,
                 flow_no=env.flow_no,
                 screenshot_path=screenshot_path,
+                next_step=env.next_step_for_report(passed),
             )
             _log_report_saved(env, log, path, "OTA → 升级压力测试 模版第38行")
         except Exception as exc:
@@ -1424,6 +1435,7 @@ def run_rpmb(env: StepEnv, session: HeadlessLogSession) -> bool:
                 base_dir=env.base_dir,
                 flow_no=env.flow_no,
                 screenshot_path=screenshot_path,
+                next_step=env.next_step_for_report(passed),
             )
             _log_report_saved(env, log, path, "RPMB → 模版第35行")
         except Exception as exc:
@@ -1482,13 +1494,19 @@ def run_pipeline(
     env.log(
         "INFO 执行顺序: " + " → ".join(AUTO_LABELS.get(s, s) for s in ordered)
     )
+    env.stop_on_fail = stop_on_fail
     all_passed = True
-    for step in ordered:
+    for idx, step in enumerate(ordered):
         if env.stop.is_set() or (global_stop is not None and global_stop.is_set()):
             env.log("INFO 收到停止请求，流水线中止")
             return False
         env.log(f"INFO ── 开始: {AUTO_LABELS[step]} ──")
         env.current_step = step
+        env.next_step_label = (
+            AUTO_LABELS.get(ordered[idx + 1], ordered[idx + 1])
+            if idx + 1 < len(ordered)
+            else ""
+        )
         if on_step is not None:
             try:
                 on_step(step, "running")
