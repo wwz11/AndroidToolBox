@@ -28,6 +28,7 @@ public class MainActivity extends Activity {
     private TextView summaryView;
     private TextView detailView;
     private TextView logView;
+    private ScrollView logScroll;
     private Button firstBtn;
     private String lastLogText = "";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -70,9 +71,18 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN && getCurrentFocus() == null && firstBtn != null) {
-            firstBtn.requestFocus();
-            return true;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (getCurrentFocus() == null && firstBtn != null) {
+                firstBtn.requestFocus();
+                return true;
+            }
+            if (logScroll != null && logScroll.hasFocus() && firstBtn != null) {
+                int code = event.getKeyCode();
+                if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_BACK) {
+                    firstBtn.requestFocus();
+                    return true;
+                }
+            }
         }
         return super.dispatchKeyEvent(event);
     }
@@ -160,7 +170,8 @@ public class MainActivity extends Activity {
         }));
         root.addView(btnRow);
 
-        ScrollView scroll = new ScrollView(this);
+        logScroll = new ScrollView(this);
+        ScrollView scroll = logScroll;
         scroll.setFocusable(true);
         StateListDrawable scrollSld = new StateListDrawable();
         GradientDrawable scrollFocused = cardBg("#10151C", "#58A6FF");
@@ -310,6 +321,9 @@ public class MainActivity extends Activity {
         if (!nextLog.equals(lastLogText)) {
             lastLogText = nextLog;
             logView.setText(nextLog);
+            if (logScroll != null) {
+                logScroll.post(() -> logScroll.scrollTo(0, Math.max(0, logView.getHeight())));
+            }
         }
     }
 }
