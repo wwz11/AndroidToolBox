@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from tools.adb_runtime import _subprocess_kwargs, adb_subprocess_env, build_adb_cmd, resolve_adb_exe
+from tools.adb_runtime import _subprocess_kwargs, adb_subprocess_env, build_adb_cmd
 
 AGENT_PACKAGE = "com.seirobotics.toolboxagent"
 AGENT_MAIN_ACTIVITY = f"{AGENT_PACKAGE}/.MainActivity"
@@ -41,8 +41,7 @@ def find_agent_apk(base_dir: Path | None = None) -> Path | None:
 
 
 def _run_adb(sn: str, args: list[str], *, timeout: float = 20.0) -> subprocess.CompletedProcess:
-    adb_exe = resolve_adb_exe()
-    cmd = build_adb_cmd(args, sn or None, adb_exe=adb_exe)
+    cmd = build_adb_cmd(args, sn or None)
     return subprocess.run(
         cmd,
         capture_output=True,
