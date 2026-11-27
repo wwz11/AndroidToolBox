@@ -21,6 +21,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import org.json.JSONObject;
 import java.util.Locale;
 
@@ -37,6 +38,8 @@ public class MainActivity extends Activity {
     private Button clearLogBtn;
     private Button localRunBtn;
     private String lastLogText = "";
+    private boolean logScrollUnlocked = false;
+    private Toast activeToast;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override
@@ -102,13 +105,41 @@ public class MainActivity extends Activity {
             }
             if (logScroll != null && logScroll.hasFocus()) {
                 int code = event.getKeyCode();
+                if (code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER) {
+                    logScrollUnlocked = !logScrollUnlocked;
+                    showHintToast(logScrollUnlocked
+                            ? "已解锁日志滚动，可按上下键查看（按 OK 或返回键退出）"
+                            : "已退出日志滚动模式");
+                    return true;
+                }
+                if (code == KeyEvent.KEYCODE_BACK && logScrollUnlocked) {
+                    logScrollUnlocked = false;
+                    showHintToast("已退出日志滚动模式");
+                    return true;
+                }
+                if (code == KeyEvent.KEYCODE_DPAD_DOWN && !logScrollUnlocked) {
+                    showHintToast("按 OK 键才可上下移动日志");
+                    return true;
+                }
+                if (code == KeyEvent.KEYCODE_DPAD_UP && logScrollUnlocked) {
+                    return super.dispatchKeyEvent(event);
+                }
                 if (code == KeyEvent.KEYCODE_DPAD_LEFT) {
+                    if (logScrollUnlocked) return true;
                     focusFirstEnabled();
                     return true;
                 }
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private void showHintToast(String msg) {
+        if (activeToast != null) {
+            activeToast.cancel();
+        }
+        activeToast = Toast.makeText(this, msg, Toast.LENGTH_SHORT);
+        activeToast.show();
     }
 
     @Override
@@ -205,6 +236,9 @@ public class MainActivity extends Activity {
         logScroll = new ScrollView(this);
         ScrollView scroll = logScroll;
         scroll.setFocusable(true);
+        scroll.setOnFocusChangeListener((v, hasFocus) -> {
+            if (!hasFocus) logScrollUnlocked = false;
+        });
         StateListDrawable scrollSld = new StateListDrawable();
         GradientDrawable scrollFocused = cardBg("#10151C", "#58A6FF");
         scrollFocused.setStroke(3, Color.parseColor("#58A6FF"));
@@ -420,7 +454,7 @@ public class MainActivity extends Activity {
         if (!nextLog.equals(lastLogText)) {
             lastLogText = nextLog;
             logView.setText(nextLog);
-            if (logScroll != null) {
+            if (logScroll != null && !logScrollUnlocked) {
                 logScroll.post(() -> logScroll.scrollTo(0, Math.max(0, logView.getHeight())));
             }
         }
