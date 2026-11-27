@@ -35,18 +35,26 @@ function classifyLogLine(line: string): string {
   if (/\bDEBUG\b/.test(line)) {
     return "is-debug";
   }
+  // INFO 行仅在明确表示失败或存在非零失败次数时标红
   if (
-    /→\s*Fail\b|任务完成:\s*Fail\b|判定失败|异常重启|(?<!\d)失败\s*(?:[:：]\s*[1-9]\d*|[1-9]\d*)/i.test(
+    /→\s*Fail\b|任务完成:\s*Fail\b|判定失败|异常重启|(?<!\d)失败\s*(?:[:：]\s*[1-9]\d*|[1-9]\d*)|失败次数[^|\n]*=\s*[1-9]\d*|failed\s+[1-9]\d*/i.test(
       line,
     )
   ) {
     return "is-error";
   }
-  if (/收到停止请求|提前结束|跳过/.test(line)) {
+  if (/收到停止请求|提前结束|跳过|任务已停止/.test(line)) {
     return "is-warn";
   }
-  if (/──\s*(?:开始|结束)|测试完成|开机正常|\bPass\b|已达设定/.test(line)) {
+  if (
+    /→\s*Pass\b|任务完成:\s*Pass\b|开机正常|测试通过|已达设定|已到达最大运行时长|已达设定时长|已达设定次数/.test(
+      line,
+    )
+  ) {
     return "is-highlight";
+  }
+  if (/──\s*(?:开始|结束)|测试完成/.test(line)) {
+    return "is-section";
   }
   return "";
 }

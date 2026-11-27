@@ -919,6 +919,11 @@
   font-weight: 600;
 }
 
+.emmc-log-line.is-section {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .emmc-log-line.is-debug {
   color: var(--muted);
   opacity: 0.85;
