@@ -24,12 +24,17 @@ import org.json.JSONObject;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
+    private LinearLayout statusCard;
     private TextView badgeView;
     private TextView summaryView;
+    private TextView countdownView;
     private TextView detailView;
     private TextView logView;
     private ScrollView logScroll;
-    private Button firstBtn;
+    private Button stopBtn;
+    private Button resetBtn;
+    private Button clearLogBtn;
+    private Button localRunBtn;
     private String lastLogText = "";
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
@@ -64,22 +69,27 @@ public class MainActivity extends Activity {
         }
         refreshUi();
         handler.postDelayed(ticker, 1000);
-        if (firstBtn != null) {
-            firstBtn.post(() -> firstBtn.requestFocus());
+        focusFirstEnabled();
+    }
+
+    private void focusFirstEnabled() {
+        Button target = (stopBtn != null && stopBtn.isEnabled()) ? stopBtn : resetBtn;
+        if (target != null) {
+            target.post(target::requestFocus);
         }
     }
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
-            if (getCurrentFocus() == null && firstBtn != null) {
-                firstBtn.requestFocus();
+            if (getCurrentFocus() == null) {
+                focusFirstEnabled();
                 return true;
             }
-            if (logScroll != null && logScroll.hasFocus() && firstBtn != null) {
+            if (logScroll != null && logScroll.hasFocus()) {
                 int code = event.getKeyCode();
                 if (code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_BACK) {
-                    firstBtn.requestFocus();
+                    focusFirstEnabled();
                     return true;
                 }
             }
@@ -128,7 +138,8 @@ public class MainActivity extends Activity {
         headerRow.addView(badgeView);
         root.addView(headerRow);
 
-        LinearLayout card = new LinearLayout(this);
+        statusCard = new LinearLayout(this);
+        LinearLayout card = statusCard;
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(cardBg("#151C25", "#273445"));
         card.setPadding(28, 22, 28, 22);
@@ -143,11 +154,18 @@ public class MainActivity extends Activity {
         summaryView.setTypeface(Typeface.DEFAULT_BOLD);
         card.addView(summaryView);
 
+        countdownView = new TextView(this);
+        countdownView.setTextColor(Color.parseColor("#5CE0A8"));
+        countdownView.setTextSize(17);
+        countdownView.setTypeface(Typeface.DEFAULT_BOLD);
+        countdownView.setPadding(0, 8, 0, 0);
+        card.addView(countdownView);
+
         detailView = new TextView(this);
         detailView.setTextColor(Color.parseColor("#A7B6C8"));
         detailView.setTextSize(15);
         detailView.setLineSpacing(6f, 1.0f);
-        detailView.setPadding(0, 12, 0, 0);
+        detailView.setPadding(0, 10, 0, 0);
         card.addView(detailView);
         root.addView(card);
 
@@ -155,13 +173,13 @@ public class MainActivity extends Activity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.START);
 
-        btnRow.addView(firstBtn = makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
-        btnRow.addView(makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
-        btnRow.addView(makeBtn("清除日志", () -> {
+        btnRow.addView(stopBtn = makeBtn("停止压测", () -> startAgentService(new Intent(AgentService.ACTION_STOP))));
+        btnRow.addView(resetBtn = makeBtn("重置记录", () -> startAgentService(new Intent(AgentService.ACTION_RESET))));
+        btnRow.addView(clearLogBtn = makeBtn("清除日志", () -> {
             AgentStore.clearLog(this);
             refreshUi();
         }));
-        btnRow.addView(makeBtn("本地试跑10次", () -> {
+        btnRow.addView(localRunBtn = makeBtn("本地试跑10次", () -> {
             Intent i = new Intent(AgentService.ACTION_START_REBOOT);
             i.putExtra("mode", "count");
             i.putExtra("target_count", 10);
@@ -238,29 +256,52 @@ public class MainActivity extends Activity {
     }
 
     private String stateLabel(String st) {
-        if (AgentStore.STATE_RUNNING.equals(st)) return "压测中";
-        if (AgentStore.STATE_COMPLETED.equals(st)) return "已完成";
-        if (AgentStore.STATE_FAILED.equals(st)) return "异常失败";
-        if (AgentStore.STATE_STOPPED.equals(st)) return "已停止";
-        return "未开始";
+        if (AgentStore.STATE_RUNNING.equals(st)) return "● 压测运行中";
+        if (AgentStore.STATE_COMPLETED.equals(st)) return "✓ 压测已完成";
+        if (AgentStore.STATE_FAILED.equals(st)) return "✕ 异常失败";
+        if (AgentStore.STATE_STOPPED.equals(st)) return "■ 已停止";
+        return "○ 未开始测试";
+    }
+
+    private void setBtnEnabled(Button btn, boolean enabled) {
+        if (btn == null) return;
+        boolean wasFocused = btn.isFocused();
+        btn.setEnabled(enabled);
+        btn.setFocusable(enabled);
+        btn.setAlpha(enabled ? 1.0f : 0.35f);
+        if (wasFocused && !enabled) {
+            focusFirstEnabled();
+        }
     }
 
     private void refreshUi() {
         JSONObject st = AgentStore.loadState(this);
         String state = st.optString("state", AgentStore.STATE_IDLE);
+        boolean isRunning = AgentStore.STATE_RUNNING.equals(state);
+        setBtnEnabled(stopBtn, isRunning);
+        setBtnEnabled(localRunBtn, !isRunning);
+
         badgeView.setText(stateLabel(state));
-        if (AgentStore.STATE_RUNNING.equals(state)) {
+        if (isRunning) {
             badgeView.setTextColor(Color.parseColor("#5CE0A8"));
             badgeView.setBackground(cardBg("#133326", "#2B7A59"));
+            GradientDrawable runningCard = cardBg("#12211B", "#2B7A59");
+            runningCard.setStroke(4, Color.parseColor("#2B7A59"));
+            statusCard.setBackground(runningCard);
         } else if (AgentStore.STATE_FAILED.equals(state)) {
             badgeView.setTextColor(Color.parseColor("#FF8A8A"));
             badgeView.setBackground(cardBg("#3A181B", "#8F333B"));
+            GradientDrawable failCard = cardBg("#241517", "#8F333B");
+            failCard.setStroke(3, Color.parseColor("#8F333B"));
+            statusCard.setBackground(failCard);
         } else if (AgentStore.STATE_COMPLETED.equals(state)) {
             badgeView.setTextColor(Color.parseColor("#7BC4FF"));
             badgeView.setBackground(cardBg("#142A3E", "#2C5E8A"));
+            statusCard.setBackground(cardBg("#151C25", "#2C5E8A"));
         } else {
             badgeView.setTextColor(Color.parseColor("#B8C4D4"));
             badgeView.setBackground(cardBg("#1D2530", "#384658"));
+            statusCard.setBackground(cardBg("#151C25", "#273445"));
         }
 
         String mode = st.optString("mode", "count");
@@ -275,6 +316,7 @@ public class MainActivity extends Activity {
         StringBuilder d = new StringBuilder();
         if (AgentStore.STATE_IDLE.equals(state)) {
             summaryView.setText("未开始测试 · 等待 PC 端发起或点击「本地试跑10次」");
+            countdownView.setVisibility(android.view.View.GONE);
             d.append("预设等待期: ").append(stableSec).append(" 秒")
                     .append("    自主重启: ").append(selfReboot ? "支持" : "不支持").append("\n");
             d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason);
@@ -283,7 +325,7 @@ public class MainActivity extends Activity {
                 double runHours = st.optDouble("run_hours", 1.0);
                 long accMs = st.optLong("accumulated_ms", 0L);
                 long bootUp = st.optLong("boot_uptime_ms", 0L);
-                long liveDelta = (AgentStore.STATE_RUNNING.equals(state) && bootUp > 0)
+                long liveDelta = (isRunning && bootUp > 0)
                         ? Math.max(0L, SystemClock.elapsedRealtime() - bootUp)
                         : 0L;
                 double totalHours = (accMs + liveDelta) / 3600_000.0;
@@ -299,21 +341,24 @@ public class MainActivity extends Activity {
                 summaryView.setText(String.format(Locale.US, "按次数压测 · 第 %d / %d 次", curRound, target));
             }
 
-            d.append("成功: ").append(okCount).append(" 次    失败: ").append(failCount)
-                    .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒");
-            long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
-            if (AgentStore.STATE_RUNNING.equals(state)) {
+            if (isRunning) {
+                countdownView.setVisibility(android.view.View.VISIBLE);
+                long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
                 if (nextUptime > 0L) {
                     long remainMs = nextUptime - SystemClock.elapsedRealtime();
                     long remainSec = remainMs > 0L ? (remainMs + 999L) / 1000L : 0L;
-                    d.append(remainSec > 0
-                            ? "    |    距离下次重启: " + remainSec + " 秒"
-                            : "    |    正在执行重启...");
+                    countdownView.setText(remainSec > 0
+                            ? "正在压测中 · 距离下次重启还有 " + remainSec + " 秒"
+                            : "正在压测中 · 正在执行重启...");
                 } else {
-                    d.append("    |    正在执行重启...");
+                    countdownView.setText("正在压测中 · 正在执行重启...");
                 }
+            } else {
+                countdownView.setVisibility(android.view.View.GONE);
             }
-            d.append("\n");
+
+            d.append("成功: ").append(okCount).append(" 次    失败: ").append(failCount)
+                    .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒\n");
             d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason)
                     .append("    自主重启: ").append(selfReboot ? "支持" : "不支持");
             String stopReason = st.optString("stop_reason", "").trim();
