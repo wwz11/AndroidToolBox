@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         @Override
         public void run() {
             refreshUi();
-            handler.postDelayed(this, 2000);
+            handler.postDelayed(this, 1000);
         }
     };
 
@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
             registerReceiver(stateReceiver, f);
         }
         refreshUi();
-        handler.postDelayed(ticker, 2000);
+        handler.postDelayed(ticker, 1000);
     }
 
     @Override
@@ -248,7 +248,20 @@ public class MainActivity extends Activity {
 
         StringBuilder d = new StringBuilder();
         d.append("成功: ").append(okCount).append(" 次    失败: ").append(failCount)
-                .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒\n");
+                .append(" 次    异常: ").append(anomCount).append(" 次    等待期: ").append(stableSec).append(" 秒");
+        long nextUptime = st.optLong("next_reboot_uptime_ms", 0L);
+        if (AgentStore.STATE_RUNNING.equals(state)) {
+            if (nextUptime > 0L) {
+                long remainMs = nextUptime - SystemClock.elapsedRealtime();
+                long remainSec = remainMs > 0L ? (remainMs + 999L) / 1000L : 0L;
+                d.append(remainSec > 0
+                        ? "    |    距离下次重启: " + remainSec + " 秒"
+                        : "    |    正在执行重启...");
+            } else {
+                d.append("    |    正在执行重启...");
+            }
+        }
+        d.append("\n");
         d.append("重启原因: ").append(reason.isEmpty() ? "未获取" : reason)
                 .append("    自主重启: ").append(selfReboot ? "支持" : "不支持").append("\n");
         d.append("设备 IP: ").append(ip.isEmpty() ? "未连网/仅USB" : ip)

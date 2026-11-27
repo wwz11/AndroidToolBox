@@ -200,6 +200,7 @@ public class AgentService extends Service {
         try {
             st.put("state", AgentStore.STATE_STOPPED);
             st.put("waiting_pc_reboot", false);
+            st.put("next_reboot_uptime_ms", 0L);
             st.put("stop_reason", reason);
             AgentStore.saveState(this, st);
             AgentStore.appendLog(this, "停止压测: " + reason);
@@ -309,6 +310,12 @@ public class AgentService extends Service {
 
     private void scheduleNextReboot(int delaySec) {
         cancelPendingReboot();
+        try {
+            JSONObject cur = AgentStore.loadState(this);
+            cur.put("next_reboot_uptime_ms", SystemClock.elapsedRealtime() + delaySec * 1000L);
+            AgentStore.saveState(this, cur);
+            broadcastStateChanged();
+        } catch (Exception ignored) {}
         pendingRebootTask = () -> stateWorker.execute(() -> {
             JSONObject st = AgentStore.loadState(this);
             if (!AgentStore.STATE_RUNNING.equals(st.optString("state"))) return;
@@ -319,6 +326,7 @@ public class AgentService extends Service {
                 // 仅累加实际运行耗时，不虚增固定重启耗时，避免受 RTC/NTP 校时跳变影响
                 st.put("accumulated_ms", st.optLong("accumulated_ms", 0L) + delta);
                 st.put("boot_uptime_ms", 0L);
+                st.put("next_reboot_uptime_ms", 0L);
                 AgentStore.saveState(this, st);
             } catch (Exception ignored) {}
             AgentStore.appendLog(this, "由 APK 发起第 " + (st.optInt("current_round", 0) + 1) + " 次重启...");

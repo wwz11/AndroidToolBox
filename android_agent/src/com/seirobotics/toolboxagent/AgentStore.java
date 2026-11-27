@@ -74,6 +74,7 @@ public final class AgentStore {
             o.put("start_epoch_ms", 0L);
             o.put("accumulated_ms", 0L);
             o.put("boot_uptime_ms", 0L);
+            o.put("next_reboot_uptime_ms", 0L);
             o.put("current_round", 0);
             o.put("success_rounds", 0);
             o.put("fail_rounds", 0);
