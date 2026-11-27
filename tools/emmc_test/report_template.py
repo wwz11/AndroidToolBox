@@ -1232,7 +1232,12 @@ def write_rpmb_result(
         wb.close()
         _try_sync_online_report(
             saved,
-            summary=f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)}h）",
+            summary=(
+                f"RPMB 测试：{'Pass' if passed else 'Fail'}"
+                f"（时长 {round(duration_hours * 60.0, 1)} 分钟）"
+                if duration_hours < 1.0
+                else f"RPMB 测试：{'Pass' if passed else 'Fail'}（时长 {round(duration_hours, 2)} 小时）"
+            ),
         )
         return saved
 
@@ -1271,7 +1276,7 @@ def write_reboot_result(
         wb.close()
         _try_sync_online_report(
             saved,
-            summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+            summary=f"Reboot 测试：{'Pass' if passed else 'Fail'}（成功 {success_count} 次 / 失败 {fail_count} 次，时长 {round(float(duration_hours), 2)} 小时）",
         )
         return saved
 
@@ -1309,7 +1314,7 @@ def write_ota_result(
         wb.close()
         _try_sync_online_report(
             saved,
-            summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} / 失败 {fail_count}）",
+            summary=f"OTA 升级压测：{'Pass' if passed else 'Fail'}（成功 {success_count} 轮 / 失败 {fail_count} 轮，时长 {round(float(duration_minutes), 1)} 分钟）",
         )
         return saved
 
